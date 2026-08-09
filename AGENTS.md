@@ -20,12 +20,16 @@ archaeology.
 
 ## Phase state
 
-**C1 (wire core) exit gate passed — next: C2 (static serving).** Config,
-protocol layers, identity, TLS, listener all land with 81 tests green;
-gemini-diagnostics 26/27 clean (27th is a verified tool bug under Python
-≥3.13, see DEBUGGING.md); fuzz targets (frame_request_line, validate_uri,
-config_parse) wired into CI alongside cargo-deny. Update this line when a
-phase's exit gate passes; the gates are defined in `docs/BUILD-PLAN.md`.
+**C2 (static serving) exit gate passed — next: C3 (dual render).** Handler
+dispatch (redirect → cert zone → static file), traversal-proof static
+files, redirects, certificate zones (60/61/62) all land with 133 tests
+green, including a full wire-level regress suite: traversal corpus, 6x
+client-cert flows against real certs, SNI vhost selection, slowloris
+timeout, redirect regress. A C3 design brief is already on disk —
+`docs/notes/c3-render-design-brief.md` — with the gemtext grammar as a
+decision table and open questions for the director before code starts.
+Update this line when a phase's exit gate passes; the gates are defined
+in `docs/BUILD-PLAN.md`.
 
 ## Invariants (violating any of these needs an ADR amendment first)
 
