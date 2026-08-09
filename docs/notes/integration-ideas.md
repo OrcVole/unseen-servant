@@ -170,3 +170,30 @@ description; terminal preview of colors is not meaningful for web
 themes — link the gallery instead), then writes usv.toml and prints
 next steps. `usv init --defaults` non-interactive. Cloudron profile
 never runs it (env-driven).
+
+## Dataviz for docs and COMPARISON.md (director, 2026-08-09)
+
+Two distinct uses, both static (no client-side JS on the Gemini side
+by definition, and the web mirror stays classless/lightweight per
+ADR 0004 — so this is build-time chart generation, not a live
+dashboard):
+
+- **"What can usv do" in the docs gallery (C3)**: a small set of
+  generated diagrams for the docs — the dual-surface render pipeline
+  (one content tree → gemtext + HTML), the request lifecycle through
+  the three protocol layers, the cert-zone/Titan gating story. These
+  explain architecture, not benchmarks; static SVG generated once and
+  committed, not rebuilt per-request.
+- **"Which server is right for you" in COMPARISON.md (C7)**: a
+  feature-comparison matrix against Agate / gmid / Molly Brown / twins
+  / Jetforce (the prior-art.md field) — language, privsep model,
+  dynamic content story, cert zones, Titan, packaging story. A table
+  is probably the honest form (dataviz for what is fundamentally
+  boolean/categorical data can mislead); if a visual helps, a simple
+  static capability-matrix graphic fits the smolweb's low-bandwidth
+  ethos better than an interactive chart. Keep numbers-with-sources
+  (recon has dates and star counts already) rather than invented
+  scores.
+- Both should render fine in a text browser (lynx/w3m pass, per the
+  C3 exit gate) — so any diagram needs an equally complete plain-text
+  fallback (a described table or ASCII), never image-only information.

@@ -48,6 +48,25 @@ pub struct Shared {
     pub tls: Arc<rustls::ServerConfig>,
 }
 
+/// A TLS record's first byte is its content type; a ClientHello always
+/// starts a record of type 22 (handshake). Anything else on the wire is not
+/// TLS at all.
+const TLS_HANDSHAKE_RECORD_TYPE: u8 = 22;
+
+/// Peek (without consuming) the connection's first byte to decide whether it
+/// looks like the start of a TLS handshake, without ever invoking the TLS
+/// acceptor on data that plainly isn't. A short grace period covers clients
+/// that are simply slow to write their ClientHello: if nothing has arrived
+/// yet, we assume TLS and let the normal handshake path apply its own
+/// request timeout.
+async fn peek_looks_like_tls(tcp: &TcpStream) -> bool {
+    let mut buf = [0u8; 1];
+    match timeout(Duration::from_millis(200), tcp.peek(&mut buf)).await {
+        Ok(Ok(n)) if n > 0 => buf[0] == TLS_HANDSHAKE_RECORD_TYPE,
+        _ => true,
+    }
+}
+
 /// Bind one listener socket with explicit options: `SO_REUSEADDR`, and
 /// `IPV6_V6ONLY` on IPv6 addresses so the default `["0.0.0.0:1965",
 /// "[::]:1965"]` pair coexists deterministically on every OS instead of
@@ -111,6 +130,17 @@ pub async fn accept_loop(
 async fn handle_connection(tcp: TcpStream, peer: SocketAddr, state: Shared) {
     let request_deadline = Duration::from_secs(state.config.request_timeout_secs);
     let response_deadline = Duration::from_secs(state.config.response_timeout_secs);
+
+    if !peek_looks_like_tls(&tcp).await {
+        // A plaintext probe (diagnostics TLSRequired; port scanners): drop
+        // outright, before the TLS acceptor ever runs. Letting rustls
+        // attempt the handshake would have it write a TLS alert record to
+        // the socket before failing — a real response, just not a Gemini
+        // one, which is worse than silence: it confirms a TLS stack lives
+        // on this port without ever getting to refuse the request properly.
+        tracing::debug!(%peer, "non-TLS data on Gemini port; dropping without response");
+        return;
+    }
 
     let acceptor = TlsAcceptor::from(state.tls.clone());
     let mut stream = match timeout(request_deadline, acceptor.accept(tcp)).await {
