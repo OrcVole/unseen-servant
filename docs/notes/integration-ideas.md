@@ -70,7 +70,48 @@ Cloudron gives every app a set of platform UIs for free. usv should be
   (hosting, DNS, payments) to be anonymous, which is out of usv's
   hands.
 
-## `usv init` wizard (v1.2, ratatui)
+## Responses anti-spam (director Q 2026-08-09; feeds ADR 0009)
+
+Layered, all self-hosted, no external services ever:
+- **Layer 0 (the guarantee): moderation-first** — nothing publishes
+  unapproved; bounded pending queue (over cap → polite refusal). Spam
+  can only annoy the operator, never readers.
+- **Layer 1: no-JS bot traps** — honeypot field + stateless
+  HMAC-signed form token binding page URL + timestamp (reject
+  too-fast and too-old submissions; kills replay + cross-site posts).
+- **Layer 2: rate/content limits** — per-source limits keyed on
+  salted-rotating IP hashes (no PII retained), global caps, length
+  cap, link-count threshold, duplicate-body-hash rejection.
+- **Layer 3 (optional, off by default): operator's custom question**
+  — plain-text site-specific challenge; the accessible self-hosted
+  CAPTCHA alternative. Docs honest that AI bots can beat it; Layer 0
+  is why that's survivable.
+- **Gemini side**: client-cert identity is the anti-spam; per-
+  fingerprint limits + ban list. Likes: dedupe per fingerprint /
+  hashed-IP-day; low stakes by design.
+- **Refused**: spam APIs, email verification, CAPTCHAs, mandatory-JS
+  proof-of-work.
+
+## Visit stats (director Q 2026-08-09)
+
+Server-side log aggregation only — no beacons, no JS, no cookies, no
+third party. Gemini requests carry nothing but URL (+ optional cert),
+so log aggregation is the *only possible* analytics there anyway; the
+web surface uses the same method for symmetry and privacy.
+- Collect: per-path daily hit counts; approximate uniques via
+  salted-daily-rotating IP hashes (raw IPs never stored for stats);
+  status breakdown; **feed-fetch counts** (Atom/gemsub polls ≈
+  subscriber signal — the number a gemlog author actually wants);
+  web-side bot/crawler split via user-agent heuristics; Gemini-side
+  crawler visibility via robots.txt virtual-agent hits.
+- Present: `usv stats` (CLI now, ratatui dashboard later); optionally
+  a rendered private stats page in a cert-gated zone (dogfoods
+  zones). Nothing public by default.
+- Defaults: aggregate-only, configurable retention (e.g. 90 d), off
+  switch, documented plainly (what is and isn't collected). Honest
+  docs: uniques are approximate — Gemini has no cookies/UA, and
+  that's a feature.
+- Logs stay goaccess-compatible for operators who want more.
 
 First-run TUI for standalone users: protocol tick-list (Gemini ✓ /
 HTTP mirror / gopher / Spartan / Nex — plaintext ones show a one-line
