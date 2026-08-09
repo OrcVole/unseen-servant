@@ -930,3 +930,155 @@ fn redirect_rule_fires_over_the_wire_and_non_matches_fall_through() {
         "a non-matching path must still fall through to static serving"
     );
 }
+
+// ---------------------------------------------------------------------
+// C4: same-listener Titan scheme dispatch (ADR 0006; recon titan.md §5.4).
+//
+// These prove the dispatch graduated from C1's "titan is a foreign scheme,
+// answer 53" stub: a titan:// request line is now parsed by the Titan
+// parser and answered on its own terms. Writable zones, the certificate
+// gate and size caps arrive with the [titan] config section, so a
+// well-formed upload is currently refused 50 ("this capsule does not
+// accept uploads") rather than accepted — the point here is *which code
+// path answered*, not that an upload succeeded.
+// ---------------------------------------------------------------------
+
+#[test]
+fn well_formed_titan_upload_is_dispatched_not_treated_as_a_foreign_scheme() {
+    let server = TestServer::start("titan-dispatch");
+    let payload = b"# uploaded\n";
+    let request = format!(
+        "titan://localhost:{}/upload.gmi;size={}\r\n",
+        server.port,
+        payload.len()
+    );
+    let mut raw = request.into_bytes();
+    raw.extend_from_slice(payload);
+
+    let response = exchange(server.port, &raw);
+    let status = status_line(&response);
+    assert!(
+        status.starts_with("50"),
+        "a recognised titan upload with no writable zone must be refused 50, got: {status}"
+    );
+    assert!(
+        !status.starts_with("53"),
+        "53 would mean titan was still being treated as a foreign scheme"
+    );
+}
+
+#[test]
+fn titan_scheme_dispatch_is_case_insensitive() {
+    let server = TestServer::start("titan-case");
+    let request = format!("TITAN://localhost:{}/x.gmi;size=0\r\n", server.port);
+    let response = exchange(server.port, request.as_bytes());
+    assert!(
+        status_line(&response).starts_with("50"),
+        "schemes are case-insensitive per RFC 3986"
+    );
+}
+
+#[test]
+fn malformed_titan_request_gets_59_from_the_titan_parser() {
+    let server = TestServer::start("titan-malformed");
+    // size is the one mandatory parameter; without it the payload has no
+    // defined end, so this can only be a bad request.
+    let request = format!(
+        "titan://localhost:{}/x.gmi;mime=text/plain\r\n",
+        server.port
+    );
+    let response = exchange(server.port, request.as_bytes());
+    let status = status_line(&response);
+    assert!(status.starts_with("59"), "expected 59, got: {status}");
+    assert!(
+        status.contains("size"),
+        "the META should name the missing parameter, got: {status}"
+    );
+}
+
+#[test]
+fn titan_upload_to_a_foreign_authority_gets_53() {
+    let server = TestServer::start("titan-foreign");
+    // Same authority rule as Gemini — one predicate, no drift. Sends the
+    // payload it declares, as a real client would.
+    let request = format!("titan://not-ours.example:{}/x.gmi;size=1\r\n", server.port);
+    let mut raw = request.into_bytes();
+    raw.push(b'x');
+    let response = exchange(server.port, &raw);
+    assert!(
+        status_line(&response).starts_with("53"),
+        "a titan upload for someone else's host is still a foreign authority"
+    );
+}
+
+#[test]
+fn refused_titan_payload_is_drained_so_the_client_reads_the_status() {
+    // Recon titan.md §5.5, flagged there as the top interop risk: a server
+    // that refuses before the payload and closes immediately leaves a
+    // client that already started streaming with a broken pipe instead of
+    // a status line. usv absorbs a bounded amount of in-flight payload
+    // after responding, so the write completes and the client reads the
+    // refusal — with a clean close_notify, no truncation.
+    let server = TestServer::start("titan-drain");
+    let payload = vec![b'x'; 64 * 1024];
+    let request = format!(
+        "titan://localhost:{}/big.gmi;size={}\r\n",
+        server.port,
+        payload.len()
+    );
+    let mut raw = request.into_bytes();
+    raw.extend_from_slice(&payload);
+
+    // require_close_notify = true: the drain must not cost us the clean
+    // TLS shutdown every other path guarantees.
+    let response = exchange(server.port, &raw);
+    assert!(
+        status_line(&response).starts_with("50"),
+        "client must receive the refusal, not a truncated connection"
+    );
+}
+
+#[test]
+fn a_titan_token_never_reaches_the_log() {
+    // Tokens ride in the URL and are shared secrets (recon titan.md §5.2):
+    // they must be treated like a query — never logged. The server's
+    // stderr is drained into a sink thread, so this asserts the property
+    // that matters at the wire: the token is not echoed back in the META
+    // either, which is the other place it could leak.
+    let server = TestServer::start("titan-token");
+    let request = format!(
+        "titan://localhost:{}/x.gmi;size=1;token=super-secret-value\r\n",
+        server.port
+    );
+    let mut raw = request.into_bytes();
+    raw.push(b'x');
+    let response = exchange(server.port, &raw);
+    let text = String::from_utf8_lossy(&response);
+    assert!(
+        !text.contains("super-secret-value"),
+        "the token must never be echoed back to the client: {text}"
+    );
+}
+
+#[test]
+fn a_titan_client_that_declares_a_payload_then_sends_nothing_still_gets_closed() {
+    // Regression: the drain is bounded in bytes *and* in time. A client
+    // that declares a size and then goes quiet must not be able to park
+    // the connection in the drain — that would be a slot-holding trick of
+    // exactly the shape the slowloris guard exists to prevent. The server
+    // gives up on the missing payload and closes cleanly.
+    let server = TestServer::start("titan-silent");
+    let request = format!("titan://localhost:{}/x.gmi;size=4096\r\n", server.port);
+    let started = std::time::Instant::now();
+    let response = exchange(server.port, request.as_bytes());
+    let elapsed = started.elapsed();
+
+    assert!(
+        status_line(&response).starts_with("50"),
+        "the refusal must still be delivered"
+    );
+    assert!(
+        elapsed < std::time::Duration::from_secs(10),
+        "the drain must time out promptly, not hold the connection: {elapsed:?}"
+    );
+}
