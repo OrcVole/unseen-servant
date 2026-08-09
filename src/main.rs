@@ -18,7 +18,9 @@ use std::sync::Arc;
 use tokio::sync::{Semaphore, watch};
 
 use unseen_servant::config::{Config, EnvOverrides};
+use unseen_servant::http;
 use unseen_servant::identity::IdentityStore;
+use unseen_servant::render::{pipeline, watcher};
 use unseen_servant::server::{self, Shared};
 use unseen_servant::tls;
 
@@ -34,8 +36,10 @@ const HELP: &str = concat!(
     "CONFIG:\n",
     "  One TOML file: --config, else $USV_CONFIG, else ${state_dir}/usv.toml,\n",
     "  else built-in defaults (localhost capsule, port 1965, auto-minted cert).\n",
-    "  USV_STATE_DIR / USV_LISTEN / USV_ADVERTISED_PORT / USV_HOSTNAME override\n",
-    "  platform-injected facts (ADR 0007).\n",
+    "  USV_STATE_DIR / USV_LISTEN / USV_ADVERTISED_PORT / USV_HOSTNAME /\n",
+    "  USV_HTTP_LISTEN override platform-injected facts (ADR 0007). The HTTP\n",
+    "  surface (rendered HTML tree) is off unless USV_HTTP_LISTEN or\n",
+    "  server.http_listen names an address.\n",
     "\n",
     "SIGNALS:\n",
     "  SIGHUP  reload config and certificates without dropping listeners\n",
@@ -188,8 +192,58 @@ async fn serve(args: Args) -> Result<(), ()> {
     }
     server::warn_if_nonstandard(&state.config);
 
+    // C3: render once before declaring "serving" (so the first HTTP
+    // request sees fresh content, not whatever happened to survive from
+    // a previous run), then start the watcher for every edit after that.
+    // The primary host's docroot is content_dir for rendering purposes —
+    // ADR 0004's one-content-tree model, gemtext served natively from it
+    // on Gemini, HTML rendered from it here. Per-host HTML rendering
+    // (multi-host capsules) is a known v1 limitation, not yet wired.
+    let content_dir = state
+        .config
+        .hosts
+        .first()
+        .map(|h| h.docroot.clone())
+        .unwrap_or_else(|| state.config.state_dir.join("content"));
+    // A capsule with no content at all gets the first-run skeleton — but
+    // only ever when the content directory holds no gemtext whatsoever,
+    // so an operator's own work is never overwritten on a later start.
+    if let Err(e) = pipeline::seed_skeleton_if_empty(&content_dir, pipeline::DEFAULT_SKELETON).await
+    {
+        tracing::warn!(error = %e, "could not write the first-run skeleton");
+    }
+    let theme_css = state.config.theme.css;
+    match pipeline::render_tree(&content_dir, &state.config.state_dir, theme_css).await {
+        Ok(stats) => tracing::info!(
+            pages = stats.pages_rendered,
+            robots_mirrored = stats.robots_mirrored,
+            "initial render complete"
+        ),
+        Err(e) => tracing::warn!(error = %e, "initial render failed; HTTP surface may be stale"),
+    }
+    let watcher_content_dir = content_dir.clone();
+    let watcher_state_dir = state.config.state_dir.clone();
+    let watcher_css = theme_css.to_string();
+    let watcher_task = tokio::spawn(async move {
+        let result = watcher::watch(
+            watcher_content_dir,
+            watcher_state_dir,
+            watcher_css,
+            watcher::DEFAULT_DEBOUNCE,
+            |result| match result {
+                Ok(stats) => tracing::info!(pages = stats.pages_rendered, "content re-rendered"),
+                Err(e) => tracing::warn!(error = %e, "re-render failed"),
+            },
+        )
+        .await;
+        if let Err(e) = result {
+            tracing::error!(error = %e, "content watcher stopped");
+        }
+    });
+
     let permits = Arc::new(Semaphore::new(state.config.max_connections));
     let max_permits = state.config.max_connections;
+    let http_listen = state.config.http_listen;
     let (state_tx, state_rx) = watch::channel(state);
     let (shutdown_tx, shutdown_rx) = watch::channel(false);
 
@@ -202,6 +256,33 @@ async fn serve(args: Args) -> Result<(), ()> {
             shutdown_rx.clone(),
         )));
     }
+
+    // HTTP surface (C3; ADR 0008): optional standalone, always set by the
+    // Cloudron profile. Starts unconditionally once enabled — independent
+    // of whether the Gemini listeners above bound successfully, matching
+    // the cloudron-fit.md hard constraint that the health check must
+    // never depend on the Gemini port's state.
+    let mut http_task = None;
+    if let Some(addr) = http_listen {
+        match http::bind(addr) {
+            Ok(listener) => {
+                let html_dir = state_rx.borrow().config.state_dir.join("html");
+                let (http_state_tx, http_state_rx) = watch::channel(http::Shared { html_dir });
+                std::mem::forget(http_state_tx); // html_dir is stable for process lifetime
+                tracing::info!(%addr, "http listener bound");
+                http_task = Some(tokio::spawn(http::accept_loop(
+                    listener,
+                    http_state_rx,
+                    shutdown_rx.clone(),
+                )));
+            }
+            Err(e) => {
+                tracing::error!(%addr, error = %e, "cannot bind http listener");
+                return Err(());
+            }
+        }
+    }
+
     tracing::info!(
         hosts = ?state_rx.borrow().config.hosts.iter().map(|h| h.name.clone()).collect::<Vec<_>>(),
         "usv {} serving",
@@ -215,6 +296,10 @@ async fn serve(args: Args) -> Result<(), ()> {
     for task in &accept_tasks {
         task.abort();
     }
+    if let Some(task) = &http_task {
+        task.abort();
+    }
+    watcher_task.abort();
     let grace = std::time::Duration::from_secs(15);
     let drained = tokio::time::timeout(grace, async {
         let _ = permits.acquire_many(max_permits as u32).await;

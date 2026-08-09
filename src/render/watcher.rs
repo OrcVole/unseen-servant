@@ -63,6 +63,7 @@ impl From<notify::Error> for WatchError {
 pub async fn watch(
     content_dir: PathBuf,
     state_dir: PathBuf,
+    theme_css: String,
     debounce: Duration,
     on_rendered: impl Fn(std::io::Result<RenderStats>),
 ) -> Result<(), WatchError> {
@@ -109,7 +110,7 @@ pub async fn watch(
                 Err(_elapsed) => break, // quiet period reached
             }
         }
-        on_rendered(render_tree(&content_dir, &state_dir).await);
+        on_rendered(render_tree(&content_dir, &state_dir, &theme_css).await);
     }
 }
 
@@ -145,6 +146,7 @@ mod tests {
             watch(
                 watch_content,
                 watch_state,
+                "body{}".to_string(),
                 Duration::from_millis(300),
                 move |result| {
                     result.expect("render should succeed");
@@ -181,6 +183,7 @@ mod tests {
             watch(
                 watch_content,
                 watch_state,
+                "body{}".to_string(),
                 Duration::from_millis(200),
                 move |result| {
                     result.expect("render should succeed");

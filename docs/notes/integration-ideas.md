@@ -89,6 +89,15 @@ Consequences to carry into M2/M5:
 - The placeholder mode needs no dedicated config: skeleton + port
   toggle already express it.
 
+**Design bar carries forward to usv's own ratatui surfaces (director,
+2026-08-09, while C3's theme/skeleton were being written):** the C5
+`usv init` wizard and the later `usv stats` dashboard
+(docs/notes/integration-ideas.md's "Visit stats" section) should get
+the same design care as the web theme and skeleton content, not
+default-styled ratatui widgets. Treat this as a standing bar for any
+future usv-authored TUI, the same way the theme/skeleton work treated
+"gorgeous by default" as non-negotiable rather than a nice-to-have.
+
 ## Responses anti-spam (director Q 2026-08-09; feeds ADR 0009)
 
 Layered, all self-hosted, no external services ever:
