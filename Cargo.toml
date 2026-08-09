@@ -1,0 +1,43 @@
+# Unseen Servant — see AGENTS.md for the read order and invariants.
+#
+# Dependency policy (docs/BRIEF.md "explicit version pinning throughout" + ADR 0001):
+# this crate has ZERO dependencies at phase C0, deliberately. The first dependencies
+# (tokio, rustls, rcgen, serde/toml, tracing — the ADR 0001 set, nothing else) land in
+# phase C1, each with an explicit version, and Cargo.lock is committed. cargo-deny
+# config (deny.toml) is already in place and becomes load-bearing at that moment.
+
+[package]
+name = "unseen-servant"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.93"
+license = "MIT"
+description = "Unseen Servant (usv): security-first Gemini server that publishes one content tree to Geminispace and the web"
+repository = "https://forgejo.wanderingmonster.dev/WanderingMonster/unseen-servant"
+readme = "README.md"
+keywords = ["gemini", "gemtext", "server", "smolnet"]
+categories = ["network-programming"]
+# Not on crates.io until the v1.0 release gates pass (docs/ROADMAP.md M5/M6).
+publish = false
+
+[lib]
+name = "unseen_servant"
+path = "src/lib.rs"
+
+[[bin]]
+name = "usv"
+path = "src/main.rs"
+
+[lints.rust]
+# The security argument of ADR 0002 rests on this line plus fuzzing. A written
+# justification in an ADR amendment is required before it may ever be relaxed.
+unsafe_code = "forbid"
+missing_docs = "warn"
+
+[lints.clippy]
+# Warnings are errors in CI; these two are always errors, everywhere.
+undocumented_unsafe_blocks = "deny"
+unwrap_used = "warn"
+
+[profile.release]
+lto = "thin"

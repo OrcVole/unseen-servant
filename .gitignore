@@ -1,0 +1,11 @@
+# Build output
+/target
+/fuzz/target
+
+# Fuzzing run products: crashing inputs are triaged into tests, not committed raw;
+# the seed corpus under fuzz/corpus/ IS committed (regression value).
+/fuzz/artifacts
+/fuzz/coverage
+
+# Estate secret-scan denylist convention (estate/templates): never committed anywhere.
+.anonymize-list
