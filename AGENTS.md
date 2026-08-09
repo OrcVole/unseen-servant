@@ -20,16 +20,20 @@ archaeology.
 
 ## Phase state
 
-**C2 (static serving) exit gate passed — next: C3 (dual render).** Handler
-dispatch (redirect → cert zone → static file), traversal-proof static
-files, redirects, certificate zones (60/61/62) all land with 133 tests
-green, including a full wire-level regress suite: traversal corpus, 6x
-client-cert flows against real certs, SNI vhost selection, slowloris
-timeout, redirect regress. A C3 design brief is already on disk —
-`docs/notes/c3-render-design-brief.md` — with the gemtext grammar as a
-decision table and open questions for the director before code starts.
-Update this line when a phase's exit gate passes; the gates are defined
-in `docs/BUILD-PLAN.md`.
+**C3 (dual render) exit gate passed — next: C4 (Titan).** The full
+gemtext → HTML/Atom/gemsub pipeline lands: fuzzed gemtext parser,
+metadata pass, semantic classless HTML emitter (always-escaped), Atom +
+gemsub feed emitters, a debounced watcher with atomic staging-swap
+renders, and an unconditional HTTP surface (ADR 0008). Four bundled
+themes (Daybreak/Midnight/Tokyo Night/Paper), a richly-formatted default
+skeleton verified rendering in Lagrange, w3m, and lynx, and robots.txt
+Gemini→web mirroring. The whole render path is wired into the binary and
+verified end to end. 245 tests green. Branding direction is recorded
+(`docs/notes/branding.md`: the dot-mesh servant, concept 1); an
+agent-legibility / accessibility feature idea is captured for a later
+opus-tier design pass (`docs/notes/integration-ideas.md`). Update this
+line when a phase's exit gate passes; the gates are defined in
+`docs/BUILD-PLAN.md`.
 
 ## Invariants (violating any of these needs an ADR amendment first)
 
