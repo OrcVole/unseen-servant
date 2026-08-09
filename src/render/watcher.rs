@@ -18,7 +18,7 @@ use std::time::Duration;
 use notify::{RecursiveMode, Watcher};
 use tokio::sync::mpsc;
 
-use super::pipeline::{RenderStats, render_tree};
+use super::pipeline::{RenderContext, RenderStats, render_tree};
 
 /// The default debounce window (design brief §5.2's suggested starting
 /// value).
@@ -63,7 +63,7 @@ impl From<notify::Error> for WatchError {
 pub async fn watch(
     content_dir: PathBuf,
     state_dir: PathBuf,
-    theme_css: String,
+    ctx: RenderContext,
     debounce: Duration,
     on_rendered: impl Fn(std::io::Result<RenderStats>),
 ) -> Result<(), WatchError> {
@@ -110,7 +110,7 @@ pub async fn watch(
                 Err(_elapsed) => break, // quiet period reached
             }
         }
-        on_rendered(render_tree(&content_dir, &state_dir, &theme_css).await);
+        on_rendered(render_tree(&content_dir, &state_dir, &ctx).await);
     }
 }
 
@@ -146,7 +146,7 @@ mod tests {
             watch(
                 watch_content,
                 watch_state,
-                "body{}".to_string(),
+                RenderContext::plain("body{}"),
                 Duration::from_millis(300),
                 move |result| {
                     result.expect("render should succeed");
@@ -183,7 +183,7 @@ mod tests {
             watch(
                 watch_content,
                 watch_state,
-                "body{}".to_string(),
+                RenderContext::plain("body{}"),
                 Duration::from_millis(200),
                 move |result| {
                     result.expect("render should succeed");

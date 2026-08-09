@@ -15,27 +15,60 @@
 //! mark: the heading becomes the page `<title>` and a feed/history
 //! entry, both places where "·" or "—" alone would be useless.
 
-/// The default mood: gentle and a little warm, and functional — it tells
-/// the *owner* exactly what to do next without reading like an error
-/// page to a visitor who just wandered by.
+/// The default mood: a warm, richly-formatted welcome that doubles as a
+/// live demonstration of the renderer — it exercises every gemtext line
+/// type (heading levels, prose, quote, list, links, a preformatted
+/// block) so the fresh capsule looks considered on both surfaces, and
+/// stays functional for the owner (it says, in plain words, where
+/// content lives and how to add it).
 pub const QUIET: &str = "\
-# Still empty, still here
+# Welcome to a new capsule
 
-Some capsules start as a blank page instead of a plan. This is one of \
-them — nothing has been written into it yet, and that's a fine way to \
-begin.
+You have reached a capsule served by Unseen Servant — freshly installed, \
+and waiting for its first words. Nothing has been written here yet, so \
+for the moment there is only this page, and a quiet invitation.
 
-If you're the one who set this up: your content lives in a folder \
-Cloudron gave you, one gemtext file per page. Write something, save it, \
-and this notice quietly steps aside — no build, no deploy, no waiting.
+> Small pages, plainly made, and kept for a long time.
 
-If you're a visitor who found this early: there's nothing to apologize \
-for. Come back when there's something worth reading, or don't. Either \
-way, thanks for looking.
+## If this capsule is yours
 
-=> gemini://geminiprotocol.net/ What Gemini is, if you're new here
+Your writing lives in one content folder, a single gemtext file per \
+page. Add a file, save it, and it appears here within moments — served \
+natively to Gemini clients and rendered to the web at the same instant, \
+from the very same source. No build step. No deploy. No waiting.
 
->Unseen Servant
+Nearly the whole of the format is three kinds of line:
+
+* a heading, like the ones set across this page
+* a link, each given a line of its own
+* a plain paragraph of prose, as long as you please
+
+Here is what a small page looks like, written out in full:
+
+```an example gemtext page
+# A heading
+
+A paragraph of prose. Write as much or as little as suits you.
+
+=> gemini://example.org   A link, on a line of its own
+```
+
+That is genuinely most of it. You can hold the entire format in your \
+head, which is rather the point.
+
+## A few good places to begin
+
+=> gemini://geminiprotocol.net/ The Gemini protocol, gently explained
+=> gemini://geminiprotocol.net/docs/cheatsheet.gmi The one-page gemtext cheatsheet
+=> gemini://geminiprotocol.net/software/ A field of clients to wander with
+
+## For a visitor who arrived early
+
+There is nothing here yet, and that is perfectly alright — you have \
+simply come before the first post. Wander back when there is something \
+to read, or don't; either way, thank you for looking in.
+
+> Unseen Servant
 ";
 
 /// A lighter, more playful mood for an operator who wants their capsule

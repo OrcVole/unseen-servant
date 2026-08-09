@@ -212,23 +212,43 @@ async fn serve(args: Args) -> Result<(), ()> {
     {
         tracing::warn!(error = %e, "could not write the first-run skeleton");
     }
-    let theme_css = state.config.theme.css;
-    match pipeline::render_tree(&content_dir, &state.config.state_dir, theme_css).await {
+    // The primary host's name is the capsule identity for feeds. The
+    // web base URL is only knowable if the HTTP surface is on — Atom
+    // needs absolute links, so a Gemini-only deployment gets the gemsub
+    // feed but no atom.xml (RenderContext handles the empty-base case).
+    let primary_host = state
+        .config
+        .hosts
+        .first()
+        .map(|h| h.name.clone())
+        .unwrap_or_default();
+    let web_base_url = state
+        .config
+        .http_listen
+        .map(|_| format!("https://{primary_host}"))
+        .unwrap_or_default();
+    let render_ctx = pipeline::RenderContext {
+        theme_css: state.config.theme.css.to_string(),
+        web_base_url,
+        capsule_title: primary_host.clone(),
+    };
+    match pipeline::render_tree(&content_dir, &state.config.state_dir, &render_ctx).await {
         Ok(stats) => tracing::info!(
             pages = stats.pages_rendered,
             robots_mirrored = stats.robots_mirrored,
+            feed_entries = stats.feed_entries,
             "initial render complete"
         ),
         Err(e) => tracing::warn!(error = %e, "initial render failed; HTTP surface may be stale"),
     }
     let watcher_content_dir = content_dir.clone();
     let watcher_state_dir = state.config.state_dir.clone();
-    let watcher_css = theme_css.to_string();
+    let watcher_ctx = render_ctx.clone();
     let watcher_task = tokio::spawn(async move {
         let result = watcher::watch(
             watcher_content_dir,
             watcher_state_dir,
-            watcher_css,
+            watcher_ctx,
             watcher::DEFAULT_DEBOUNCE,
             |result| match result {
                 Ok(stats) => tracing::info!(pages = stats.pages_rendered, "content re-rendered"),
