@@ -1,6 +1,6 @@
-# ADR 0006: Titan — designed for in v1.0, committed for v1.1
+# ADR 0006: Titan — committed for v1.0
 
-- Status: Accepted, amended 2026-08-09 (director directive)
+- Status: Accepted, amended 2026-08-09 twice (director directives)
 - Date: 2026-08-09
 - Evidence: docs/recon/ecosystem.md §1
 
@@ -45,18 +45,22 @@ only; the `token=` URL parameter is never accepted as the sole factor
 (a shared secret in a URL); writable paths are explicitly configured,
 default none; size limits enforced before body read.
 
-## Amendment (2026-08-09, director)
+## Amendments (2026-08-09, director)
 
-The director has committed Titan to **v1.1** and gated the project's
-public announcement on it: v1.0 ships quietly, the announcement wave
-happens at v1.1 with Titan as the launch feature (docs/ROADMAP.md).
-"Designed for" therefore hardens from an option into scheduled work:
-the v1.0 pipeline seams above are now requirements, and a dedicated
-implementation-grade recon (docs/recon/titan.md — wire format, spec
-stewardship, client divergences) precedes the v1.1 design. The
-security constraints in this ADR (cert-fingerprint gating only, no
-token-as-sole-factor, explicit writable paths, pre-read size limits)
-are unchanged and binding.
+First amendment: the director committed Titan as the announcement
+gate — nothing is announced until Titan works. Second amendment,
+later the same day: the quiet-release/announcement-release split was
+collapsed entirely ("we won't use or announce it till it is ready
+for titan… why not go there directly") — **Titan is v1.0, milestone
+M3** (docs/ROADMAP.md); there is no Titan-less release. "Designed
+for" hardened into scheduled work: the pipeline seams above are
+requirements of the earlier milestones, and the implementation-grade
+recon (docs/recon/titan.md — wire format, spec stewardship, client
+divergences) is the design input. The security constraints in this
+ADR (cert-fingerprint gating only, no token-as-sole-factor, explicit
+writable paths, pre-read size limits) are unchanged and binding. The
+original body below is kept for the reasoning record; read "v1" as
+"the early milestones" and "later" as "milestone M3".
 
 ## Consequences
 
