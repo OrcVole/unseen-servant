@@ -27,6 +27,9 @@ pub mod gemtext;
 pub mod html;
 pub mod metadata;
 pub mod pipeline;
+pub mod robots;
+pub mod skeleton;
+pub mod theme;
 pub mod watcher;
 
 /// Escape `&`, `<`, `>`, and `"` — sufficient and necessary for XML/HTML

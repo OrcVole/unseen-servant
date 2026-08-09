@@ -30,6 +30,7 @@ pub fn render_document(lines: &[Line<'_>], title: &str) -> String {
     out.push_str("<!doctype html>\n<html lang=\"en\">\n<head>\n");
     out.push_str("<meta charset=\"utf-8\">\n");
     out.push_str("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n");
+    out.push_str("<link rel=\"stylesheet\" href=\"/style.css\">\n");
     out.push_str("<title>");
     escape_into(&mut out, title);
     out.push_str("</title>\n</head>\n<body>\n");

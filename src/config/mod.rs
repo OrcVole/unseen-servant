@@ -58,6 +58,15 @@ pub struct Config {
     /// Seconds the whole response write (header + body + close_notify) may
     /// take before the connection is abandoned.
     pub response_timeout_secs: u64,
+    /// The HTTP surface's listen address (C3; ADR 0008). `None` standalone
+    /// by default — "a pure-Gemini operator shouldn't get a web server
+    /// they didn't ask for" — set explicitly to turn it on. The Cloudron
+    /// profile always sets this (the dashboard tile depends on it).
+    pub http_listen: Option<SocketAddr>,
+    /// The bundled theme the HTML surface renders with (C3). An unknown
+    /// name is a startup error, never a silent fall back to the default —
+    /// a typo'd theme should say so, not quietly serve the wrong one.
+    pub theme: &'static crate::render::theme::Theme,
 }
 
 /// Minimum accepted TLS protocol version (ADR 0001 / recon guidance §4).
@@ -158,6 +167,8 @@ struct RawServer {
     max_connections: Option<usize>,
     request_timeout_secs: Option<u64>,
     response_timeout_secs: Option<u64>,
+    http_listen: Option<String>,
+    theme: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -202,6 +213,10 @@ pub mod env_keys {
     /// Overrides the host list with a single hostname (the common
     /// platform-injected case: one app, one domain).
     pub const HOSTNAME: &str = "USV_HOSTNAME";
+    /// Overrides `server.http_listen`. The Cloudron profile always sets
+    /// this via `start.sh` — the dashboard tile depends on the HTTP
+    /// surface being live.
+    pub const HTTP_LISTEN: &str = "USV_HTTP_LISTEN";
 }
 
 /// A snapshot of the `USV_*` environment, taken once at load time so the
@@ -217,6 +232,8 @@ pub struct EnvOverrides {
     pub advertised_port: Option<String>,
     /// See [`env_keys::HOSTNAME`].
     pub hostname: Option<String>,
+    /// See [`env_keys::HTTP_LISTEN`].
+    pub http_listen: Option<String>,
 }
 
 impl EnvOverrides {
@@ -227,6 +244,7 @@ impl EnvOverrides {
             listen: std::env::var(env_keys::LISTEN).ok(),
             advertised_port: std::env::var(env_keys::ADVERTISED_PORT).ok(),
             hostname: std::env::var(env_keys::HOSTNAME).ok(),
+            http_listen: std::env::var(env_keys::HTTP_LISTEN).ok(),
         }
     }
 }
@@ -417,6 +435,32 @@ impl Config {
             ));
         }
 
+        let http_listen_str = env.http_listen.clone().or(server.http_listen);
+        let http_listen = match http_listen_str {
+            Some(s) => Some(s.parse::<SocketAddr>().map_err(|_| {
+                ConfigError::Rejected(format!(
+                    "server.http_listen value {s:?} is not a socket address \
+                     (expected e.g. \"0.0.0.0:8000\")"
+                ))
+            })?),
+            None => None,
+        };
+
+        let theme_name = server
+            .theme
+            .as_deref()
+            .unwrap_or(crate::render::theme::DEFAULT_THEME_NAME);
+        let theme = crate::render::theme::find(theme_name).ok_or_else(|| {
+            let known: Vec<&str> = crate::render::theme::THEMES
+                .iter()
+                .map(|t| t.name)
+                .collect();
+            ConfigError::Rejected(format!(
+                "server.theme {theme_name:?} is not a bundled theme (known: {})",
+                known.join(", ")
+            ))
+        })?;
+
         Ok(Config {
             state_dir,
             listen,
@@ -426,6 +470,8 @@ impl Config {
             max_connections,
             request_timeout_secs: server.request_timeout_secs.unwrap_or(10),
             response_timeout_secs: server.response_timeout_secs.unwrap_or(300),
+            http_listen,
+            theme,
         })
     }
 
@@ -640,6 +686,7 @@ mod tests {
             listen: Some("127.0.0.1:11965".into()),
             advertised_port: Some("1965".into()),
             hostname: Some("capsule.example".into()),
+            http_listen: None,
         };
         let cfg = Config::from_toml_str(
             "[server]\nstate_dir = \"/elsewhere\"\nlisten = [\"0.0.0.0:1965\"]\n\
@@ -671,5 +718,61 @@ mod tests {
     fn zero_connection_cap_is_rejected() {
         let err = Config::from_toml_str("[server]\nmax_connections = 0", &no_env()).unwrap_err();
         assert!(err.to_string().contains("at least 1"));
+    }
+
+    #[test]
+    fn http_listen_defaults_to_off() {
+        let cfg = Config::from_toml_str("", &no_env()).expect("valid");
+        assert_eq!(cfg.http_listen, None);
+    }
+
+    #[test]
+    fn http_listen_from_file() {
+        let cfg = Config::from_toml_str("[server]\nhttp_listen = \"0.0.0.0:8000\"", &no_env())
+            .expect("valid");
+        assert_eq!(cfg.http_listen, Some("0.0.0.0:8000".parse().unwrap()));
+    }
+
+    #[test]
+    fn http_listen_env_beats_file() {
+        let mut env = no_env();
+        env.http_listen = Some("127.0.0.1:9000".into());
+        let cfg =
+            Config::from_toml_str("[server]\nhttp_listen = \"0.0.0.0:8000\"", &env).expect("valid");
+        assert_eq!(cfg.http_listen, Some("127.0.0.1:9000".parse().unwrap()));
+    }
+
+    #[test]
+    fn theme_defaults_to_the_bundled_default() {
+        let cfg = Config::from_toml_str("", &no_env()).expect("valid");
+        assert_eq!(cfg.theme.name, crate::render::theme::DEFAULT_THEME_NAME);
+    }
+
+    #[test]
+    fn theme_can_be_chosen_by_name() {
+        let cfg =
+            Config::from_toml_str("[server]\ntheme = \"tokyo-night\"", &no_env()).expect("valid");
+        assert_eq!(cfg.theme.name, "tokyo-night");
+    }
+
+    #[test]
+    fn unknown_theme_is_a_startup_error_listing_the_real_ones() {
+        // A typo'd theme must say so rather than quietly serving the
+        // default — and the message should tell the operator what they
+        // could have written instead.
+        let err = Config::from_toml_str("[server]\ntheme = \"drakula\"", &no_env()).unwrap_err();
+        let msg = err.to_string();
+        assert!(msg.contains("drakula"), "{msg}");
+        assert!(
+            msg.contains("daybreak"),
+            "message should list known themes: {msg}"
+        );
+    }
+
+    #[test]
+    fn bad_http_listen_is_rejected() {
+        let err = Config::from_toml_str("[server]\nhttp_listen = \"not-an-address\"", &no_env())
+            .unwrap_err();
+        assert!(err.to_string().contains("socket address"));
     }
 }
