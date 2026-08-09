@@ -22,6 +22,7 @@
 
 pub mod request;
 pub mod response;
+pub mod titan;
 pub mod uri;
 
 /// The port clients assume when a `gemini://` URI names none.
