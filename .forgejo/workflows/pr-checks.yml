@@ -16,6 +16,15 @@
 #     runner's rust is not rustup-managed the system toolchain applies — the `toolchain facts`
 #     step prints what actually ran, so a drifted gate is at least a *visible* drifted gate.
 #
+# C1 addition (2026-08-09): cargo-deny is now load-bearing (first dependencies landed) and
+# fuzz smoke runs bounded (60s/target) on the nightly toolchain, per the brief's "every parser
+# is fuzzed" rule — this is a smoke check for crashes, not a coverage campaign; the extended
+# fuzz corpus work is C7. Both need one-time host setup the runner facts note here so a
+# drifted runner is visible rather than silently skipped:
+#   * cargo-deny: `cargo install cargo-deny --locked` on the runner if not already present.
+#   * nightly + cargo-fuzz: `rustup toolchain install nightly` and
+#     `cargo install cargo-fuzz --locked` on the runner.
+#
 # Triggers include push-to-main because the project currently works by direct push (solo
 # AI-authored, director-reviewed); when the Update-as-PR culture arrives here, the push
 # trigger can go.
@@ -57,8 +66,18 @@ jobs:
           export PATH="$HOME/.cargo/bin:$PATH"
           cargo test
 
-      # cargo-deny becomes load-bearing at C1 with the first dependency; cargo-fuzz runs are
-      # scheduled work (nightly toolchain), not per-PR work. Both are deliberate absences at
-      # C0, recorded here so their later arrival is a plan fulfilled rather than scope creep:
-      #   - name: deny    → `cargo deny check` (C1)
-      #   - name: fuzz    → bounded `cargo +nightly fuzz run` smoke (scheduled, C1+)
+      - name: deny
+        run: |
+          export PATH="$HOME/.cargo/bin:$PATH"
+          cargo deny check
+
+      # Bounded smoke run, not a coverage campaign (C7 owns the extended corpus). Each target
+      # gets 60s under nightly + cargo-fuzz; a crash fails the job, a clean 60s does not prove
+      # absence of bugs, only that nothing broke since the last run.
+      - name: fuzz smoke
+        run: |
+          export PATH="$HOME/.cargo/bin:$PATH"
+          cd fuzz
+          for target in frame_request_line validate_uri config_parse; do
+            cargo +nightly fuzz run "$target" -- -max_total_time=60
+          done
