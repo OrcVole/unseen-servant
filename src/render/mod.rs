@@ -28,6 +28,7 @@ pub mod html;
 pub mod metadata;
 pub mod pipeline;
 pub mod robots;
+pub mod sitemap;
 pub mod skeleton;
 pub mod theme;
 pub mod watcher;

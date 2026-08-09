@@ -67,6 +67,12 @@ pub struct Config {
     /// name is a startup error, never a silent fall back to the default —
     /// a typo'd theme should say so, not quietly serve the wrong one.
     pub theme: &'static crate::render::theme::Theme,
+    /// The capsule's language as a BCP 47 tag (ADR 0010). Sets the HTML
+    /// `lang` attribute and the `lang` parameter on `text/gemini`
+    /// responses. Screen readers pick pronunciation rules from this, so
+    /// the default of `en` being wrong for a capsule is a real
+    /// accessibility defect rather than a cosmetic one.
+    pub lang: String,
 }
 
 /// Minimum accepted TLS protocol version (ADR 0001 / recon guidance §4).
@@ -169,6 +175,7 @@ struct RawServer {
     response_timeout_secs: Option<u64>,
     http_listen: Option<String>,
     theme: Option<String>,
+    lang: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -461,6 +468,13 @@ impl Config {
             ))
         })?;
 
+        let lang = server.lang.unwrap_or_else(|| "en".to_string());
+        if lang.trim().is_empty() || !lang.is_ascii() {
+            return Err(ConfigError::Rejected(format!(
+                "server.lang {lang:?} is not a BCP 47 language tag (e.g. \"en\", \"fr\", \"pt-BR\")"
+            )));
+        }
+
         Ok(Config {
             state_dir,
             listen,
@@ -472,6 +486,7 @@ impl Config {
             response_timeout_secs: server.response_timeout_secs.unwrap_or(300),
             http_listen,
             theme,
+            lang,
         })
     }
 

@@ -15,6 +15,7 @@ Context, Decision, Consequences.
 | [0007](0007-config-format.md) | Single TOML file, gmid semantics, env overrides for platforms | Accepted (director confirmed 2026-08-09) |
 | [0009](0009-responses.md) | Responses: cert-identified likes + moderated messages, dynamic write / static read | **Proposed** (OQ-8: version + counter-display default) |
 | [0008](0008-deployment-profiles.md) | Cloudron is a deployment profile, not a dependency; standalone first-class | Accepted (director-directed) |
+| [0010](0010-agent-and-assistive-access.md) | Legibility for agents and assistive/voice users is one requirement: named addressable affordances, lang declaration, site map, HTML landmarks; refuses content-negotiation and bespoke manifests | **Proposed** (director-raised) |
 
 \* Accepted pending director review — per the AI Forward principle the
 AI decides and records; the director may overturn any of these, and

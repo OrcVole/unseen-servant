@@ -23,19 +23,34 @@
 use super::escape_into;
 use super::gemtext::Line;
 
-/// Render a complete HTML document from a parsed gemtext body and its
-/// already-extracted title (`gemtext::extract_title`).
-pub fn render_document(lines: &[Line<'_>], title: &str) -> String {
+/// Render a complete HTML document from a parsed gemtext body, its
+/// already-extracted title (`gemtext::extract_title`), and the capsule's
+/// BCP 47 language tag.
+///
+/// Accessibility scaffolding here is deliberate, per ADR 0010: the `lang`
+/// attribute (screen readers choose pronunciation rules from it — a
+/// hardcoded `en` mispronounces every non-English capsule), a
+/// skip-to-content link as the first focusable element, and a `<main>`
+/// landmark. Together these are what let someone navigating by voice or
+/// by screen reader jump straight to the content without a pointer.
+pub fn render_document(lines: &[Line<'_>], title: &str, lang: &str) -> String {
     let mut out = String::new();
-    out.push_str("<!doctype html>\n<html lang=\"en\">\n<head>\n");
+    out.push_str("<!doctype html>\n<html lang=\"");
+    escape_into(&mut out, lang);
+    out.push_str("\">\n<head>\n");
     out.push_str("<meta charset=\"utf-8\">\n");
     out.push_str("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n");
     out.push_str("<link rel=\"stylesheet\" href=\"/style.css\">\n");
     out.push_str("<title>");
     escape_into(&mut out, title);
     out.push_str("</title>\n</head>\n<body>\n");
+    // First focusable element, so a keyboard or voice user's very first
+    // action can be "skip to content" rather than tabbing through
+    // whatever precedes it. Visually hidden until focused (see theme CSS).
+    out.push_str("<a class=\"skip-link\" href=\"#content\">Skip to content</a>\n");
+    out.push_str("<main id=\"content\">\n");
     render_body(&mut out, lines);
-    out.push_str("</body>\n</html>\n");
+    out.push_str("</main>\n</body>\n</html>\n");
     out
 }
 
@@ -259,7 +274,7 @@ mod tests {
     #[test]
     fn render_document_wraps_body_with_title() {
         let lines = parse("# Hello\n\nworld\n");
-        let doc = render_document(&lines, "Hello");
+        let doc = render_document(&lines, "Hello", "en");
         assert!(doc.starts_with("<!doctype html>"));
         assert!(doc.contains("<title>Hello</title>"));
         assert!(doc.contains("<h1>Hello</h1>"));
@@ -267,15 +282,46 @@ mod tests {
     }
 
     #[test]
+    fn lang_attribute_comes_from_config_not_a_hardcoded_en() {
+        // ADR 0010: a screen reader picks pronunciation rules from lang,
+        // so a hardcoded "en" mispronounces every non-English capsule.
+        let doc = render_document(&[], "Titre", "fr");
+        assert!(doc.contains("<html lang=\"fr\">"), "got: {doc}");
+        let doc_br = render_document(&[], "T", "pt-BR");
+        assert!(doc_br.contains("<html lang=\"pt-BR\">"));
+    }
+
+    #[test]
+    fn skip_link_is_the_first_focusable_element_and_targets_main() {
+        // The voice/keyboard affordance: first thing focusable, and it
+        // must actually point at the main landmark's id.
+        let doc = render_document(&parse("# Hi\n"), "Hi", "en");
+        let skip = doc.find("skip-link").expect("skip link present");
+        let main = doc
+            .find("<main id=\"content\">")
+            .expect("main landmark present");
+        assert!(
+            skip < main,
+            "skip link must precede the content it skips to"
+        );
+        assert!(
+            doc.contains("href=\"#content\""),
+            "skip link targets the main id"
+        );
+    }
+
+    #[test]
     fn render_document_escapes_the_title() {
-        let doc = render_document(&[], "<script>x</script>");
+        let doc = render_document(&[], "<script>x</script>", "en");
         assert!(doc.contains("<title>&lt;script&gt;x&lt;/script&gt;</title>"));
     }
 
     #[test]
     fn empty_document_renders_empty_body() {
-        let doc = render_document(&[], "Empty");
-        assert!(doc.contains("<body>\n</body>"));
+        let doc = render_document(&[], "Empty", "en");
+        // An empty document still carries the accessibility scaffolding
+        // (skip link + main landmark) — only the content within is empty.
+        assert!(doc.contains("<main id=\"content\">\n</main>"));
     }
 
     /// The same invariant `fuzz/fuzz_targets/render_html.rs` drives at
@@ -304,6 +350,7 @@ mod tests {
             "figure",
             "figcaption",
             "pre",
+            "main",
         ];
         let adversarial = [
             "<script>alert(1)</script>",
@@ -318,7 +365,7 @@ mod tests {
         ];
         for src in adversarial {
             let lines = parse(src);
-            let doc = render_document(&lines, "<script>title-injection</script>");
+            let doc = render_document(&lines, "<script>title-injection</script>", "en");
             let mut rest = doc.as_str();
             while let Some(lt) = rest.find('<') {
                 let after = &rest[lt + 1..];
