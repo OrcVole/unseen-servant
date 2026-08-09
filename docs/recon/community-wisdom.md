@@ -206,6 +206,35 @@ method="post">` — Isso is the only one that leans on JS for embedding,
 which is why several smolweb blogs render Isso-stored comments
 server-side instead.
 
+### 1.6 Addendum (2026-08-09, director pointer): the Midnight Pub
+
+midnight.pub — m15o's "virtual pub that lets you write posts and
+create pages", a discussion-forum-shaped community reachable **from
+both the Web and Gemini** with members' pages authored in gemtext
+(.gmi) and served both ways. Verified from the site and its manual
+on 2026-08-09:
+
+- **Dual-surface interaction is proven at community scale.** The
+  same pub, the same posts, one content model, two protocols — the
+  closest existing thing to usv's dual-surface shape carrying a
+  discussion community. Members even get gemtext personal pages
+  (username.midnight.pub) rendered on both surfaces.
+- **Human-scale gatekeeping as anti-spam**: registration is "email
+  the owner for an access key" — a person at the door instead of an
+  open form. Lesson for the responses feature: an optional
+  operator-issued **invite key** mode (only holders may leave
+  messages) is a proven, zero-technology spam solution that fits
+  small communities; worth a config option beside the open-with-
+  moderation mode.
+- **No likes, no reactions, no metrics anywhere** — the manual's
+  ethos is "quality of interaction over quantity". Third independent
+  confirmation (after bacardi55 and Bubble's restraint) that
+  counters default quiet and the like verb stays humble.
+- **Framing does real work**: the alley/pub/bartender metaphor sets
+  the tone that moderation rules alone can't. usv's responses UX
+  copy ("leave a note", "the till") should be warm rather than
+  clinical; the theme system could offer response-section phrasings.
+
 ---
 
 ## 2. Comment-system design lessons → the "responses" feature
