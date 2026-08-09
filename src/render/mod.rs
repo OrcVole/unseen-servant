@@ -27,6 +27,7 @@ pub mod gemtext;
 pub mod html;
 pub mod metadata;
 pub mod pipeline;
+pub mod watcher;
 
 /// Escape `&`, `<`, `>`, and `"` — sufficient and necessary for XML/HTML
 /// text nodes and (double-quoted) attribute values, the only contexts
