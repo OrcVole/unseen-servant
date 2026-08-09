@@ -45,7 +45,11 @@ statement), UPGRADING.md (TOFU survival story), INTEGRATIONS.md.
 
 **M6 — launch.** Project capsule live, dogfooded on usv (Forgejo
 canonical repo public, orcvole GitHub mirror). COMPARISON.md vs.
-Agate/gmid/Molly Brown/GmCapsule. Announcement wave: Antenna, mailing
+Agate/gmid/Molly Brown/GmCapsule — including a **use-cases section
+that says when the OTHER servers are the better choice** (director,
+2026-08-09: honest signposting — e.g. gmid for FastCGI/proxying
+needs, GmCapsule for Python extensibility, Agate for minimal
+static-only, Molly Brown for pubnix multi-user). Announcement wave: Antenna, mailing
 list, Station, Bubble, geminiprotocol.net listings, geminispace.info,
 awesome-gemini PR, Fediverse #gemini, r/geminiprotocol. Venues
 re-verified at launch time.
