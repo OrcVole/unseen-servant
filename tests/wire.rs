@@ -31,6 +31,14 @@ impl TestServer {
                 .subsec_nanos()
         ));
         let _ = std::fs::remove_dir_all(&dir);
+        // C2: a real docroot with an index.gmi, so the wire suite exercises
+        // actual static-file serving, not an absent-docroot 51.
+        std::fs::create_dir_all(dir.join("content")).expect("mkdir content");
+        std::fs::write(
+            dir.join("content/index.gmi"),
+            b"# Unseen Servant\n\ntest capsule\n",
+        )
+        .expect("write index.gmi");
         let mut child = std::process::Command::new(env!("CARGO_BIN_EXE_usv"))
             .env("USV_STATE_DIR", &dir)
             .env("USV_LISTEN", "127.0.0.1:0")
@@ -273,6 +281,32 @@ fn bad_requests_get_59() {
             "expected 59 for {:?}, got {:?}",
             String::from_utf8_lossy(&raw),
             status_line(&response)
+        );
+    }
+}
+
+/// The C2 exit gate's traversal corpus (docs/BUILD-PLAN.md): percent-
+/// encoded, double-encoded, and literal `..` escapes, over the real wire —
+/// not just the unit-level `static_file` tests, since the whole pipeline
+/// (URI validation → authority → static_file::serve) is what must hold.
+#[test]
+fn traversal_corpus_never_escapes_docroot() {
+    let server = TestServer::start("traversal-corpus");
+    let cases = [
+        "/../../../etc/passwd",
+        "/%2e%2e/%2e%2e/etc/passwd",
+        "/%252e%252e/%252e%252e/etc/passwd",
+        "/sub/../../../etc/passwd",
+        "/..%2f..%2fetc/passwd",
+        "/%2e%2e%2f%2e%2e%2fetc%2fpasswd",
+    ];
+    for path in cases {
+        let request = format!("gemini://localhost:{}{path}\r\n", server.port);
+        let response = exchange(server.port, request.as_bytes());
+        let status = status_line(&response);
+        assert!(
+            status.starts_with('5'),
+            "traversal case {path:?} must get a 5x permanent failure, got {status:?}"
         );
     }
 }

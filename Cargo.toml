@@ -44,16 +44,19 @@ lto = "thin"
 
 [dependencies]
 rcgen = { version = "0.14.8", default-features = false, features = ["ring", "pem"] }
+regex = "1.13.1"
 rustls = { version = "0.23.43", default-features = false, features = ["ring", "logging", "std", "tls12"] }
 rustls-pki-types = { version = "1.15.1", features = ["std"] }
 serde = { version = "1.0.229", features = ["derive"] }
+sha2 = "0.11.0"
 socket2 = "0.6.5"
 time = "0.3.55"
-tokio = { version = "1.53.1", features = ["rt-multi-thread", "net", "io-util", "time", "sync", "signal", "macros"] }
+tokio = { version = "1.53.1", features = ["rt-multi-thread", "net", "io-util", "time", "sync", "signal", "macros", "fs"] }
 tokio-rustls = { version = "0.26.4", default-features = false, features = ["ring", "logging", "tls12"] }
 toml = "1.1.4"
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+x509-parser = "0.18.1"
 
 [dev-dependencies]
 rustls = { version = "0.23.43", default-features = false, features = ["ring", "logging", "std", "tls12"] }
