@@ -21,3 +21,81 @@
 //! the table in `docs/recon/protocol.md` §"Implementation guidance".
 
 pub mod request;
+pub mod response;
+pub mod uri;
+
+/// The port clients assume when a `gemini://` URI names none.
+pub const GEMINI_DEFAULT_PORT: u16 = 1965;
+
+/// Layer 3 rejection: the request was *well-formed* but names a scheme,
+/// host, or port that belongs to someone else. Answered with status 53
+/// (proxy request refused) — usv is not a proxy (ADR 0005 territory: we
+/// never fetch on a client's behalf).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ForeignAuthority;
+
+/// Layer 3: is this validated target one this server actually serves?
+pub fn check_authority(
+    target: uri::Target,
+    serves_host: impl Fn(&str) -> bool,
+    advertised_port: u16,
+) -> Result<uri::GeminiRequest, ForeignAuthority> {
+    match target {
+        uri::Target::Foreign { .. } => Err(ForeignAuthority),
+        uri::Target::Gemini(req) => {
+            let effective_port = req.port.unwrap_or(GEMINI_DEFAULT_PORT);
+            if effective_port == advertised_port && serves_host(&req.host) {
+                Ok(req)
+            } else {
+                Err(ForeignAuthority)
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod authority_tests {
+    use super::*;
+
+    fn target(uri: &str) -> uri::Target {
+        uri::validate_uri(uri.as_bytes()).expect("well-formed test URI")
+    }
+
+    fn ours(name: &str) -> bool {
+        name == "example.org"
+    }
+
+    #[test]
+    fn our_host_default_port_is_accepted() {
+        assert!(check_authority(target("gemini://example.org/"), ours, 1965).is_ok());
+    }
+
+    #[test]
+    fn explicit_default_port_is_accepted() {
+        // gemini-diagnostics URLIncludePort: explicit :1965 must work.
+        assert!(check_authority(target("gemini://example.org:1965/"), ours, 1965).is_ok());
+    }
+
+    #[test]
+    fn wrong_port_is_refused() {
+        assert!(check_authority(target("gemini://example.org:1966/"), ours, 1965).is_err());
+    }
+
+    #[test]
+    fn wrong_host_is_refused() {
+        assert!(check_authority(target("gemini://other.example/"), ours, 1965).is_err());
+    }
+
+    #[test]
+    fn foreign_scheme_is_refused() {
+        assert!(check_authority(target("http://example.org/"), ours, 1965).is_err());
+    }
+
+    #[test]
+    fn nonstandard_advertised_port_requires_explicit_port() {
+        // On a remapped port, a URL without a port means the client thinks
+        // we are on 1965 — that authority is not ours.
+        assert!(check_authority(target("gemini://example.org:11965/"), ours, 11965).is_ok());
+        assert!(check_authority(target("gemini://example.org/"), ours, 11965).is_err());
+    }
+}
