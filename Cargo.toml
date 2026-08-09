@@ -50,7 +50,7 @@ rustls-pki-types = { version = "1.15.1", features = ["std"] }
 serde = { version = "1.0.229", features = ["derive"] }
 sha2 = "0.11.0"
 socket2 = "0.6.5"
-time = "0.3.55"
+time = { version = "0.3.55", features = ["macros", "parsing", "formatting"] }
 tokio = { version = "1.53.1", features = ["rt-multi-thread", "net", "io-util", "time", "sync", "signal", "macros", "fs"] }
 tokio-rustls = { version = "0.26.4", default-features = false, features = ["ring", "logging", "tls12"] }
 toml = "1.1.4"
