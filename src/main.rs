@@ -231,12 +231,14 @@ async fn serve(args: Args) -> Result<(), ()> {
         theme_css: state.config.theme.css.to_string(),
         web_base_url,
         capsule_title: primary_host.clone(),
+        lang: state.config.lang.clone(),
     };
     match pipeline::render_tree(&content_dir, &state.config.state_dir, &render_ctx).await {
         Ok(stats) => tracing::info!(
             pages = stats.pages_rendered,
             robots_mirrored = stats.robots_mirrored,
             feed_entries = stats.feed_entries,
+            mapped_pages = stats.mapped_pages,
             "initial render complete"
         ),
         Err(e) => tracing::warn!(error = %e, "initial render failed; HTTP surface may be stale"),

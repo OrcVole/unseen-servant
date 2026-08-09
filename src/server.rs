@@ -338,7 +338,7 @@ async fn respond(raw: &[u8], state: &Shared, client_cert: Option<&ClientCertInfo
             log: format!("cert zone gate ({status})"),
         };
     }
-    let resp = static_file::serve(&host.docroot, &request.path).await;
+    let resp = static_file::serve(&host.docroot, &request.path, &config.lang).await;
     let status = resp.header.status() as u8;
     Outcome::Respond {
         header: resp.header,

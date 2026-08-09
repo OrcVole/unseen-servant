@@ -20,13 +20,13 @@ use unseen_servant::render::{gemtext, html};
 /// rendered HTML is served to real browsers.
 const KNOWN_TAGS: &[&str] = &[
     "!doctype", "html", "head", "meta", "title", "body", "h1", "h2", "h3", "p", "a", "ul", "li",
-    "blockquote", "figure", "figcaption", "pre",
+    "blockquote", "figure", "figcaption", "pre", "main",
 ];
 
 fuzz_target!(|data: &[u8]| {
     if let Ok(s) = str::from_utf8(data) {
         let lines = gemtext::parse(s);
-        let doc = html::render_document(&lines, "fuzz");
+        let doc = html::render_document(&lines, "fuzz", "en");
         let mut rest = doc.as_str();
         while let Some(lt) = rest.find('<') {
             let after = &rest[lt + '<'.len_utf8()..];

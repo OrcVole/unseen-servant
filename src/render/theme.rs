@@ -45,6 +45,31 @@ macro_rules! structure {
     () => {
         r#"
 * { box-sizing: border-box; }
+/* Accessibility scaffolding (ADR 0010). The skip link is the first
+   focusable element on every page: invisible until focused, then it
+   appears at the top so a keyboard or voice user can jump straight past
+   anything preceding the content. Focus is always visibly outlined —
+   never removed — since a voice or keyboard user has no pointer to tell
+   them where they are. */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  padding: 0.6rem 1rem;
+  z-index: 10;
+  /* Every bundled theme defines these, and the structural block is
+     concatenated after the palette, so they always resolve. Without an
+     opaque background the focused link would sit unreadably over the
+     content it is meant to skip. */
+  background: var(--bg);
+  color: var(--fg);
+}
+.skip-link:focus {
+  left: 0;
+  outline: 2px solid currentColor;
+}
+:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+main { display: block; }
 body {
   margin: 0 auto;
   max-width: 38rem;

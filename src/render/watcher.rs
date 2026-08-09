@@ -84,16 +84,20 @@ pub async fn watch(
             ) {
                 return;
             }
-            // `render_tree` writes the generated gemsub feed back INTO the
-            // watched content directory (so Gemini serves it directly).
-            // Left unfiltered, that write would trigger the very render
-            // that produced it — an endless loop. An event that touches
-            // only the reserved generated feed is always self-generated,
-            // so drop it. (A real edit arrives as its own separate event.)
+            // `render_tree` writes generated files (the gemsub feed and
+            // the site map) back INTO the watched content directory, so
+            // Gemini can serve them. Left unfiltered, those writes would
+            // trigger the very render that produced them — an endless
+            // loop. An event touching only reserved generated names is
+            // always self-generated, so drop it. (A real edit arrives as
+            // its own separate event.)
             if !event.paths.is_empty()
                 && event.paths.iter().all(|p| {
-                    p.file_name().and_then(|n| n.to_str())
-                        == Some(super::pipeline::GENERATED_FEED_NAME)
+                    matches!(
+                        p.file_name().and_then(|n| n.to_str()),
+                        Some(super::pipeline::GENERATED_FEED_NAME)
+                            | Some(super::pipeline::GENERATED_MAP_NAME)
+                    )
                 })
             {
                 return;

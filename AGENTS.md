@@ -28,10 +28,18 @@ renders, and an unconditional HTTP surface (ADR 0008). Four bundled
 themes (Daybreak/Midnight/Tokyo Night/Paper), a richly-formatted default
 skeleton verified rendering in Lagrange, w3m, and lynx, and robots.txt
 Gemini→web mirroring. The whole render path is wired into the binary and
-verified end to end. 245 tests green. Branding direction is recorded
-(`docs/notes/branding.md`: the dot-mesh servant, concept 1); an
-agent-legibility / accessibility feature idea is captured for a later
-opus-tier design pass (`docs/notes/integration-ideas.md`). Update this
+verified end to end. Branding direction is recorded
+(`docs/notes/branding.md`: the dot-mesh servant, concept 1).
+
+ADR 0010 (agent + assistive access) then landed as a cross-cutting pass:
+one requirement serves screen-reader/voice users and AI agents alike —
+named, addressable affordances. It fixes the `lang` declaration (real
+`<html lang>` and a `text/gemini; lang=` parameter, both from config,
+no hardcoded `en`), emits a full site map on both surfaces (`map.gmi`
+for Gemini, `sitemap.xml` for the web), and adds HTML landmarks (a
+`<main>` wrapper, a skip link as the first focusable element, always-on
+focus outlines). All verified end to end against a running binary.
+255 tests green. Update this
 line when a phase's exit gate passes; the gates are defined in
 `docs/BUILD-PLAN.md`.
 
