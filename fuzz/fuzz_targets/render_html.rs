@@ -20,7 +20,7 @@ use unseen_servant::render::{gemtext, html};
 /// rendered HTML is served to real browsers.
 const KNOWN_TAGS: &[&str] = &[
     "!doctype", "html", "head", "meta", "title", "body", "h1", "h2", "h3", "p", "a", "ul", "li",
-    "blockquote", "figure", "figcaption", "pre", "main",
+    "blockquote", "figure", "figcaption", "pre", "main", "script",
 ];
 
 fuzz_target!(|data: &[u8]| {

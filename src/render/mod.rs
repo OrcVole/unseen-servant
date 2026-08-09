@@ -25,6 +25,8 @@
 pub mod feed;
 pub mod gemtext;
 pub mod html;
+pub mod llms;
+pub mod markdown;
 pub mod metadata;
 pub mod pipeline;
 pub mod robots;

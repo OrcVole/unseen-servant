@@ -34,7 +34,7 @@ use std::path::{Path, PathBuf};
 use std::pin::Pin;
 
 use super::sitemap::PageEntry;
-use super::{gemtext, html, robots, sitemap, skeleton};
+use super::{gemtext, html, llms, markdown, robots, sitemap, skeleton};
 
 /// Everything a render pass needs beyond the two directories: kept as a
 /// struct rather than an ever-lengthening positional argument list, so a
@@ -219,14 +219,26 @@ pub async fn render_tree(
     // feed above — ADR 0004's one-source-both-surfaces guarantee.
     write_atom_feed(content_dir, &staging, ctx).await?;
 
-    // Mirror the capsule's Gemini robots.txt into a web one, if it wrote
-    // any rules at all (see `robots.rs` for why this is a translation
-    // rather than a copy).
-    if let Ok(gemini_robots) = tokio::fs::read_to_string(content_dir.join("robots.txt")).await
-        && let Some(web_robots) = robots::to_web_robots(&gemini_robots)
-    {
-        tokio::fs::write(staging.join("robots.txt"), web_robots).await?;
-        stats.robots_mirrored = true;
+    // Web robots.txt. If the operator wrote a Gemini robots.txt with rules,
+    // translate it (see `robots.rs` for why this is a translation, not a
+    // copy). Otherwise write the permissive-by-doctrine default (ADR 0011):
+    // an explicit open-access posture pointing crawlers at the sitemap,
+    // rather than the silence a missing file would be.
+    let content_robots = tokio::fs::read_to_string(content_dir.join("robots.txt"))
+        .await
+        .ok();
+    match content_robots.as_deref().and_then(robots::to_web_robots) {
+        Some(web_robots) => {
+            tokio::fs::write(staging.join("robots.txt"), web_robots).await?;
+            stats.robots_mirrored = true;
+        }
+        None => {
+            tokio::fs::write(
+                staging.join("robots.txt"),
+                robots::default_web_robots(&ctx.web_base_url),
+            )
+            .await?;
+        }
     }
 
     let _ = tokio::fs::remove_dir_all(&old).await;
@@ -330,8 +342,8 @@ async fn write_site_map(
     let gemtext_map = sitemap::render_gemtext(&listed);
     tokio::fs::write(content_dir.join(GENERATED_MAP_NAME), &gemtext_map).await?;
 
-    // Render the map to HTML now rather than waiting for the next pass,
-    // so both surfaces gain it in the same render.
+    // Render the map to HTML (and Markdown) now rather than waiting for the
+    // next pass, so both surfaces gain it in the same render.
     let lines = gemtext::parse(&gemtext_map);
     let title = gemtext::extract_title(&lines, Path::new(GENERATED_MAP_NAME));
     tokio::fs::write(
@@ -339,10 +351,17 @@ async fn write_site_map(
         html::render_document(&lines, &title, &ctx.lang),
     )
     .await?;
+    tokio::fs::write(staging.join("map.md"), markdown::render(&lines)).await?;
 
     if let Some(xml) = sitemap::render_xml(&listed, &ctx.web_base_url) {
         tokio::fs::write(staging.join("sitemap.xml"), xml).await?;
     }
+
+    // `/llms.txt` (ADR 0011): the same inventory re-serialized into the
+    // llms.txt convention, at the web-root path HTTP agents look for. Web
+    // surface only — the Gemini side already has `map.gmi`.
+    let llms_txt = llms::render(&listed, &ctx.capsule_title, &ctx.web_base_url);
+    tokio::fs::write(staging.join(llms::LLMS_TXT_NAME), llms_txt).await?;
     Ok(())
 }
 
@@ -419,6 +438,12 @@ async fn render_page(
         tokio::fs::create_dir_all(parent).await?;
     }
     tokio::fs::write(&out_path, doc).await?;
+
+    // The Markdown serialization (ADR 0011): `page.md` beside `page.html`,
+    // the clean form the HTTP agent audience prefers over scraping HTML.
+    // Same source, distinct address — an addressable resource, not
+    // user-agent-switched content.
+    tokio::fs::write(out_path.with_extension("md"), markdown::render(&lines)).await?;
     Ok(title)
 }
 
@@ -638,6 +663,71 @@ mod tests {
         );
         assert!(base.join("html/b.html").exists());
 
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    #[tokio::test]
+    async fn packaging_tier_files_land_on_the_web_surface() {
+        // ADR 0011: every page gets a .md sibling; the web root gets
+        // /llms.txt and a permissive robots.txt; the site map is emitted
+        // in .md too. All are re-serializations of the one content tree.
+        let base = tmp_dir("packaging-tier");
+        let content = base.join("content");
+        std::fs::create_dir_all(content.join("blog")).unwrap();
+        std::fs::write(
+            content.join("index.gmi"),
+            "# Home\n\n=> /blog/p Read a post\n",
+        )
+        .unwrap();
+        std::fs::write(content.join("blog/p.gmi"), "# A Post\n\nBody prose.\n").unwrap();
+
+        let ctx = RenderContext {
+            theme_css: "body{}".to_string(),
+            web_base_url: "https://example.org".to_string(),
+            capsule_title: "Example".to_string(),
+            lang: "en".to_string(),
+        };
+        render_tree(&content, &base, &ctx).await.unwrap();
+
+        // Per-page Markdown sibling.
+        let post_md = std::fs::read_to_string(base.join("html/blog/p.md")).unwrap();
+        assert_eq!(post_md, "# A Post\n\nBody prose.\n");
+
+        // /llms.txt from the inventory, with absolute links from the base.
+        let llms = std::fs::read_to_string(base.join("html/llms.txt")).unwrap();
+        assert!(llms.starts_with("# Example\n"));
+        assert!(llms.contains("(https://example.org/index.html)"));
+        assert!(llms.contains("(https://example.org/blog/p.html)"));
+
+        // Permissive-by-doctrine robots.txt (no operator robots present).
+        let robots = std::fs::read_to_string(base.join("html/robots.txt")).unwrap();
+        assert!(robots.contains("Allow: /"));
+        assert!(robots.contains("Sitemap: https://example.org/sitemap.xml"));
+
+        // The site map itself is serialized to Markdown too.
+        assert!(base.join("html/map.md").exists());
+
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    #[tokio::test]
+    async fn an_operator_robots_still_wins_over_the_permissive_default() {
+        // A capsule that disallows a path must get its rule translated,
+        // not the blanket-allow default.
+        let base = tmp_dir("operator-robots");
+        let content = base.join("content");
+        std::fs::create_dir_all(&content).unwrap();
+        std::fs::write(content.join("index.gmi"), "# Home\n").unwrap();
+        std::fs::write(
+            content.join("robots.txt"),
+            "User-agent: indexer\nDisallow: /private\n",
+        )
+        .unwrap();
+        let stats = render_tree(&content, &base, &test_ctx()).await.unwrap();
+        assert!(stats.robots_mirrored, "operator rules were translated");
+        let robots = std::fs::read_to_string(base.join("html/robots.txt")).unwrap();
+        assert!(robots.contains("Disallow: /private"));
+        assert!(!robots.contains("Allow: /"), "not the permissive default");
         let _ = std::fs::remove_dir_all(&base);
     }
 
