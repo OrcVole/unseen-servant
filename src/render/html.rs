@@ -43,7 +43,19 @@ pub fn render_document(lines: &[Line<'_>], title: &str, lang: &str) -> String {
     out.push_str("<link rel=\"stylesheet\" href=\"/style.css\">\n");
     out.push_str("<title>");
     escape_into(&mut out, title);
-    out.push_str("</title>\n</head>\n<body>\n");
+    out.push_str("</title>\n");
+    // Minimal Schema.org (ADR 0011): a WebPage node carrying the title and
+    // language. Cheap, and it makes the HTML mirror first-class for agent
+    // ingestion — the same title/lang the page already declares, in the
+    // structured form crawlers key on. Nothing here is a new source of
+    // truth: both values come straight from the arguments above.
+    out.push_str("<script type=\"application/ld+json\">\n");
+    out.push_str("{\"@context\":\"https://schema.org\",\"@type\":\"WebPage\",\"name\":\"");
+    json_string_into(&mut out, title);
+    out.push_str("\",\"inLanguage\":\"");
+    json_string_into(&mut out, lang);
+    out.push_str("\"}\n</script>\n");
+    out.push_str("</head>\n<body>\n");
     // First focusable element, so a keyboard or voice user's very first
     // action can be "skip to content" rather than tabbing through
     // whatever precedes it. Visually hidden until focused (see theme CSS).
@@ -52,6 +64,32 @@ pub fn render_document(lines: &[Line<'_>], title: &str, lang: &str) -> String {
     render_body(&mut out, lines);
     out.push_str("</main>\n</body>\n</html>\n");
     out
+}
+
+/// Write `s` as the interior of a JSON string (no surrounding quotes),
+/// for the `application/ld+json` block. Beyond the mandatory JSON escapes
+/// (`"`, `\`, control characters), this escapes `<`, `>`, and `&` to their
+/// `\uXXXX` forms so no content can close the enclosing `<script>` element
+/// early — the same breakout concern `escape_into` handles for ordinary
+/// markup, in the syntax a script context requires.
+fn json_string_into(out: &mut String, s: &str) {
+    for c in s.chars() {
+        match c {
+            '"' => out.push_str("\\\""),
+            '\\' => out.push_str("\\\\"),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            // `<`, `>`, `&` are legal in JSON strings but must not reach the
+            // HTML parser raw inside <script>, or `</script` in content
+            // would end the element.
+            '<' => out.push_str("\\u003c"),
+            '>' => out.push_str("\\u003e"),
+            '&' => out.push_str("\\u0026"),
+            c if (c as u32) < 0x20 => out.push_str(&format!("\\u{:04x}", c as u32)),
+            c => out.push(c),
+        }
+    }
 }
 
 /// Render just the body content (no document wrapper) — the pipeline may
@@ -317,6 +355,34 @@ mod tests {
     }
 
     #[test]
+    fn emits_a_schema_org_webpage_node_with_title_and_lang() {
+        // ADR 0011: minimal structured data so the HTML mirror is
+        // first-class for agent ingestion, from the same title/lang the
+        // page already declares.
+        let doc = render_document(&parse("# Hi\n"), "Hi", "fr");
+        assert!(doc.contains("application/ld+json"));
+        assert!(doc.contains("\"@type\":\"WebPage\""));
+        assert!(doc.contains("\"name\":\"Hi\""));
+        assert!(doc.contains("\"inLanguage\":\"fr\""));
+    }
+
+    #[test]
+    fn json_ld_cannot_break_out_of_the_script_element() {
+        // A title containing </script> must be neutralised inside the
+        // JSON-LD block, or content would close the <script> early.
+        let doc = render_document(&[], "</script><img src=x onerror=alert(1)>", "en");
+        // The dangerous literal must not appear inside the ld+json block.
+        let ld_start = doc.find("application/ld+json").expect("ld+json present");
+        let ld_end = doc[ld_start..].find("</script>").expect("script closes") + ld_start;
+        let ld_block = &doc[ld_start..ld_end];
+        assert!(
+            !ld_block.contains("</script>"),
+            "no raw </script> inside the JSON-LD: {ld_block:?}"
+        );
+        assert!(ld_block.contains("\\u003c/script"), "escaped instead");
+    }
+
+    #[test]
     fn empty_document_renders_empty_body() {
         let doc = render_document(&[], "Empty", "en");
         // An empty document still carries the accessibility scaffolding
@@ -351,6 +417,7 @@ mod tests {
             "figcaption",
             "pre",
             "main",
+            "script",
         ];
         let adversarial = [
             "<script>alert(1)</script>",
