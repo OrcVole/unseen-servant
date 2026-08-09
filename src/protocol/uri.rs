@@ -186,7 +186,12 @@ fn split_scheme(s: &str) -> Result<(&str, &str), UriError> {
 }
 
 /// Split an authority (already checked for userinfo) into host and port.
-fn split_host_port(authority: &str) -> Result<(String, Option<u16>), UriError> {
+///
+/// `pub(crate)` because the Titan parser ([`super::titan`]) reuses the
+/// exact same host/port grammar — forking security-critical authority
+/// parsing between the two schemes would be a way to introduce a
+/// divergence an attacker could exploit against one but not the other.
+pub(crate) fn split_host_port(authority: &str) -> Result<(String, Option<u16>), UriError> {
     if authority.is_empty() {
         return Err(UriError::BadHost);
     }
@@ -252,7 +257,8 @@ fn is_pchar_byte(b: u8) -> bool {
 }
 
 /// Validate percent-encoding and character set of a path (`*( "/" pchar )`).
-fn validate_path(path: &str) -> Result<(), UriError> {
+/// `pub(crate)`: shared with the Titan parser ([`super::titan`]).
+pub(crate) fn validate_path(path: &str) -> Result<(), UriError> {
     validate_pct_and(path, |b| is_pchar_byte(b) || b == b'/').map_err(|e| match e {
         UriError::BadPercentEncoding => UriError::BadPercentEncoding,
         _ => UriError::BadPathOrQuery,
@@ -260,7 +266,8 @@ fn validate_path(path: &str) -> Result<(), UriError> {
 }
 
 /// Validate a query (`*( pchar / "/" / "?" )`).
-fn validate_query(query: &str) -> Result<(), UriError> {
+/// `pub(crate)`: shared with the Titan parser ([`super::titan`]).
+pub(crate) fn validate_query(query: &str) -> Result<(), UriError> {
     validate_pct_and(query, |b| is_pchar_byte(b) || b == b'/' || b == b'?').map_err(|e| match e {
         UriError::BadPercentEncoding => UriError::BadPercentEncoding,
         _ => UriError::BadPathOrQuery,

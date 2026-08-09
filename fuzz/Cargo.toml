@@ -63,6 +63,12 @@ name = "render_html"
 path = "fuzz_targets/render_html.rs"
 test = false
 doc = false
+
+[[bin]]
+name = "parse_titan"
+path = "fuzz_targets/parse_titan.rs"
+test = false
+doc = false
 bench = false
 
 [workspace]
