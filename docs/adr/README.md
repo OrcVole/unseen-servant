@@ -16,6 +16,7 @@ Context, Decision, Consequences.
 | [0009](0009-responses.md) | Responses: cert-identified likes + moderated messages, dynamic write / static read | **Proposed** (OQ-8: version + counter-display default) |
 | [0008](0008-deployment-profiles.md) | Cloudron is a deployment profile, not a dependency; standalone first-class | Accepted (director-directed) |
 | [0010](0010-agent-and-assistive-access.md) | Legibility for agents and assistive/voice users is one requirement: named addressable affordances, lang declaration, site map, HTML landmarks; refuses content-negotiation and bespoke manifests | **Proposed** (director-raised) |
+| [0011](0011-agent-identity-and-management.md) | Agent identity lifecycle (cert roster: rotation, capabilities, enrollment tokens — folds into C4); management reach is hybrid (observe remote via cert-gated gemtext, control local via CLI); HTTP agent surface is the packaging tier (/llms.txt, .md URLs, permissive AI posture, Schema.org); refuses A2A/MCP transport, RFC 9421, CA attestation, memory-backend role | **Proposed** (director-decided 2026-08-10) |
 
 \* Accepted pending director review — per the AI Forward principle the
 AI decides and records; the director may overturn any of these, and
