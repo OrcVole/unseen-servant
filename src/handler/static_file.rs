@@ -44,6 +44,18 @@ enum Resolved {
     NotFound,
 }
 
+/// The traversal-safe resolver, exposed for reuse by the HTTP surface
+/// (`http.rs`, C3): the same content tree, the same hostile-path
+/// concerns, so the same five-step defense — never a second
+/// implementation that could drift from this one. Returns `None` for
+/// anything [`serve`] would answer 51 to.
+pub async fn resolve_safe_path(docroot: &Path, request_path: &str) -> Option<PathBuf> {
+    match resolve(docroot, request_path).await {
+        Resolved::File(path) => Some(path),
+        Resolved::NotFound => None,
+    }
+}
+
 /// Serve `request_path` (the raw, percent-encoded wire path, e.g.
 /// `"/notes/%2e%2e/x"`) from `docroot`. Never panics; every failure mode
 /// resolves to a 51 response rather than propagating an error, per the
