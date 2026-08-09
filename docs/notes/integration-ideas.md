@@ -89,6 +89,37 @@ Layered, all self-hosted, no external services ever:
 - **Gemini side**: client-cert identity is the anti-spam; per-
   fingerprint limits + ban list. Likes: dedupe per fingerprint /
   hashed-IP-day; low stakes by design.
+
+### Likes = visiting the like page (director, 2026-08-09)
+
+The like mechanism is a *page you visit*, not a form you submit:
+each post's rendered page carries a link (`=> /like/<post> ♥ Leave a
+like`); visiting it counts the like and the page answers "thank you —
+your like is counted" with the running tally (and, for cert-bearing
+visitors, "you already liked this" on revisit via fingerprint
+dedupe). Post pages show the count as of last render
+(dynamic-write/static-read holds). Guards against accidental
+inflation:
+- Gemini: spec forbids clients from auto-fetching links, and
+  robots.txt disallows /like/ for the indexer/archiver/researcher
+  virtual agents — well-behaved crawlers never touch it.
+- Web: GET-with-side-effect invites prefetchers/crawlers, so the
+  HTML side renders the like link as a minimal one-button POST form
+  (still no JS) + robots disallow + nofollow; dedupe by
+  hashed-IP-day bounds whatever slips through.
+- Likes stay low-stakes: approximate by design, nothing lost if a
+  bot nudges a counter.
+
+Refinements from community-wisdom recon (2026-08-09): the Gemini
+idiom is *cert-identified* likes everywhere (Astrobotany, Station,
+Bubble); nothing in geminispace does anonymous likes, and gemlikes'
+IP-hash identity is remembered as the cautionary tale — so the
+Gemini like page requests a certificate (status 60; one click in any
+client), while the web keeps the hashed-IP-day POST since no cert
+equivalent exists. And the smolnet is explicitly allergic to
+dopamine metrics (bacardi55), so counters are *quiet by default*:
+the tally lives on the like page itself; putting counts on post
+pages is a per-site opt-in.
 - **Refused**: spam APIs, email verification, CAPTCHAs, mandatory-JS
   proof-of-work.
 
