@@ -38,8 +38,9 @@ use crate::config::Config;
 use crate::handler::{Body, ClientCertInfo, cert_zone, redirect, static_file};
 use crate::protocol::request::{FramingError, MAX_REQUEST_BYTES, frame_request_line};
 use crate::protocol::response::{Header, stock};
+use crate::protocol::titan;
 use crate::protocol::uri::validate_uri;
-use crate::protocol::{GEMINI_DEFAULT_PORT, check_authority};
+use crate::protocol::{GEMINI_DEFAULT_PORT, authority_is_ours, check_authority};
 
 /// Everything a connection needs, swapped atomically on SIGHUP reload.
 #[derive(Clone)]
@@ -181,6 +182,7 @@ async fn handle_connection(tcp: TcpStream, peer: SocketAddr, state: Shared) {
                 header,
                 mut body,
                 log,
+                drain_bytes,
             } => {
                 stream.write_all(&header.to_wire()).await?;
                 match &mut body {
@@ -195,6 +197,13 @@ async fn handle_connection(tcp: TcpStream, peer: SocketAddr, state: Shared) {
                 // input status 10/11 lands in queries, treated as
                 // sensitive by default).
                 tracing::info!(%peer, status = header.status() as u8, "{log}");
+                if drain_bytes > 0 {
+                    // Bounded in bytes *and* in time — see the constants.
+                    // A drain that times out is not an error: the client
+                    // simply had nothing more to send.
+                    let _ =
+                        timeout(TITAN_DRAIN_TIMEOUT, drain_bounded(&mut stream, drain_bytes)).await;
+                }
             }
             Outcome::CloseSilently => {}
         }
@@ -216,12 +225,43 @@ enum Outcome {
         header: Header,
         body: Body,
         /// Pre-redacted log message: never contains the query (recon §8 —
-        /// input lands in queries; queries are sensitive by default).
+        /// input lands in queries; queries are sensitive by default), and
+        /// for Titan never the token (recon titan.md §5.2).
         log: String,
+        /// Bytes of unread client payload to absorb *after* writing the
+        /// response and before closing. Always 0 on the Gemini path (a
+        /// Gemini request has no body); non-zero only when refusing a
+        /// Titan upload whose payload may already be in flight. See
+        /// [`drain_bounded`].
+        drain_bytes: u64,
     },
     /// Close with close_notify but no response bytes (bare-LF policy,
     /// unreadable client).
     CloseSilently,
+}
+
+impl Outcome {
+    /// The ordinary case: respond and close, nothing to drain.
+    fn respond(header: Header, body: Body, log: impl Into<String>) -> Outcome {
+        Outcome::Respond {
+            header,
+            body,
+            log: log.into(),
+            drain_bytes: 0,
+        }
+    }
+
+    /// Refuse a Titan upload, absorbing up to `drain_bytes` of in-flight
+    /// payload afterwards so the client can finish writing and still read
+    /// the status (recon titan.md §5.5).
+    fn refuse_upload(header: Header, log: impl Into<String>, drain_bytes: u64) -> Outcome {
+        Outcome::Respond {
+            header,
+            body: Body::None,
+            log: log.into(),
+            drain_bytes,
+        }
+    }
 }
 
 /// Compute the requesting client's certificate identity, if one was
@@ -247,6 +287,60 @@ fn extract_client_cert(
         fingerprint_sha256,
         currently_valid,
     })
+}
+
+/// The most in-flight Titan payload usv will absorb after refusing an
+/// upload: 64 KiB (recon titan.md §5.5). Enough that a small write lands
+/// and the client gets to read the status; bounded so a refused upload can
+/// never be used to make the server read an attacker's whole payload.
+const TITAN_DRAIN_LIMIT: u64 = 64 * 1024;
+
+/// How long usv will wait while draining a refused upload.
+///
+/// The byte cap alone is not enough: a client may *declare* a size and
+/// then send nothing, which would park the connection in the drain until
+/// the response deadline — a slot-holding trick, and exactly the shape of
+/// the slowloris behaviour the request path already guards against. The
+/// drain is a courtesy to a client that is genuinely mid-write, so it gets
+/// a short window and no more; whatever has not arrived by then was never
+/// coming.
+const TITAN_DRAIN_TIMEOUT: Duration = Duration::from_secs(2);
+
+/// How much to absorb when refusing an upload of `declared_size` bytes:
+/// never more than the client said it would send, never more than the cap.
+fn drain_for(declared_size: u64) -> u64 {
+    declared_size.min(TITAN_DRAIN_LIMIT)
+}
+
+/// Absorb and discard up to `limit` bytes of payload a rejected Titan
+/// client may already be streaming.
+///
+/// The problem this solves (recon titan.md §5.5, flagged there as the top
+/// interop risk): Titan lets a server refuse *before* the payload arrives,
+/// but a client that has already begun writing sees the connection close
+/// under it and reports a broken pipe instead of reading our status line.
+/// Reading its bytes into the void lets the write complete, so the client
+/// proceeds to read and reports the real reason it was refused.
+///
+/// Best-effort by design: every error and EOF simply ends the drain. There
+/// is nothing to report — the response has already been written, and this
+/// is politeness toward the peer, not part of the transaction.
+///
+/// Bounded in bytes here and in *time* by the caller
+/// ([`TITAN_DRAIN_TIMEOUT`]); both bounds are required, since a client can
+/// declare a size and then send nothing at all.
+async fn drain_bounded(stream: &mut tokio_rustls::server::TlsStream<TcpStream>, limit: u64) {
+    let mut scratch = [0u8; 8192];
+    let mut remaining = limit;
+    while remaining > 0 {
+        let want = usize::try_from(remaining)
+            .unwrap_or(scratch.len())
+            .min(scratch.len());
+        match stream.read(&mut scratch[..want]).await {
+            Ok(0) | Err(_) => return,
+            Ok(n) => remaining -= n as u64,
+        }
+    }
 }
 
 /// Read until a CRLF is inside the buffer, the [`MAX_REQUEST_BYTES`] budget
@@ -280,32 +374,42 @@ async fn respond(raw: &[u8], state: &Shared, client_cert: Option<&ClientCertInfo
             return Outcome::CloseSilently;
         }
         Err(e) => {
-            return Outcome::Respond {
-                header: stock::bad_request(&e),
-                body: Body::None,
-                log: format!("rejected at framing: {e}"),
-            };
+            return Outcome::respond(
+                stock::bad_request(&e),
+                Body::None,
+                format!("rejected at framing: {e}"),
+            );
         }
     };
+
+    // Same-listener scheme dispatch (ADR 0006; recon titan.md §5.4). Titan
+    // shares the Gemini listener and its TLS — including the client
+    // certificate, already extracted at handshake — and is distinguished
+    // only by scheme. Everything after this point on the Gemini branch is
+    // unchanged from C2/C3.
+    if crate::protocol::is_titan_request(uri) {
+        return respond_titan(uri, state, client_cert);
+    }
+
     let target = match validate_uri(uri) {
         Ok(t) => t,
         Err(e) => {
-            return Outcome::Respond {
-                header: stock::bad_request(&e),
-                body: Body::None,
-                log: format!("rejected at URI validation: {e}"),
-            };
+            return Outcome::respond(
+                stock::bad_request(&e),
+                Body::None,
+                format!("rejected at URI validation: {e}"),
+            );
         }
     };
     let config = &state.config;
     let request = match check_authority(target, |h| config.serves_host(h), config.advertised_port) {
         Ok(r) => r,
         Err(crate::protocol::ForeignAuthority) => {
-            return Outcome::Respond {
-                header: stock::proxy_refused(),
-                body: Body::None,
-                log: "refused non-local authority (53)".to_string(),
-            };
+            return Outcome::respond(
+                stock::proxy_refused(),
+                Body::None,
+                "refused non-local authority (53)",
+            );
         }
     };
 
@@ -313,38 +417,82 @@ async fn respond(raw: &[u8], state: &Shared, client_cert: Option<&ClientCertInfo
     // case-insensitively; find_host is infallible here by construction.
     let Some(host) = config.find_host(&request.host) else {
         // Unreachable given check_authority's own logic; fail closed.
-        return Outcome::Respond {
-            header: stock::unavailable(),
-            body: Body::None,
-            log: "internal: authority check passed but host lookup failed".to_string(),
-        };
+        return Outcome::respond(
+            stock::unavailable(),
+            Body::None,
+            "internal: authority check passed but host lookup failed",
+        );
     };
 
     // Dispatch order (C2, this module's docs): redirects, then cert zones,
     // then static file serving.
     if let Some(resp) = redirect::try_match(&host.redirects, &request.path) {
         let log = format!("{} → redirect", request.path.len());
-        return Outcome::Respond {
-            header: resp.header,
-            body: resp.body,
-            log,
-        };
+        return Outcome::respond(resp.header, resp.body, log);
     }
     if let Some(resp) = cert_zone::check(&host.cert_zones, &request.path, client_cert) {
         let status = resp.header.status() as u8;
-        return Outcome::Respond {
-            header: resp.header,
-            body: resp.body,
-            log: format!("cert zone gate ({status})"),
-        };
+        return Outcome::respond(resp.header, resp.body, format!("cert zone gate ({status})"));
     }
     let resp = static_file::serve(&host.docroot, &request.path, &config.lang).await;
     let status = resp.header.status() as u8;
-    Outcome::Respond {
-        header: resp.header,
-        body: resp.body,
-        log: format!("{} for {} ({status})", request.host, request.path),
+    Outcome::respond(
+        resp.header,
+        resp.body,
+        format!("{} for {} ({status})", request.host, request.path),
+    )
+}
+
+/// The Titan branch of layer 2/3: parse the upload request line, check the
+/// authority, and decide. No payload is read here — every path below
+/// refuses *before* the body, which is the whole point of doing the auth
+/// and size decisions at the request line (recon titan.md §5.4).
+///
+/// Writable zones, the certificate gate, and size caps arrive with the
+/// `[titan]` configuration section; until a zone exists there is nothing an
+/// upload could legitimately land in, so the honest answer is a flat
+/// refusal. Each refusal drains a bounded amount of in-flight payload so
+/// the client actually sees it (recon §5.5).
+///
+/// Never logs the token: it is a shared secret riding in a URL (recon
+/// §5.2), and it must not reach the log the way a query never does.
+fn respond_titan(uri: &[u8], state: &Shared, _client_cert: Option<&ClientCertInfo>) -> Outcome {
+    let request = match titan::parse(uri) {
+        Ok(r) => r,
+        Err(e) => {
+            // The declared size is unknown (that is what failed to parse),
+            // so drain the standard bound rather than nothing: a client
+            // that already began streaming still gets to read the 59.
+            return Outcome::refuse_upload(
+                stock::bad_request(&e),
+                format!("titan rejected at parse: {e}"),
+                TITAN_DRAIN_LIMIT,
+            );
+        }
+    };
+
+    let config = &state.config;
+    if !authority_is_ours(
+        &request.host,
+        request.port,
+        |h| config.serves_host(h),
+        config.advertised_port,
+    ) {
+        return Outcome::refuse_upload(
+            stock::proxy_refused(),
+            "titan refused non-local authority (53)",
+            drain_for(request.size),
+        );
     }
+
+    Outcome::refuse_upload(
+        stock::uploads_not_accepted(),
+        format!(
+            "titan upload refused, no writable zone: {} bytes declared for {} (50)",
+            request.size, request.path
+        ),
+        drain_for(request.size),
+    )
 }
 
 /// Advertised-port sanity warning at startup: a Gemini capsule off :1965 is

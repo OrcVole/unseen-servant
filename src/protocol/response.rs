@@ -188,6 +188,23 @@ pub mod stock {
     pub fn unavailable() -> Header {
         built(Status::ServerUnavailable, "server unavailable")
     }
+
+    /// 50 — a well-formed Titan upload arrived, but this capsule accepts
+    /// no uploads at all (no writable zone is configured).
+    ///
+    /// 50 rather than the C1 stub's 53: 53 means "that authority is not
+    /// mine", which was the honest answer while `titan://` was merely a
+    /// foreign scheme. Now that usv recognises Titan, the authority *is*
+    /// ours and the refusal is a policy one — permanent, and not worth the
+    /// client retrying identically. The META deliberately does not say
+    /// which paths might be writable elsewhere (recon titan.md §5.1: fail
+    /// closed, disclose nothing).
+    pub fn uploads_not_accepted() -> Header {
+        built(
+            Status::PermanentFailure,
+            "this capsule does not accept uploads",
+        )
+    }
 }
 
 #[cfg(test)]
