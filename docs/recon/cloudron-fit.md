@@ -98,6 +98,43 @@ Verified against the cheat-sheet, manifest docs, and house skill:
 
 What we learn: (a) the tcpPorts-1965 + httpPort dual-surface shape is validated and staff-endorsed; (b) the single-binary design removes their biggest review friction (process management); (c) the store slot for a polished Gemini server is still open — usv can be first **in the store** if we follow the staff review checklist above; (d) study Agate+'s repo before writing start.sh.
 
+### 7.1 Agate+ addendum (deeper read of topic 14082, 2026-08-09)
+
+Directly relevant detail on how Tim Considine's Agate+ implements the
+dual surface, and where usv deliberately differs:
+
+- **Conversion is live, per-request**: "I wrote my own node script to
+  read the .gmi file … so the html view is generated on the fly in
+  the app and served to a browser." Components: Agate (Gemini) + a
+  Node HTTP server + supervisord to keep both alive. usv's write-time
+  static render (ADR 0004) is the deliberate opposite: no request-
+  time conversion surface, trivially cacheable, and the output tree
+  is portable (OnionShare, mirrors).
+- **The process count is the pain**: Cloudron staff conditioned
+  publication on supervisord integration, and the thread's latest
+  posts (July) show persistent health-check failures leaving the app
+  stuck "Starting…". Validates two usv hard constraints: single
+  binary (no supervisor), and the HTTP listener + healthCheckPath
+  returning 2xx unconditionally, before and independent of
+  everything else.
+- **Certificates**: wildcard self-signed minted internally, chosen
+  on the (now-outdated) belief that LE certs are unreachable from the
+  container; multi-instance served by making the port-1965 install a
+  reverse proxy to sibling installs on high ports — "a little bit
+  creative". usv: per-hostname certs + SNI vhosting inside one
+  instance (ADR 0003/0008), no proxy tier. (Note: the thread blames
+  missing SNI on Gemini *clients*; per the spec recon that's
+  inaccurate — clients MUST send SNI. The real gap is Cloudron's TCP
+  layer routing by port only.)
+- **`/admin` editor** (basic content UI with credentials in `.env`)
+  — usv refuses an authenticated web-admin surface (panel file
+  manager now, Titan-with-certs later), which also removes the
+  default-credentials class of review findings.
+- For COMPARISON.md and launch: Agate+ remains community-only with
+  unresolved production issues as of its July thread activity; Tim
+  Considine is the person on the Cloudron forum most invested in this
+  exact niche — engage the thread respectfully at announcement time.
+
 ## Hard constraints for the architecture
 
 - [ ] usv terminates its own TLS on the Gemini port; Cloudron provides no TLS termination or proxying for tcpPorts.
