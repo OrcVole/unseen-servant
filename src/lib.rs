@@ -16,17 +16,24 @@
 //!
 //! # Build-phase state
 //!
-//! Phase C0 (scaffold): only [`protocol`] exists, and only its framing layer.
-//! The module map below is the intended shape; modules appear as their phase
-//! arrives (docs/BUILD-PLAN.md):
+//! Phase C1 (wire core): protocol, config, identity, TLS, and the listener
+//! exist; requests are served by a built-in hello handler. The module map
+//! below is the intended shape; modules appear as their phase arrives
+//! (docs/BUILD-PLAN.md):
 //!
 //! | Module | Phase | Owns |
 //! |---|---|---|
-//! | [`protocol`] | C1 | wire framing, URI validation, response emission |
-//! | `config` | C1 | the single TOML file (ADR 0007) |
-//! | `identity` | C1 | keys and certificates (ADR 0003) — sole holder of key material |
+//! | [`protocol`] | C1 | wire framing, URI validation, authority check, response emission |
+//! | [`config`] | C1 | the single TOML file (ADR 0007) |
+//! | [`identity`] | C1 | keys and certificates (ADR 0003) — sole holder of key material |
+//! | [`tls`] | C1 | rustls server policy: versions, SNI, client-cert capture, no tickets |
+//! | [`server`] | C1 | listener, per-connection lifecycle, timeouts, drain |
 //! | `handler` | C2 | the request → response trait and its implementations (ADR 0005) |
 //! | `render` | C3 | gemtext → HTML/Atom/feeds pipeline (ADR 0004) |
 //! | `titan` | C4 | uploads (ADR 0006) |
 
+pub mod config;
+pub mod identity;
 pub mod protocol;
+pub mod server;
+pub mod tls;
