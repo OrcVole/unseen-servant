@@ -5,7 +5,8 @@
 #
 # The brief's rule: ALL parsing is fuzzed. Targets are added in the same phase
 # as the parser they attack (BUILD-PLAN): frame_request_line (C0), URI
-# validation (C1), gemtext (C3), titan parameters (C4).
+# validation + config (C1), static-file path sanitization (C2), gemtext (C3),
+# titan parameters (C4).
 
 [package]
 name = "unseen-servant-fuzz"
@@ -39,6 +40,13 @@ bench = false
 [[bin]]
 name = "config_parse"
 path = "fuzz_targets/config_parse.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "static_path_sanitize"
+path = "fuzz_targets/static_path_sanitize.rs"
 test = false
 doc = false
 bench = false

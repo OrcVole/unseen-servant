@@ -11,8 +11,9 @@
 //! 3. **Read request line** — at most [`MAX_REQUEST_BYTES`] bytes; framing
 //!    (layer 1) then URI validation (layer 2) then the authority check
 //!    (layer 3).
-//! 4. **Respond** — via the C1 hello handler (the real handler trait
-//!    arrives in C2), or the mapped rejection status.
+//! 4. **Respond** — dispatch order per matched host (C2): redirects, then
+//!    certificate zones, then static file serving; or the mapped
+//!    rejection status from an earlier layer.
 //! 5. **close_notify, always** — every path that completed the handshake
 //!    ends with a TLS shutdown; TOFU clients treat its absence as
 //!    truncation (diagnostics check 6, the one twins fails).
@@ -26,6 +27,7 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
 
+use sha2::{Digest, Sha256};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{Semaphore, watch};
@@ -33,8 +35,9 @@ use tokio::time::{Duration, timeout};
 use tokio_rustls::TlsAcceptor;
 
 use crate::config::Config;
+use crate::handler::{Body, ClientCertInfo, cert_zone, redirect, static_file};
 use crate::protocol::request::{FramingError, MAX_REQUEST_BYTES, frame_request_line};
-use crate::protocol::response::{Header, Status, stock};
+use crate::protocol::response::{Header, stock};
 use crate::protocol::uri::validate_uri;
 use crate::protocol::{GEMINI_DEFAULT_PORT, check_authority};
 
@@ -158,8 +161,10 @@ async fn handle_connection(tcp: TcpStream, peer: SocketAddr, state: Shared) {
         }
     };
 
+    let client_cert = extract_client_cert(&stream);
+
     let outcome = match timeout(request_deadline, read_request(&mut stream)).await {
-        Ok(Ok(buf)) => respond(&buf, &state),
+        Ok(Ok(buf)) => respond(&buf, &state, client_cert.as_ref()).await,
         Ok(Err(e)) => {
             tracing::debug!(%peer, error = %e, "request read failed");
             Outcome::CloseSilently
@@ -171,12 +176,24 @@ async fn handle_connection(tcp: TcpStream, peer: SocketAddr, state: Shared) {
     };
 
     let write_fut = async {
-        match &outcome {
-            Outcome::Respond { header, body, log } => {
+        match outcome {
+            Outcome::Respond {
+                header,
+                mut body,
+                log,
+            } => {
                 stream.write_all(&header.to_wire()).await?;
-                if let Some(body) = body {
-                    stream.write_all(body).await?;
+                match &mut body {
+                    Body::None => {}
+                    Body::Bytes(b) => stream.write_all(b).await?,
+                    Body::File(f) => {
+                        tokio::io::copy(f, &mut stream).await?;
+                    }
                 }
+                // Single-line, query-redacted by construction: `log` is
+                // built from the path only, never the query (recon §8 —
+                // input status 10/11 lands in queries, treated as
+                // sensitive by default).
                 tracing::info!(%peer, status = header.status() as u8, "{log}");
             }
             Outcome::CloseSilently => {}
@@ -197,7 +214,7 @@ enum Outcome {
     /// Write this header (and body), log the given line, close_notify.
     Respond {
         header: Header,
-        body: Option<Vec<u8>>,
+        body: Body,
         /// Pre-redacted log message: never contains the query (recon §8 —
         /// input lands in queries; queries are sensitive by default).
         log: String,
@@ -205,6 +222,31 @@ enum Outcome {
     /// Close with close_notify but no response bytes (bare-LF policy,
     /// unreadable client).
     CloseSilently,
+}
+
+/// Compute the requesting client's certificate identity, if one was
+/// presented. Fingerprint is SHA-256 of the leaf certificate's DER bytes
+/// (the identity Molly Brown's model and Gemini client-cert culture both
+/// key on); validity comes from the certificate's own notBefore/notAfter,
+/// independent of any CA chain (TLS layer already accepted the cert
+/// unconditionally — see `tls.rs` — so this is the *only* place validity
+/// is judged, and it maps directly to status 62).
+fn extract_client_cert(
+    stream: &tokio_rustls::server::TlsStream<TcpStream>,
+) -> Option<ClientCertInfo> {
+    let chain = stream.get_ref().1.peer_certificates()?;
+    let leaf = chain.first()?;
+    let fingerprint_sha256 = Sha256::digest(leaf.as_ref())
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect();
+    let currently_valid = x509_parser::parse_x509_certificate(leaf.as_ref())
+        .map(|(_, cert)| cert.validity().is_valid())
+        .unwrap_or(false); // unparseable certificate: never valid, maps to 62
+    Some(ClientCertInfo {
+        fingerprint_sha256,
+        currently_valid,
+    })
 }
 
 /// Read until a CRLF is inside the buffer, the [`MAX_REQUEST_BYTES`] budget
@@ -229,8 +271,8 @@ async fn read_request(
     Ok(buf)
 }
 
-/// Layers 1–3 plus the C1 hello handler, mapped to a wire outcome.
-fn respond(raw: &[u8], state: &Shared) -> Outcome {
+/// Layers 1–3 plus C2 host dispatch, mapped to a wire outcome.
+async fn respond(raw: &[u8], state: &Shared, client_cert: Option<&ClientCertInfo>) -> Outcome {
     let uri = match frame_request_line(raw) {
         Ok(uri) => uri,
         Err(FramingError::BareLf) => {
@@ -240,7 +282,7 @@ fn respond(raw: &[u8], state: &Shared) -> Outcome {
         Err(e) => {
             return Outcome::Respond {
                 header: stock::bad_request(&e),
-                body: None,
+                body: Body::None,
                 log: format!("rejected at framing: {e}"),
             };
         }
@@ -250,7 +292,7 @@ fn respond(raw: &[u8], state: &Shared) -> Outcome {
         Err(e) => {
             return Outcome::Respond {
                 header: stock::bad_request(&e),
-                body: None,
+                body: Body::None,
                 log: format!("rejected at URI validation: {e}"),
             };
         }
@@ -261,44 +303,47 @@ fn respond(raw: &[u8], state: &Shared) -> Outcome {
         Err(crate::protocol::ForeignAuthority) => {
             return Outcome::Respond {
                 header: stock::proxy_refused(),
-                body: None,
+                body: Body::None,
                 log: "refused non-local authority (53)".to_string(),
             };
         }
     };
 
-    // ---- C1 hello handler. Replaced by the Handler trait in C2. ----
-    // Empty path and "/" are the same resource, served without redirecting
-    // (spec MUST; diagnostics HomepageNoRedirect).
-    if request.path.is_empty() || request.path == "/" {
-        let body = format!(
-            "# Unseen Servant\n\nThis capsule is served by usv {} (phase C1: wire core).\n\
-             Content arrives in phase C2.\n",
-            env!("CARGO_PKG_VERSION")
-        );
-        match Header::new(Status::Success, Some("text/gemini; charset=utf-8")) {
-            Ok(header) => Outcome::Respond {
-                header,
-                body: Some(body.into_bytes()),
-                log: format!("served hello page for {}", request.host),
-            },
-            Err(e) => {
-                // Unreachable by construction; if it ever happens, fail
-                // closed rather than panic.
-                tracing::error!(error = %e, "hello header construction failed");
-                Outcome::Respond {
-                    header: stock::unavailable(),
-                    body: None,
-                    log: "internal header error (41)".to_string(),
-                }
-            }
-        }
-    } else {
-        Outcome::Respond {
-            header: stock::not_found(),
-            body: None,
-            log: format!("51 for path ({} bytes)", request.path.len()),
-        }
+    // check_authority proved `request.host` matches a configured host
+    // case-insensitively; find_host is infallible here by construction.
+    let Some(host) = config.find_host(&request.host) else {
+        // Unreachable given check_authority's own logic; fail closed.
+        return Outcome::Respond {
+            header: stock::unavailable(),
+            body: Body::None,
+            log: "internal: authority check passed but host lookup failed".to_string(),
+        };
+    };
+
+    // Dispatch order (C2, this module's docs): redirects, then cert zones,
+    // then static file serving.
+    if let Some(resp) = redirect::try_match(&host.redirects, &request.path) {
+        let log = format!("{} → redirect", request.path.len());
+        return Outcome::Respond {
+            header: resp.header,
+            body: resp.body,
+            log,
+        };
+    }
+    if let Some(resp) = cert_zone::check(&host.cert_zones, &request.path, client_cert) {
+        let status = resp.header.status() as u8;
+        return Outcome::Respond {
+            header: resp.header,
+            body: resp.body,
+            log: format!("cert zone gate ({status})"),
+        };
+    }
+    let resp = static_file::serve(&host.docroot, &request.path).await;
+    let status = resp.header.status() as u8;
+    Outcome::Respond {
+        header: resp.header,
+        body: resp.body,
+        log: format!("{} for {} ({status})", request.host, request.path),
     }
 }
 
