@@ -27,23 +27,82 @@
 //!   not yet invoked from this pipeline — an index page's dated links
 //!   don't yet produce an `atom.xml` or updated gemsub block as a side
 //!   effect of rendering. Follow-up, not forgotten.
-//! - The fs-event watcher that would call this on content changes
-//!   (`watcher.rs`, BUILD-PLAN's "debounce" requirement) does not exist
-//!   yet; `render_tree` is currently invoked only by whatever the caller
-//!   chooses (tests, or a future manual `usv render --force`).
 
 use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
 
-use super::{gemtext, html};
+use super::{gemtext, html, robots, skeleton};
 
 /// What one `render_tree` run did, for logging/testing.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct RenderStats {
     /// Number of `.gmi` files rendered to HTML.
     pub pages_rendered: usize,
+    /// Whether a web `robots.txt` was mirrored from the content tree's
+    /// own Gemini robots.txt this run.
+    pub robots_mirrored: bool,
 }
+
+/// Write the first-run content skeleton into `content_dir` if — and only
+/// if — the directory holds no `.gmi` file at all. A capsule with any
+/// authored content is never touched, so this can be called on every
+/// startup without ever overwriting an operator's work (the "never
+/// silently regenerate" discipline ADR 0003 applies to keys, applied
+/// here to content).
+///
+/// Returns `true` if a skeleton was written.
+pub async fn seed_skeleton_if_empty(content_dir: &Path, mood: &str) -> std::io::Result<bool> {
+    if has_any_gemtext(content_dir).await? {
+        return Ok(false);
+    }
+    tokio::fs::create_dir_all(content_dir).await?;
+    tokio::fs::write(content_dir.join("index.gmi"), mood).await?;
+    tracing::info!(
+        dir = %content_dir.display(),
+        "no content found; wrote the first-run skeleton page (edit or replace it freely — \
+         it is only ever written when the content directory has no gemtext at all)"
+    );
+    Ok(true)
+}
+
+/// Whether `dir` (or any subdirectory) contains at least one `.gmi` file.
+/// A missing directory counts as empty, not an error — a fresh capsule
+/// hasn't created it yet.
+async fn has_any_gemtext(dir: &Path) -> std::io::Result<bool> {
+    if tokio::fs::metadata(dir).await.is_err() {
+        return Ok(false);
+    }
+    let mut found = false;
+    find_gemtext(dir, &mut found).await?;
+    Ok(found)
+}
+
+fn find_gemtext<'a>(
+    dir: &'a Path,
+    found: &'a mut bool,
+) -> Pin<Box<dyn Future<Output = std::io::Result<()>> + Send + 'a>> {
+    Box::pin(async move {
+        let mut entries = tokio::fs::read_dir(dir).await?;
+        while let Some(entry) = entries.next_entry().await? {
+            if *found {
+                return Ok(());
+            }
+            let path = entry.path();
+            let file_type = entry.file_type().await?;
+            if file_type.is_dir() {
+                find_gemtext(&path, found).await?;
+            } else if file_type.is_file() && is_gemtext(&path) {
+                *found = true;
+                return Ok(());
+            }
+        }
+        Ok(())
+    })
+}
+
+/// The default skeleton mood written on first run.
+pub const DEFAULT_SKELETON: &str = skeleton::QUIET;
 
 /// Render every `.gmi` file under `content_dir` into `${state_dir}/html`,
 /// via the atomic-ish staging swap described in the module docs. Creates
@@ -52,7 +111,11 @@ pub struct RenderStats {
 /// full) — a `content_dir` that doesn't exist yet renders an empty tree
 /// rather than erroring, since a fresh capsule with no content authored
 /// yet is a normal state, not a fault.
-pub async fn render_tree(content_dir: &Path, state_dir: &Path) -> std::io::Result<RenderStats> {
+pub async fn render_tree(
+    content_dir: &Path,
+    state_dir: &Path,
+    theme_css: &str,
+) -> std::io::Result<RenderStats> {
     let staging = state_dir.join("html.tmp");
     let live = state_dir.join("html");
     let old = state_dir.join("html.old");
@@ -65,6 +128,22 @@ pub async fn render_tree(content_dir: &Path, state_dir: &Path) -> std::io::Resul
     let mut stats = RenderStats::default();
     if tokio::fs::metadata(content_dir).await.is_ok() {
         render_dir(content_dir, content_dir, &staging, &mut stats).await?;
+    }
+
+    // The bundled stylesheet every rendered page links to. Written into
+    // the tree rather than served from memory so the output directory is
+    // a complete, portable static site — the same property `usv export`
+    // (C5) and the OnionShare recipe depend on.
+    tokio::fs::write(staging.join("style.css"), theme_css).await?;
+
+    // Mirror the capsule's Gemini robots.txt into a web one, if it wrote
+    // any rules at all (see `robots.rs` for why this is a translation
+    // rather than a copy).
+    if let Ok(gemini_robots) = tokio::fs::read_to_string(content_dir.join("robots.txt")).await
+        && let Some(web_robots) = robots::to_web_robots(&gemini_robots)
+    {
+        tokio::fs::write(staging.join("robots.txt"), web_robots).await?;
+        stats.robots_mirrored = true;
     }
 
     let _ = tokio::fs::remove_dir_all(&old).await;
@@ -138,6 +217,10 @@ fn html_output_path(staging_root: &Path, relative: &Path) -> PathBuf {
 mod tests {
     use super::*;
 
+    /// A stand-in stylesheet: these tests exercise the tree walk and the
+    /// swap, not the theme system (that has its own tests).
+    const TEST_CSS: &str = "body { color: black; }";
+
     fn tmp_dir(name: &str) -> PathBuf {
         let dir =
             std::env::temp_dir().join(format!("usv-pipeline-test-{name}-{}", std::process::id()));
@@ -167,7 +250,7 @@ mod tests {
         std::fs::write(content.join("blog/post.gmi"), "# A Post\n").unwrap();
         std::fs::write(content.join("blog/notes.txt"), "not gemtext").unwrap();
 
-        let stats = render_tree(&content, &base).await.unwrap();
+        let stats = render_tree(&content, &base, TEST_CSS).await.unwrap();
         assert_eq!(stats.pages_rendered, 2);
 
         let index_html = std::fs::read_to_string(base.join("html/index.html")).unwrap();
@@ -186,7 +269,7 @@ mod tests {
     async fn missing_content_dir_renders_empty_tree_not_an_error() {
         let base = tmp_dir("missing-content");
         let content = base.join("does-not-exist");
-        let stats = render_tree(&content, &base).await.unwrap();
+        let stats = render_tree(&content, &base, TEST_CSS).await.unwrap();
         assert_eq!(stats.pages_rendered, 0);
         assert!(base.join("html").is_dir());
         let _ = std::fs::remove_dir_all(&base);
@@ -198,7 +281,7 @@ mod tests {
         let content = base.join("content");
         std::fs::create_dir_all(&content).unwrap();
         std::fs::write(content.join("a.gmi"), "# First\n").unwrap();
-        render_tree(&content, &base).await.unwrap();
+        render_tree(&content, &base, TEST_CSS).await.unwrap();
         assert!(
             std::fs::read_to_string(base.join("html/a.html"))
                 .unwrap()
@@ -209,7 +292,7 @@ mod tests {
         // must not leave a.html behind from the stale run.
         std::fs::remove_file(content.join("a.gmi")).unwrap();
         std::fs::write(content.join("b.gmi"), "# Second\n").unwrap();
-        let stats = render_tree(&content, &base).await.unwrap();
+        let stats = render_tree(&content, &base, TEST_CSS).await.unwrap();
         assert_eq!(stats.pages_rendered, 1);
         assert!(
             !base.join("html/a.html").exists(),
@@ -226,7 +309,7 @@ mod tests {
         let content = base.join("content");
         std::fs::create_dir_all(content.join("a/b/c")).unwrap();
         std::fs::write(content.join("a/b/c/deep.gmi"), "# Deep\n").unwrap();
-        let stats = render_tree(&content, &base).await.unwrap();
+        let stats = render_tree(&content, &base, TEST_CSS).await.unwrap();
         assert_eq!(stats.pages_rendered, 1);
         assert!(base.join("html/a/b/c/deep.html").exists());
         let _ = std::fs::remove_dir_all(&base);
@@ -245,7 +328,7 @@ mod tests {
         std::fs::create_dir_all(&leftover_staging).unwrap();
         std::fs::write(leftover_staging.join("ghost.html"), "should never appear").unwrap();
 
-        render_tree(&content, &base).await.unwrap();
+        render_tree(&content, &base, TEST_CSS).await.unwrap();
         assert!(base.join("html/real.html").exists());
         assert!(
             !base.join("html/ghost.html").exists(),
