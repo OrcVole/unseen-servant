@@ -23,4 +23,5 @@
 //! lands rather than blocking on all of them up front.
 
 pub mod gemtext;
+pub mod html;
 pub mod metadata;
