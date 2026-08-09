@@ -1,0 +1,9 @@
+# Pinned per the brief's explicit-pinning principle. This is the toolchain the
+# scaffold was built and proven with (build workstation, 2026-08-09). Bump
+# deliberately in a maintenance round (docs/ROADMAP.md maintenance statement),
+# never as a side effect. If the machine's rust is not rustup-managed this file
+# is inert and the system toolchain applies — AGENTS.md records the expectation
+# that the two stay in step.
+[toolchain]
+channel = "1.93.1"
+components = ["rustfmt", "clippy"]

@@ -1,0 +1,64 @@
+# .forgejo/workflows/pr-checks.yml — Rust gates for the unseen-servant PRODUCT repo.
+#
+# Modelled on estate/templates/forgejo-pr-checks.yml (the packaging-repo gate file) but this
+# repository is a product, not a package: at C0 there is no image to build, no secret-scan
+# surface beyond generic shapes, and no smoke.sh. The packaging gates arrive with the
+# packaging artifacts at phase C6 (docs/BUILD-PLAN.md); do not graft them on earlier — a gate
+# with nothing real to prove is decoration.
+#
+# RUNNER FACTS (inherited from the estate template, verified 2026-08-08 there):
+#   * label `workstation`, HOST mode — steps run directly on the build workstation, not in a
+#     job container. The workspace is a real directory; assume nothing about cleanliness
+#     beyond your own checkout.
+#   * The job inherits the runner unit's minimal PATH. cargo lives in ~/.cargo/bin on that
+#     machine, which is NOT guaranteed to be on that PATH — hence the explicit export below.
+#   * rust-toolchain.toml pins 1.93.1; under rustup this is honoured automatically. If the
+#     runner's rust is not rustup-managed the system toolchain applies — the `toolchain facts`
+#     step prints what actually ran, so a drifted gate is at least a *visible* drifted gate.
+#
+# Triggers include push-to-main because the project currently works by direct push (solo
+# AI-authored, director-reviewed); when the Update-as-PR culture arrives here, the push
+# trigger can go.
+
+name: PR checks
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  rust-gates:
+    runs-on: workstation
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: toolchain facts
+        run: |
+          export PATH="$HOME/.cargo/bin:$PATH"
+          rustc --version
+          cargo --version
+
+      # Order: cheapest first, except that nothing here is expensive yet. fmt is a pure
+      # style gate; clippy runs with warnings-as-errors (the Cargo.toml lints tables carry
+      # the always-on lints); tests include the binary smoke tests via CARGO_BIN_EXE.
+      - name: fmt
+        run: |
+          export PATH="$HOME/.cargo/bin:$PATH"
+          cargo fmt --check
+
+      - name: clippy (warnings are errors)
+        run: |
+          export PATH="$HOME/.cargo/bin:$PATH"
+          cargo clippy --all-targets -- -D warnings
+
+      - name: test
+        run: |
+          export PATH="$HOME/.cargo/bin:$PATH"
+          cargo test
+
+      # cargo-deny becomes load-bearing at C1 with the first dependency; cargo-fuzz runs are
+      # scheduled work (nightly toolchain), not per-PR work. Both are deliberate absences at
+      # C0, recorded here so their later arrival is a plan fulfilled rather than scope creep:
+      #   - name: deny    → `cargo deny check` (C1)
+      #   - name: fuzz    → bounded `cargo +nightly fuzz run` smoke (scheduled, C1+)

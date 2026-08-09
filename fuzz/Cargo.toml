@@ -1,0 +1,33 @@
+# Fuzz harness — its own workspace so `cargo build/test` in the parent stays
+# stable-toolchain and dependency-free; fuzzing runs on nightly via cargo-fuzz:
+#
+#   cargo +nightly fuzz run frame_request_line
+#
+# The brief's rule: ALL parsing is fuzzed. Targets are added in the same phase
+# as the parser they attack (BUILD-PLAN): frame_request_line (C0), URI
+# validation (C1), gemtext (C3), titan parameters (C4).
+
+[package]
+name = "unseen-servant-fuzz"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+[dependencies.unseen-servant]
+path = ".."
+
+[[bin]]
+name = "frame_request_line"
+path = "fuzz_targets/frame_request_line.rs"
+test = false
+doc = false
+bench = false
+
+[workspace]
+members = ["."]
