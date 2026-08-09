@@ -20,6 +20,7 @@
 //! blank lines" rule means a paragraph-merging heuristic would be
 //! actively wrong here.
 
+use super::escape_into;
 use super::gemtext::Line;
 
 /// Render a complete HTML document from a parsed gemtext body and its
@@ -113,22 +114,6 @@ pub fn render_body(out: &mut String, lines: &[Line<'_>]) {
                 out.push_str("</pre>\n</figure>\n");
                 i += 1;
             }
-        }
-    }
-}
-
-/// Escape `&`, `<`, `>`, and `"` — sufficient and necessary for both text
-/// nodes and (double-quoted) attribute values, which is every context
-/// this module ever writes into. Single quotes are left alone since
-/// nothing here ever uses single-quoted attributes.
-fn escape_into(out: &mut String, s: &str) {
-    for c in s.chars() {
-        match c {
-            '&' => out.push_str("&amp;"),
-            '<' => out.push_str("&lt;"),
-            '>' => out.push_str("&gt;"),
-            '"' => out.push_str("&quot;"),
-            _ => out.push(c),
         }
     }
 }

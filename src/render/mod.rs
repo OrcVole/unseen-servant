@@ -22,6 +22,25 @@
 //! resolved with a documented, reasonable default at the point its code
 //! lands rather than blocking on all of them up front.
 
+pub mod feed;
 pub mod gemtext;
 pub mod html;
 pub mod metadata;
+
+/// Escape `&`, `<`, `>`, and `"` — sufficient and necessary for XML/HTML
+/// text nodes and (double-quoted) attribute values, the only contexts
+/// [`html`] and [`feed::atom`] ever write into. Shared here rather than
+/// duplicated: the escaping rule is identical in both formats, and having
+/// one implementation means a fix or an added-case only ever needs to
+/// land once.
+pub(crate) fn escape_into(out: &mut String, s: &str) {
+    for c in s.chars() {
+        match c {
+            '&' => out.push_str("&amp;"),
+            '<' => out.push_str("&lt;"),
+            '>' => out.push_str("&gt;"),
+            '"' => out.push_str("&quot;"),
+            _ => out.push(c),
+        }
+    }
+}
