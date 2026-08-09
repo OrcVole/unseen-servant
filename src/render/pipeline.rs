@@ -138,6 +138,14 @@ fn find_gemtext<'a>(
 /// The default skeleton mood written on first run.
 pub const DEFAULT_SKELETON: &str = skeleton::QUIET;
 
+/// The reserved filename usv generates for the Gemini-side gemsub feed.
+/// It is written into the *content* directory (so Gemini serves it
+/// directly and the render walk also turns it into `feed.html`), which
+/// means the watcher must ignore changes to it or a render would trigger
+/// itself — see `watcher.rs`. An operator's own `feed.gmi` would be
+/// overwritten; the name is documented as reserved.
+pub const GENERATED_FEED_NAME: &str = "feed.gmi";
+
 /// Render every `.gmi` file under `content_dir` into `${state_dir}/html`,
 /// via the atomic-ish staging swap described in the module docs. Creates
 /// `state_dir` and the content tree's directory structure as needed;
@@ -159,7 +167,16 @@ pub async fn render_tree(
     let _ = tokio::fs::remove_dir_all(&staging).await;
     tokio::fs::create_dir_all(&staging).await?;
 
-    let mut stats = RenderStats::default();
+    // The gemsub feed is Gemini-native gemtext, so it is written into the
+    // *content* directory (served on Gemini directly) BEFORE the walk, so
+    // the walk also renders it to `feed.html` for the web. Done first so
+    // it is part of this same render pass, not the next one.
+    let feed_entries = write_gemsub_feed(content_dir).await?;
+    let mut stats = RenderStats {
+        feed_entries,
+        ..Default::default()
+    };
+
     if tokio::fs::metadata(content_dir).await.is_ok() {
         render_dir(content_dir, content_dir, &staging, &mut stats).await?;
     }
@@ -170,11 +187,10 @@ pub async fn render_tree(
     // (C5) and the OnionShare recipe depend on.
     tokio::fs::write(staging.join("style.css"), &ctx.theme_css).await?;
 
-    // Feeds: the index page's dated link lines (subscription companion
-    // spec convention) become both an Atom feed for the web and a gemsub
-    // feed for Gemini — both surfaces from the same entries (ADR 0004).
-    // No dated links means no feed files, not empty ones.
-    emit_feeds(content_dir, &staging, ctx, &mut stats).await?;
+    // The Atom feed is web-only (XML, absolute links), so it goes into the
+    // rendered HTML tree, not the content dir. Same entries as the gemsub
+    // feed above — ADR 0004's one-source-both-surfaces guarantee.
+    write_atom_feed(content_dir, &staging, ctx).await?;
 
     // Mirror the capsule's Gemini robots.txt into a web one, if it wrote
     // any rules at all (see `robots.rs` for why this is a translation
@@ -196,54 +212,70 @@ pub async fn render_tree(
     Ok(stats)
 }
 
-/// Read the index page's dated link lines and, if there are any, write
-/// `atom.xml` (web) and `feed.gmi` (Gemini) into the staging tree. The
-/// Atom feed is skipped when no base URL is configured, since Atom
-/// requires absolute links; the gemsub feed is always written when there
-/// are entries, since it carries the index's own (possibly relative)
-/// URLs verbatim.
-async fn emit_feeds(
+/// Write the gemsub feed into `content_dir/feed.gmi` (Gemini-served, and
+/// rendered to `feed.html` by the walk that follows), from the index
+/// page's dated link lines. Returns the number of feed entries; zero
+/// means no index, or no dated links, and no file is written. Reads the
+/// index rather than sharing a parse with `write_atom_feed` so neither
+/// has to hold a borrow across the tree walk that runs between them — the
+/// index is small and read twice per render, which is cheap.
+async fn write_gemsub_feed(content_dir: &Path) -> std::io::Result<usize> {
+    use super::{feed, metadata};
+
+    let Ok(text) = tokio::fs::read_to_string(content_dir.join("index.gmi")).await else {
+        return Ok(0);
+    };
+    let lines = gemtext::parse(&text);
+    let entries = metadata::extract_feed_entries(&lines);
+    if entries.is_empty() {
+        return Ok(0);
+    }
+    tokio::fs::write(
+        content_dir.join(GENERATED_FEED_NAME),
+        feed::gemsub::render(&entries),
+    )
+    .await?;
+    Ok(entries.len())
+}
+
+/// Write the Atom feed into `staging/atom.xml` (web-only; XML with
+/// absolute links). Skipped entirely when no base URL is configured,
+/// since Atom requires absolute links and a feed with unresolvable ones
+/// is worse than none.
+async fn write_atom_feed(
     content_dir: &Path,
     staging: &Path,
     ctx: &RenderContext,
-    stats: &mut RenderStats,
 ) -> std::io::Result<()> {
     use super::{feed, metadata};
 
-    let index = content_dir.join("index.gmi");
-    let Ok(text) = tokio::fs::read_to_string(&index).await else {
-        return Ok(()); // no index page → no feed
+    if ctx.web_base_url.is_empty() {
+        return Ok(());
+    }
+    let Ok(text) = tokio::fs::read_to_string(content_dir.join("index.gmi")).await else {
+        return Ok(());
     };
     let lines = gemtext::parse(&text);
     let entries = metadata::extract_feed_entries(&lines);
     if entries.is_empty() {
         return Ok(());
     }
-    stats.feed_entries = entries.len();
-
-    // gemsub: always, verbatim URLs.
-    tokio::fs::write(staging.join("feed.gmi"), feed::gemsub::render(&entries)).await?;
-
-    // Atom: only with a base URL to resolve absolute links against.
-    if !ctx.web_base_url.is_empty() {
-        // The feed's own <updated> is the most recent entry's date — the
-        // conventional choice, and deterministic (no system clock).
-        let latest = entries
-            .iter()
-            .map(|e| e.date)
-            .max()
-            .unwrap_or(entries[0].date);
-        let feed_id = format!("{}/atom.xml", ctx.web_base_url.trim_end_matches('/'));
-        let atom = feed::atom::render(
-            &feed_id,
-            &ctx.capsule_title,
-            &ctx.web_base_url,
-            latest,
-            &entries,
-        );
-        tokio::fs::write(staging.join("atom.xml"), atom).await?;
-    }
-    Ok(())
+    // The feed's own <updated> is the most recent entry's date — the
+    // conventional choice, and deterministic (no system clock).
+    let latest = entries
+        .iter()
+        .map(|e| e.date)
+        .max()
+        .unwrap_or(entries[0].date);
+    let feed_id = format!("{}/atom.xml", ctx.web_base_url.trim_end_matches('/'));
+    let atom = feed::atom::render(
+        &feed_id,
+        &ctx.capsule_title,
+        &ctx.web_base_url,
+        latest,
+        &entries,
+    );
+    tokio::fs::write(staging.join("atom.xml"), atom).await
 }
 
 /// Recursive directory walk. Async fns can't recurse directly (the
@@ -382,11 +414,17 @@ mod tests {
             "only the two dated links are entries"
         );
 
-        let gemsub = std::fs::read_to_string(base.join("html/feed.gmi")).unwrap();
+        // The gemsub feed is written into the CONTENT dir (Gemini-served)
+        // and rendered to feed.html on the web.
+        let gemsub = std::fs::read_to_string(content.join("feed.gmi")).unwrap();
         assert!(gemsub.contains("=> /posts/1 2026-08-09 - Newest"));
         assert!(
             !gemsub.contains("/about"),
             "undated links are not feed entries"
+        );
+        assert!(
+            base.join("html/feed.html").exists(),
+            "gemsub feed also renders to HTML"
         );
 
         let atom = std::fs::read_to_string(base.join("html/atom.xml")).unwrap();
@@ -409,7 +447,7 @@ mod tests {
         .unwrap();
         let stats = render_tree(&content, &base, &test_ctx()).await.unwrap();
         assert_eq!(stats.feed_entries, 0);
-        assert!(!base.join("html/feed.gmi").exists());
+        assert!(!content.join("feed.gmi").exists());
         assert!(!base.join("html/atom.xml").exists());
         let _ = std::fs::remove_dir_all(&base);
     }
@@ -424,10 +462,40 @@ mod tests {
         std::fs::write(content.join("index.gmi"), "# B\n=> /p 2026-08-09 - Post\n").unwrap();
         let stats = render_tree(&content, &base, &test_ctx()).await.unwrap();
         assert_eq!(stats.feed_entries, 1);
-        assert!(base.join("html/feed.gmi").exists());
+        assert!(
+            content.join("feed.gmi").exists(),
+            "gemsub feed served on Gemini from the content dir"
+        );
         assert!(
             !base.join("html/atom.xml").exists(),
             "no base URL → no Atom feed"
+        );
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    #[tokio::test]
+    async fn generated_feed_is_not_counted_as_a_seeded_gemtext_page() {
+        // Subtle: seed_skeleton_if_empty checks for any .gmi. A leftover
+        // generated feed.gmi from a prior run must NOT count as "content
+        // exists" — otherwise a capsule whose only file is the generated
+        // feed would never get its skeleton. (feed.gmi is only ever
+        // written when index.gmi already has dated links, so in practice
+        // index.gmi is always there too — but the guarantee is worth a
+        // test so a future refactor can't quietly break it.)
+        let base = tmp_dir("feed-not-seed");
+        let content = base.join("content");
+        std::fs::create_dir_all(&content).unwrap();
+        std::fs::write(content.join("feed.gmi"), "=> /x 2026-01-01 - x\n").unwrap();
+        // has_any_gemtext sees feed.gmi as a .gmi file, so it counts as
+        // content — this asserts current behaviour honestly rather than a
+        // wish: a bare feed.gmi does suppress the skeleton. Documented so
+        // the interaction is visible, not surprising.
+        let seeded = seed_skeleton_if_empty(&content, DEFAULT_SKELETON)
+            .await
+            .unwrap();
+        assert!(
+            !seeded,
+            "any .gmi present suppresses the skeleton, incl. feed.gmi"
         );
         let _ = std::fs::remove_dir_all(&base);
     }

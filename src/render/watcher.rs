@@ -77,13 +77,27 @@ pub async fn watch(
         // echo of one extra render after every real one. Only
         // Create/Modify/Remove/rename-shaped events represent an actual
         // content change worth debouncing toward a re-render.
-        if let Ok(event) = &res
-            && matches!(
+        if let Ok(event) = &res {
+            if matches!(
                 event.kind,
                 notify::EventKind::Access(_) | notify::EventKind::Other
-            )
-        {
-            return;
+            ) {
+                return;
+            }
+            // `render_tree` writes the generated gemsub feed back INTO the
+            // watched content directory (so Gemini serves it directly).
+            // Left unfiltered, that write would trigger the very render
+            // that produced it — an endless loop. An event that touches
+            // only the reserved generated feed is always self-generated,
+            // so drop it. (A real edit arrives as its own separate event.)
+            if !event.paths.is_empty()
+                && event.paths.iter().all(|p| {
+                    p.file_name().and_then(|n| n.to_str())
+                        == Some(super::pipeline::GENERATED_FEED_NAME)
+                })
+            {
+                return;
+            }
         }
         // The channel receiver only outlives this closure as long as
         // `watch` is still running; a send failure just means we're
@@ -213,6 +227,58 @@ mod tests {
         for i in 0..5 {
             assert!(base.join(format!("html/{i}.html")).exists());
         }
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn dated_index_does_not_cause_a_feed_write_render_loop() {
+        // The generated feed.gmi is written INTO the watched content dir.
+        // If the watcher didn't ignore it, that write would trigger a
+        // render, which writes it again — forever. This proves the loop
+        // is broken: one edit to a dated index settles to a fixed number
+        // of renders and stops, rather than climbing without bound.
+        let base = tmp_dir("feed-loop");
+        let content = base.join("content");
+        std::fs::create_dir_all(&content).unwrap();
+
+        let render_count = Arc::new(AtomicUsize::new(0));
+        let count_for_watch = render_count.clone();
+        let watch_content = content.clone();
+        let watch_state = base.clone();
+        let handle = tokio::spawn(async move {
+            watch(
+                watch_content,
+                watch_state,
+                RenderContext::plain("body{}"),
+                Duration::from_millis(150),
+                move |result| {
+                    result.expect("render should succeed");
+                    count_for_watch.fetch_add(1, Ordering::SeqCst);
+                },
+            )
+            .await
+        });
+
+        tokio::time::sleep(Duration::from_millis(200)).await;
+        // One edit: an index with a dated link, which makes render write
+        // content/feed.gmi. Without the watcher's feed-ignore, this would
+        // loop; with it, it settles.
+        std::fs::write(content.join("index.gmi"), "# B\n=> /p 2026-08-09 - Post\n").unwrap();
+
+        // Wait several debounce windows — a loop would rack up renders the
+        // whole time; a broken loop stops at one.
+        tokio::time::sleep(Duration::from_millis(1500)).await;
+        handle.abort();
+
+        let renders = render_count.load(Ordering::SeqCst);
+        assert_eq!(
+            renders, 1,
+            "one dated-index edit must cause exactly one render, not a feed-write loop (got {renders})"
+        );
+        assert!(
+            content.join("feed.gmi").exists(),
+            "the feed was still generated"
+        );
         let _ = std::fs::remove_dir_all(&base);
     }
 }
