@@ -33,7 +33,8 @@ use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
 
-use super::{gemtext, html, robots, skeleton};
+use super::sitemap::PageEntry;
+use super::{gemtext, html, robots, sitemap, skeleton};
 
 /// Everything a render pass needs beyond the two directories: kept as a
 /// struct rather than an ever-lengthening positional argument list, so a
@@ -50,6 +51,9 @@ pub struct RenderContext {
     pub web_base_url: String,
     /// The capsule's display title, used as the Atom feed `<title>`.
     pub capsule_title: String,
+    /// BCP 47 language tag for the capsule (ADR 0010) — becomes the HTML
+    /// `lang` attribute on every rendered page.
+    pub lang: String,
 }
 
 impl RenderContext {
@@ -60,6 +64,7 @@ impl RenderContext {
             theme_css: theme_css.into(),
             web_base_url: String::new(),
             capsule_title: "Unseen Servant".to_string(),
+            lang: "en".to_string(),
         }
     }
 }
@@ -76,6 +81,8 @@ pub struct RenderStats {
     /// the feeds (`atom.xml` + `feed.gmi`). Zero means no feed files were
     /// written.
     pub feed_entries: usize,
+    /// Number of pages listed in the generated site map (ADR 0010).
+    pub mapped_pages: usize,
 }
 
 /// Write the first-run content skeleton into `content_dir` if — and only
@@ -146,6 +153,11 @@ pub const DEFAULT_SKELETON: &str = skeleton::QUIET;
 /// overwritten; the name is documented as reserved.
 pub const GENERATED_FEED_NAME: &str = "feed.gmi";
 
+/// The reserved filename usv generates for the Gemini-side site map
+/// (ADR 0010). Like the feed, it is written into the *content* directory
+/// so Gemini serves it directly, so the watcher must ignore it too.
+pub const GENERATED_MAP_NAME: &str = "map.gmi";
+
 /// Render every `.gmi` file under `content_dir` into `${state_dir}/html`,
 /// via the atomic-ish staging swap described in the module docs. Creates
 /// `state_dir` and the content tree's directory structure as needed;
@@ -177,9 +189,24 @@ pub async fn render_tree(
         ..Default::default()
     };
 
+    let mut pages: Vec<PageEntry> = Vec::new();
     if tokio::fs::metadata(content_dir).await.is_ok() {
-        render_dir(content_dir, content_dir, &staging, &mut stats).await?;
+        render_dir(
+            content_dir,
+            content_dir,
+            &staging,
+            &ctx.lang,
+            &mut stats,
+            &mut pages,
+        )
+        .await?;
     }
+
+    // Site map (ADR 0010), from the walk just completed. The gemtext map
+    // goes into the content dir so Gemini serves it, and is rendered to
+    // `map.html` here rather than on the next pass — the same treatment
+    // the gemsub feed gets. It lists every page except itself.
+    write_site_map(content_dir, &staging, ctx, &pages, &mut stats).await?;
 
     // The bundled stylesheet every rendered page links to. Written into
     // the tree rather than served from memory so the output directory is
@@ -278,13 +305,59 @@ async fn write_atom_feed(
     tokio::fs::write(staging.join("atom.xml"), atom).await
 }
 
+/// Write the site map for both surfaces (ADR 0010): `map.gmi` into the
+/// content directory (Gemini-served, and rendered to `map.html` here in
+/// this same pass) and `sitemap.xml` into the staging tree. The map lists
+/// every page *except itself* — a self-reference is noise, and excluding
+/// it also keeps the map's own content stable across renders.
+async fn write_site_map(
+    content_dir: &Path,
+    staging: &Path,
+    ctx: &RenderContext,
+    pages: &[PageEntry],
+    stats: &mut RenderStats,
+) -> std::io::Result<()> {
+    let listed: Vec<PageEntry> = pages
+        .iter()
+        .filter(|p| p.gemini_path != format!("/{GENERATED_MAP_NAME}"))
+        .cloned()
+        .collect();
+    if listed.is_empty() {
+        return Ok(());
+    }
+    stats.mapped_pages = listed.len();
+
+    let gemtext_map = sitemap::render_gemtext(&listed);
+    tokio::fs::write(content_dir.join(GENERATED_MAP_NAME), &gemtext_map).await?;
+
+    // Render the map to HTML now rather than waiting for the next pass,
+    // so both surfaces gain it in the same render.
+    let lines = gemtext::parse(&gemtext_map);
+    let title = gemtext::extract_title(&lines, Path::new(GENERATED_MAP_NAME));
+    tokio::fs::write(
+        staging.join("map.html"),
+        html::render_document(&lines, &title, &ctx.lang),
+    )
+    .await?;
+
+    if let Some(xml) = sitemap::render_xml(&listed, &ctx.web_base_url) {
+        tokio::fs::write(staging.join("sitemap.xml"), xml).await?;
+    }
+    Ok(())
+}
+
 /// Recursive directory walk. Async fns can't recurse directly (the
 /// future's size would be infinite); boxing is the standard pattern.
+/// Collects a [`PageEntry`] per rendered page as it goes, so the site
+/// map (ADR 0010) comes out of the walk usv already performs rather than
+/// costing a second traversal.
 fn render_dir<'a>(
     root: &'a Path,
     dir: &'a Path,
     staging_root: &'a Path,
+    lang: &'a str,
     stats: &'a mut RenderStats,
+    pages: &'a mut Vec<PageEntry>,
 ) -> Pin<Box<dyn Future<Output = std::io::Result<()>> + Send + 'a>> {
     Box::pin(async move {
         let mut entries = tokio::fs::read_dir(dir).await?;
@@ -292,10 +365,12 @@ fn render_dir<'a>(
             let path = entry.path();
             let file_type = entry.file_type().await?;
             if file_type.is_dir() {
-                render_dir(root, &path, staging_root, stats).await?;
+                render_dir(root, &path, staging_root, lang, stats, pages).await?;
             } else if file_type.is_file() && is_gemtext(&path) {
-                render_page(root, &path, staging_root).await?;
+                let title = render_page(root, &path, staging_root, lang).await?;
                 stats.pages_rendered += 1;
+                let relative = path.strip_prefix(root).unwrap_or(&path);
+                pages.push(page_entry(relative, title));
             }
         }
         Ok(())
@@ -306,20 +381,45 @@ fn is_gemtext(path: &Path) -> bool {
     path.extension().and_then(|e| e.to_str()) == Some("gmi")
 }
 
+/// Build a site-map entry for a content-relative path. Paths are
+/// normalised to forward slashes with a leading `/` so they are URLs
+/// rather than platform paths.
+fn page_entry(relative: &Path, title: String) -> PageEntry {
+    let as_url = relative
+        .components()
+        .filter_map(|c| c.as_os_str().to_str())
+        .collect::<Vec<_>>()
+        .join("/");
+    let web = as_url.strip_suffix(".gmi").unwrap_or(&as_url).to_string();
+    PageEntry {
+        gemini_path: format!("/{as_url}"),
+        web_path: format!("/{web}.html"),
+        title,
+    }
+}
+
 /// Render one `.gmi` file into its mirrored `.html` path under
 /// `staging_root`, preserving the content tree's own directory structure.
-async fn render_page(root: &Path, path: &Path, staging_root: &Path) -> std::io::Result<()> {
+/// Returns the page's title so the caller can build the site map without
+/// re-reading and re-parsing the file.
+async fn render_page(
+    root: &Path,
+    path: &Path,
+    staging_root: &Path,
+    lang: &str,
+) -> std::io::Result<String> {
     let text = tokio::fs::read_to_string(path).await?;
     let lines = gemtext::parse(&text);
     let title = gemtext::extract_title(&lines, path);
-    let doc = html::render_document(&lines, &title);
+    let doc = html::render_document(&lines, &title, lang);
 
     let relative = path.strip_prefix(root).unwrap_or(path);
     let out_path = html_output_path(staging_root, relative);
     if let Some(parent) = out_path.parent() {
         tokio::fs::create_dir_all(parent).await?;
     }
-    tokio::fs::write(&out_path, doc).await
+    tokio::fs::write(&out_path, doc).await?;
+    Ok(title)
 }
 
 /// `staging_root` joined with `relative`, extension swapped `.gmi` →
@@ -407,6 +507,7 @@ mod tests {
             theme_css: "body{}".to_string(),
             web_base_url: "https://example.org".to_string(),
             capsule_title: "example.org".to_string(),
+            lang: "en".to_string(),
         };
         let stats = render_tree(&content, &base, &ctx).await.unwrap();
         assert_eq!(
@@ -528,7 +629,9 @@ mod tests {
         std::fs::remove_file(content.join("a.gmi")).unwrap();
         std::fs::write(content.join("b.gmi"), "# Second\n").unwrap();
         let stats = render_tree(&content, &base, &test_ctx()).await.unwrap();
-        assert_eq!(stats.pages_rendered, 1);
+        // b.gmi plus the generated map.gmi from the first pass, which is
+        // itself a real page and renders to map.html.
+        assert_eq!(stats.pages_rendered, 2);
         assert!(
             !base.join("html/a.html").exists(),
             "stale output must not survive a re-render"

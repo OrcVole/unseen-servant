@@ -60,7 +60,7 @@ pub async fn resolve_safe_path(docroot: &Path, request_path: &str) -> Option<Pat
 /// `"/notes/%2e%2e/x"`) from `docroot`. Never panics; every failure mode
 /// resolves to a 51 response rather than propagating an error, per the
 /// module's information-leak policy above.
-pub async fn serve(docroot: &Path, request_path: &str) -> HandlerResponse {
+pub async fn serve(docroot: &Path, request_path: &str, lang: &str) -> HandlerResponse {
     match resolve(docroot, request_path).await {
         Resolved::NotFound => HandlerResponse::header_only(stock::not_found()),
         Resolved::File(path) => match tokio::fs::File::open(&path).await {
@@ -69,8 +69,18 @@ pub async fn serve(docroot: &Path, request_path: &str) -> HandlerResponse {
                     .file_name()
                     .and_then(|n| n.to_str())
                     .unwrap_or_default();
-                let meta = mime::lookup(filename);
-                match Header::new(Status::Success, Some(meta)) {
+                let base = mime::lookup(filename);
+                // `text/gemini` carries an optional `lang` parameter
+                // (BCP 47, recon protocol.md §MIME). Emitting it lets a
+                // client — including a screen reader driving one — pick
+                // the right pronunciation rules (ADR 0010). Only gemtext
+                // takes the parameter; other types have no such concept.
+                let meta = if base.starts_with("text/gemini") && !lang.is_empty() {
+                    format!("{base}; lang={lang}")
+                } else {
+                    base.to_string()
+                };
+                match Header::new(Status::Success, Some(&meta)) {
                     Ok(header) => HandlerResponse {
                         header,
                         body: Body::File(file),
@@ -237,9 +247,35 @@ mod tests {
     async fn serves_a_real_file() {
         let root = tmp_docroot("basic");
         std::fs::write(root.join("hello.gmi"), b"# hi\n").expect("write");
-        let resp = serve(&root, "/hello.gmi").await;
+        let resp = serve(&root, "/hello.gmi", "en").await;
         assert_eq!(resp.header.status(), Status::Success);
         assert!(matches!(resp.body, Body::File(_)));
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[tokio::test]
+    async fn gemtext_carries_the_lang_parameter_but_other_types_do_not() {
+        // ADR 0010: text/gemini defines a lang parameter (BCP 47); a
+        // client — including a screen reader driving one — uses it to
+        // pick pronunciation. Non-gemtext types have no such parameter,
+        // so it must not be bolted onto them.
+        let root = tmp_docroot("lang-param");
+        std::fs::write(root.join("page.gmi"), b"# hi\n").expect("write");
+        std::fs::write(root.join("photo.png"), b"\x89PNG").expect("write");
+
+        let gmi = serve(&root, "/page.gmi", "fr").await;
+        let wire = String::from_utf8_lossy(&gmi.header.to_wire()).into_owned();
+        assert!(wire.contains("text/gemini"), "{wire}");
+        assert!(wire.contains("lang=fr"), "gemtext must carry lang: {wire}");
+
+        let png = serve(&root, "/photo.png", "fr").await;
+        let png_wire = String::from_utf8_lossy(&png.header.to_wire()).into_owned();
+        assert!(png_wire.contains("image/png"));
+        assert!(
+            !png_wire.contains("lang="),
+            "non-gemtext must not: {png_wire}"
+        );
+
         let _ = std::fs::remove_dir_all(&root);
     }
 
@@ -247,9 +283,9 @@ mod tests {
     async fn empty_path_serves_index() {
         let root = tmp_docroot("index");
         std::fs::write(root.join("index.gmi"), b"# home\n").expect("write");
-        let resp = serve(&root, "/").await;
+        let resp = serve(&root, "/", "en").await;
         assert_eq!(resp.header.status(), Status::Success);
-        let resp2 = serve(&root, "").await;
+        let resp2 = serve(&root, "", "en").await;
         assert_eq!(resp2.header.status(), Status::Success);
         let _ = std::fs::remove_dir_all(&root);
     }
@@ -257,7 +293,7 @@ mod tests {
     #[tokio::test]
     async fn missing_file_is_not_found() {
         let root = tmp_docroot("missing");
-        let resp = serve(&root, "/nope.gmi").await;
+        let resp = serve(&root, "/nope.gmi", "en").await;
         assert_eq!(resp.header.status(), Status::NotFound);
         let _ = std::fs::remove_dir_all(&root);
     }
@@ -267,9 +303,9 @@ mod tests {
         let root = tmp_docroot("traversal-literal");
         let outside = root.parent().expect("has parent");
         std::fs::write(outside.join("usv-secret-marker"), b"secret").ok();
-        let resp = serve(&root, "/../usv-secret-marker").await;
+        let resp = serve(&root, "/../usv-secret-marker", "en").await;
         assert_eq!(resp.header.status(), Status::NotFound);
-        let resp2 = serve(&root, "/sub/../../usv-secret-marker").await;
+        let resp2 = serve(&root, "/sub/../../usv-secret-marker", "en").await;
         assert_eq!(resp2.header.status(), Status::NotFound);
         let _ = std::fs::remove_file(outside.join("usv-secret-marker"));
         let _ = std::fs::remove_dir_all(&root);
@@ -278,7 +314,7 @@ mod tests {
     #[tokio::test]
     async fn percent_encoded_traversal_is_not_found() {
         let root = tmp_docroot("traversal-encoded");
-        let resp = serve(&root, "/%2e%2e/%2e%2e/etc/passwd").await;
+        let resp = serve(&root, "/%2e%2e/%2e%2e/etc/passwd", "en").await;
         assert_eq!(resp.header.status(), Status::NotFound);
         let _ = std::fs::remove_dir_all(&root);
     }
@@ -289,7 +325,7 @@ mod tests {
         // decode to '.') — this must still fail to resolve, not be
         // silently treated as safe because it isn't ".." after one pass.
         let root = tmp_docroot("traversal-double");
-        let resp = serve(&root, "/%252e%252e/%252e%252e/etc/passwd").await;
+        let resp = serve(&root, "/%252e%252e/%252e%252e/etc/passwd", "en").await;
         assert_eq!(resp.header.status(), Status::NotFound);
         let _ = std::fs::remove_dir_all(&root);
     }
@@ -298,7 +334,7 @@ mod tests {
     async fn null_byte_in_path_is_not_found() {
         let root = tmp_docroot("nullbyte");
         std::fs::write(root.join("secret.gmi"), b"top secret").expect("write");
-        let resp = serve(&root, "/secret.gmi%00.txt").await;
+        let resp = serve(&root, "/secret.gmi%00.txt", "en").await;
         assert_eq!(resp.header.status(), Status::NotFound);
         let _ = std::fs::remove_dir_all(&root);
     }
@@ -312,7 +348,7 @@ mod tests {
             std::fs::write(outside.join("usv-symlink-secret"), b"secret").ok();
             std::os::unix::fs::symlink(outside.join("usv-symlink-secret"), root.join("link"))
                 .expect("symlink");
-            let resp = serve(&root, "/link").await;
+            let resp = serve(&root, "/link", "en").await;
             assert_eq!(
                 resp.header.status(),
                 Status::NotFound,
@@ -328,9 +364,9 @@ mod tests {
         let root = tmp_docroot("dir-noindex");
         std::fs::create_dir_all(root.join("sub")).expect("mkdir");
         std::fs::write(root.join("sub/page.gmi"), b"x").expect("write");
-        let resp = serve(&root, "/sub").await;
+        let resp = serve(&root, "/sub", "en").await;
         assert_eq!(resp.header.status(), Status::NotFound);
-        let resp2 = serve(&root, "/sub/").await;
+        let resp2 = serve(&root, "/sub/", "en").await;
         assert_eq!(resp2.header.status(), Status::NotFound);
         let _ = std::fs::remove_dir_all(&root);
     }
@@ -340,7 +376,7 @@ mod tests {
         let root = tmp_docroot("slashes");
         std::fs::create_dir_all(root.join("a")).expect("mkdir");
         std::fs::write(root.join("a/b.gmi"), b"x").expect("write");
-        let resp = serve(&root, "//a///b.gmi").await;
+        let resp = serve(&root, "//a///b.gmi", "en").await;
         assert_eq!(resp.header.status(), Status::Success);
         let _ = std::fs::remove_dir_all(&root);
     }
