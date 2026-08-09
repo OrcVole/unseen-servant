@@ -3,9 +3,9 @@
 //! (`docs/notes/c3-render-design-brief.md`): **full-tree rebuild every
 //! time**, not incremental — simpler, and matches the exit gate's framing
 //! ("survives edit storms without torn output") more directly than a
-//! partial-invalidation scheme would for a v1. Feed emission (Atom/gemsub)
-//! and non-`.gmi` asset copying are not yet wired into this pass — see the
-//! module-level "Known gaps" note below.
+//! partial-invalidation scheme would for a v1. Non-`.gmi` asset copying
+//! is the one thing not yet wired into this pass — see the "Known gaps"
+//! note below.
 //!
 //! **Staging swap** (design brief §5.3): render into `${state_dir}/
 //! html.tmp`, then swap it into `${state_dir}/html` via two renames
@@ -23,16 +23,46 @@
 //!   them directly (C2's static file handler reads `content_dir`
 //!   itself); the HTML surface needs its own copy or a shared-asset
 //!   strategy, deferred to a follow-up.
-//! - Feed emission (`feed::atom`, `feed::gemsub`) is built and tested but
-//!   not yet invoked from this pipeline — an index page's dated links
-//!   don't yet produce an `atom.xml` or updated gemsub block as a side
-//!   effect of rendering. Follow-up, not forgotten.
+//! - Feeds are built from the **index page only** (`index.gmi`'s dated
+//!   link lines), not from a per-page date convention — matching the one
+//!   date convention that actually exists (metadata.rs). A capsule whose
+//!   posts are listed on a non-index page produces no feed; that is a
+//!   deliberate v1 scope, not an oversight.
 
 use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
 
 use super::{gemtext, html, robots, skeleton};
+
+/// Everything a render pass needs beyond the two directories: kept as a
+/// struct rather than an ever-lengthening positional argument list, so a
+/// new render input (a future sitemap, an author name for Atom) is a
+/// field addition, not a signature break at every call site.
+#[derive(Debug, Clone)]
+pub struct RenderContext {
+    /// The bundled theme's stylesheet, written to `style.css` in the tree.
+    pub theme_css: String,
+    /// Absolute base URL for the web surface (e.g. `https://example.org`),
+    /// prefixed onto relative feed links so `atom.xml` carries absolute
+    /// URLs as the format requires. Empty disables the Atom feed (a feed
+    /// with no resolvable base is worse than none).
+    pub web_base_url: String,
+    /// The capsule's display title, used as the Atom feed `<title>`.
+    pub capsule_title: String,
+}
+
+impl RenderContext {
+    /// A minimal context for tests and the no-feed case: a stylesheet, no
+    /// base URL (so no Atom feed is produced), a default title.
+    pub fn plain(theme_css: impl Into<String>) -> RenderContext {
+        RenderContext {
+            theme_css: theme_css.into(),
+            web_base_url: String::new(),
+            capsule_title: "Unseen Servant".to_string(),
+        }
+    }
+}
 
 /// What one `render_tree` run did, for logging/testing.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -42,6 +72,10 @@ pub struct RenderStats {
     /// Whether a web `robots.txt` was mirrored from the content tree's
     /// own Gemini robots.txt this run.
     pub robots_mirrored: bool,
+    /// Number of dated entries found on the index page and emitted into
+    /// the feeds (`atom.xml` + `feed.gmi`). Zero means no feed files were
+    /// written.
+    pub feed_entries: usize,
 }
 
 /// Write the first-run content skeleton into `content_dir` if — and only
@@ -114,7 +148,7 @@ pub const DEFAULT_SKELETON: &str = skeleton::QUIET;
 pub async fn render_tree(
     content_dir: &Path,
     state_dir: &Path,
-    theme_css: &str,
+    ctx: &RenderContext,
 ) -> std::io::Result<RenderStats> {
     let staging = state_dir.join("html.tmp");
     let live = state_dir.join("html");
@@ -134,7 +168,13 @@ pub async fn render_tree(
     // the tree rather than served from memory so the output directory is
     // a complete, portable static site — the same property `usv export`
     // (C5) and the OnionShare recipe depend on.
-    tokio::fs::write(staging.join("style.css"), theme_css).await?;
+    tokio::fs::write(staging.join("style.css"), &ctx.theme_css).await?;
+
+    // Feeds: the index page's dated link lines (subscription companion
+    // spec convention) become both an Atom feed for the web and a gemsub
+    // feed for Gemini — both surfaces from the same entries (ADR 0004).
+    // No dated links means no feed files, not empty ones.
+    emit_feeds(content_dir, &staging, ctx, &mut stats).await?;
 
     // Mirror the capsule's Gemini robots.txt into a web one, if it wrote
     // any rules at all (see `robots.rs` for why this is a translation
@@ -154,6 +194,56 @@ pub async fn render_tree(
     let _ = tokio::fs::remove_dir_all(&old).await;
 
     Ok(stats)
+}
+
+/// Read the index page's dated link lines and, if there are any, write
+/// `atom.xml` (web) and `feed.gmi` (Gemini) into the staging tree. The
+/// Atom feed is skipped when no base URL is configured, since Atom
+/// requires absolute links; the gemsub feed is always written when there
+/// are entries, since it carries the index's own (possibly relative)
+/// URLs verbatim.
+async fn emit_feeds(
+    content_dir: &Path,
+    staging: &Path,
+    ctx: &RenderContext,
+    stats: &mut RenderStats,
+) -> std::io::Result<()> {
+    use super::{feed, metadata};
+
+    let index = content_dir.join("index.gmi");
+    let Ok(text) = tokio::fs::read_to_string(&index).await else {
+        return Ok(()); // no index page → no feed
+    };
+    let lines = gemtext::parse(&text);
+    let entries = metadata::extract_feed_entries(&lines);
+    if entries.is_empty() {
+        return Ok(());
+    }
+    stats.feed_entries = entries.len();
+
+    // gemsub: always, verbatim URLs.
+    tokio::fs::write(staging.join("feed.gmi"), feed::gemsub::render(&entries)).await?;
+
+    // Atom: only with a base URL to resolve absolute links against.
+    if !ctx.web_base_url.is_empty() {
+        // The feed's own <updated> is the most recent entry's date — the
+        // conventional choice, and deterministic (no system clock).
+        let latest = entries
+            .iter()
+            .map(|e| e.date)
+            .max()
+            .unwrap_or(entries[0].date);
+        let feed_id = format!("{}/atom.xml", ctx.web_base_url.trim_end_matches('/'));
+        let atom = feed::atom::render(
+            &feed_id,
+            &ctx.capsule_title,
+            &ctx.web_base_url,
+            latest,
+            &entries,
+        );
+        tokio::fs::write(staging.join("atom.xml"), atom).await?;
+    }
+    Ok(())
 }
 
 /// Recursive directory walk. Async fns can't recurse directly (the
@@ -219,7 +309,9 @@ mod tests {
 
     /// A stand-in stylesheet: these tests exercise the tree walk and the
     /// swap, not the theme system (that has its own tests).
-    const TEST_CSS: &str = "body { color: black; }";
+    fn test_ctx() -> RenderContext {
+        RenderContext::plain("body { color: black; }")
+    }
 
     fn tmp_dir(name: &str) -> PathBuf {
         let dir =
@@ -250,7 +342,7 @@ mod tests {
         std::fs::write(content.join("blog/post.gmi"), "# A Post\n").unwrap();
         std::fs::write(content.join("blog/notes.txt"), "not gemtext").unwrap();
 
-        let stats = render_tree(&content, &base, TEST_CSS).await.unwrap();
+        let stats = render_tree(&content, &base, &test_ctx()).await.unwrap();
         assert_eq!(stats.pages_rendered, 2);
 
         let index_html = std::fs::read_to_string(base.join("html/index.html")).unwrap();
@@ -266,10 +358,85 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn dated_index_links_produce_both_feeds() {
+        let base = tmp_dir("feeds");
+        let content = base.join("content");
+        std::fs::create_dir_all(&content).unwrap();
+        std::fs::write(
+            content.join("index.gmi"),
+            "# Blog\n\n\
+             => /posts/1 2026-08-09 - Newest\n\
+             => /posts/2 2026-01-01 - Older\n\
+             => /about About (no date, not a feed entry)\n",
+        )
+        .unwrap();
+
+        let ctx = RenderContext {
+            theme_css: "body{}".to_string(),
+            web_base_url: "https://example.org".to_string(),
+            capsule_title: "example.org".to_string(),
+        };
+        let stats = render_tree(&content, &base, &ctx).await.unwrap();
+        assert_eq!(
+            stats.feed_entries, 2,
+            "only the two dated links are entries"
+        );
+
+        let gemsub = std::fs::read_to_string(base.join("html/feed.gmi")).unwrap();
+        assert!(gemsub.contains("=> /posts/1 2026-08-09 - Newest"));
+        assert!(
+            !gemsub.contains("/about"),
+            "undated links are not feed entries"
+        );
+
+        let atom = std::fs::read_to_string(base.join("html/atom.xml")).unwrap();
+        assert!(atom.contains("<title>example.org</title>"));
+        assert!(atom.contains("https://example.org/posts/1"));
+        // Feed-level <updated> is the newest entry's date.
+        assert!(atom.contains("<updated>2026-08-09T00:00:00Z</updated>"));
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    #[tokio::test]
+    async fn no_dated_links_means_no_feed_files() {
+        let base = tmp_dir("no-feeds");
+        let content = base.join("content");
+        std::fs::create_dir_all(&content).unwrap();
+        std::fs::write(
+            content.join("index.gmi"),
+            "# Just a page\n\nno dated links here\n",
+        )
+        .unwrap();
+        let stats = render_tree(&content, &base, &test_ctx()).await.unwrap();
+        assert_eq!(stats.feed_entries, 0);
+        assert!(!base.join("html/feed.gmi").exists());
+        assert!(!base.join("html/atom.xml").exists());
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    #[tokio::test]
+    async fn gemsub_feed_without_base_url_but_no_atom() {
+        // A Gemini-only deployment (no web base URL) still gets the
+        // gemsub feed, but no atom.xml (Atom needs absolute links).
+        let base = tmp_dir("gemsub-only");
+        let content = base.join("content");
+        std::fs::create_dir_all(&content).unwrap();
+        std::fs::write(content.join("index.gmi"), "# B\n=> /p 2026-08-09 - Post\n").unwrap();
+        let stats = render_tree(&content, &base, &test_ctx()).await.unwrap();
+        assert_eq!(stats.feed_entries, 1);
+        assert!(base.join("html/feed.gmi").exists());
+        assert!(
+            !base.join("html/atom.xml").exists(),
+            "no base URL → no Atom feed"
+        );
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    #[tokio::test]
     async fn missing_content_dir_renders_empty_tree_not_an_error() {
         let base = tmp_dir("missing-content");
         let content = base.join("does-not-exist");
-        let stats = render_tree(&content, &base, TEST_CSS).await.unwrap();
+        let stats = render_tree(&content, &base, &test_ctx()).await.unwrap();
         assert_eq!(stats.pages_rendered, 0);
         assert!(base.join("html").is_dir());
         let _ = std::fs::remove_dir_all(&base);
@@ -281,7 +448,7 @@ mod tests {
         let content = base.join("content");
         std::fs::create_dir_all(&content).unwrap();
         std::fs::write(content.join("a.gmi"), "# First\n").unwrap();
-        render_tree(&content, &base, TEST_CSS).await.unwrap();
+        render_tree(&content, &base, &test_ctx()).await.unwrap();
         assert!(
             std::fs::read_to_string(base.join("html/a.html"))
                 .unwrap()
@@ -292,7 +459,7 @@ mod tests {
         // must not leave a.html behind from the stale run.
         std::fs::remove_file(content.join("a.gmi")).unwrap();
         std::fs::write(content.join("b.gmi"), "# Second\n").unwrap();
-        let stats = render_tree(&content, &base, TEST_CSS).await.unwrap();
+        let stats = render_tree(&content, &base, &test_ctx()).await.unwrap();
         assert_eq!(stats.pages_rendered, 1);
         assert!(
             !base.join("html/a.html").exists(),
@@ -309,7 +476,7 @@ mod tests {
         let content = base.join("content");
         std::fs::create_dir_all(content.join("a/b/c")).unwrap();
         std::fs::write(content.join("a/b/c/deep.gmi"), "# Deep\n").unwrap();
-        let stats = render_tree(&content, &base, TEST_CSS).await.unwrap();
+        let stats = render_tree(&content, &base, &test_ctx()).await.unwrap();
         assert_eq!(stats.pages_rendered, 1);
         assert!(base.join("html/a/b/c/deep.html").exists());
         let _ = std::fs::remove_dir_all(&base);
@@ -328,7 +495,7 @@ mod tests {
         std::fs::create_dir_all(&leftover_staging).unwrap();
         std::fs::write(leftover_staging.join("ghost.html"), "should never appear").unwrap();
 
-        render_tree(&content, &base, TEST_CSS).await.unwrap();
+        render_tree(&content, &base, &test_ctx()).await.unwrap();
         assert!(base.join("html/real.html").exists());
         assert!(
             !base.join("html/ghost.html").exists(),

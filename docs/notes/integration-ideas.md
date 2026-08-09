@@ -206,3 +206,69 @@ dashboard):
 - Both should render fine in a text browser (lynx/w3m pass, per the
   C3 exit gate) — so any diagram needs an equally complete plain-text
   fallback (a described table or ASCII), never image-only information.
+
+## Agent-legible and access-friendly capsules (director, 2026-08-09)
+
+Raised mid-C3, explicitly flagged as later/Opus-tier design work — not
+built now, captured so the thinking survives. Two audiences that turn
+out to want the *same* thing, which is why they belong together:
+
+**Make usv capsules especially useful to AI agents**, AND provide
+**hooks/controls for people on constrained clients** — a lynx user, or
+someone driving the keyboard by voice, or a screen-reader user. The
+insight worth holding onto: an agent parsing a page and a human who
+cannot use a pointer both need the page's *structure and affordances to
+be explicit and machine-addressable*, not implied by visual layout.
+Designing for the agent tends to produce the accessible page, and vice
+versa; they are not two features but one.
+
+Half-formed directions to develop later (none decided):
+
+- **The dual-surface architecture is already a head start.** gemtext is
+  radically more legible to a parser than arbitrary HTML — six line
+  types, one heading convention, links on their own lines. A capsule
+  that publishes clean gemtext is *already* an agent-friendly and a
+  lynx-friendly surface. The question is what to add on top.
+- **A machine-readable capsule manifest / site map.** Something like a
+  well-known path (`/.well-known/...` on the web side; a conventional
+  `/index.gmi` link block or a dedicated file on Gemini) that lists the
+  capsule's pages, feeds, and any interaction affordances (a Titan
+  upload point, a cert-gated zone, a "responses" endpoint) in a fixed,
+  parseable shape — so an agent can discover what a capsule *offers*
+  without scraping every page, and an assistive client can present those
+  affordances as a flat list of named actions rather than hunting them
+  out of prose.
+- **Named, addressable actions over spatial UI.** Anything interactive
+  usv grows (Titan uploads C4, "responses"/likes ADR 0009) should have
+  a stable, speakable name and a direct URL, never depend on pointer
+  position or visual arrangement. "Leave a like" as a link you can name
+  and follow (which ADR 0009 already leans toward — likes are a page you
+  visit) is exactly this shape; keep that discipline for every future
+  affordance. Voice-driving a keyboard means every action must be
+  reachable by naming it.
+- **Skip-to-content / landmark hooks on the HTML surface.** The classless
+  theme emits semantic HTML already; the accessibility layer is a small
+  addition — a skip link, ARIA landmarks on the main regions, making sure
+  the rendered structure carries the document outline an agent or screen
+  reader walks. Cheap, and it makes the "agent-legible" and "lynx/voice
+  friendly" goals the same code.
+- **An explicit machine-vs-human content negotiation is probably a
+  non-goal / anti-pattern** worth naming so it doesn't get built by
+  reflex: serving *different* content to agents than to humans is the
+  cloaking pattern, brittle and adversarial. The better bet is one
+  surface legible to both — which is the whole ADR 0004 thesis anyway.
+- **Robots/agent policy honesty.** usv already mirrors robots.txt
+  (render/robots.rs) and the Gemini companion spec has virtual
+  user-agents including `researcher`; an agent-aware capsule should have
+  a clear, documented stance on what automated access it welcomes vs.
+  disallows, rather than leaving it implicit.
+
+Where this lands in the plan: unknown yet. Some of it (skip links, ARIA,
+semantic-outline correctness) is small and could ride along with the C3
+theme/skeleton polish or a C7 accessibility pass. The manifest/site-map
+and the agent-affordance-discovery ideas are a genuine feature with a
+design cost, likely a post-v1.0 ADR of their own. Decide scope with the
+director before any of it is built. Tie-in: this is the same
+"named actions, no spatial dependence" discipline the ratatui TUI note
+above asks for on the terminal side — one accessibility philosophy
+across all of usv's surfaces.
