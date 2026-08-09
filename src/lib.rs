@@ -36,5 +36,6 @@ pub mod config;
 pub mod handler;
 pub mod identity;
 pub mod protocol;
+pub mod render;
 pub mod server;
 pub mod tls;

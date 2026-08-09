@@ -78,6 +78,6 @@ jobs:
         run: |
           export PATH="$HOME/.cargo/bin:$PATH"
           cd fuzz
-          for target in frame_request_line validate_uri config_parse static_path_sanitize; do
+          for target in frame_request_line validate_uri config_parse static_path_sanitize parse_gemtext; do
             cargo +nightly fuzz run "$target" -- -max_total_time=60
           done
