@@ -51,3 +51,9 @@ every place recon corrected an assumption in `docs/BRIEF.md`.
 - gemini-diagnostics (all 27 checks) is the hard gate, plus our own
   tests for its known gaps: percent-encoded traversal, 6x flows, SNI,
   redirects, timeouts (test-plan input; see prior-art.md §6).
+
+## Later addenda (post-Phase-0)
+
+| Document | Covers | Feeds |
+|---|---|---|
+| [agent-web.md](agent-web.md) | The agentic web (2025–26) mapped to usv: identity/auth, content legibility, memory/presence, agent-to-agent discovery. Finding: usv already sits where HTTP is retrofitting toward; debts are lifecycle + HTTP-surface packaging; refusals (no A2A/MCP transport, no CA attestation, not a memory backend) are doctrine-coherent. Dated 2026-08-09. | Proposed ADR 0011 (agent identity lifecycle); management-reach + HTTP-agent-surface decisions |
