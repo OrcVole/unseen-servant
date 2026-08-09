@@ -43,6 +43,7 @@ unwrap_used = "warn"
 lto = "thin"
 
 [dependencies]
+notify = "8.2.0"
 rcgen = { version = "0.14.8", default-features = false, features = ["ring", "pem"] }
 regex = "1.13.1"
 rustls = { version = "0.23.43", default-features = false, features = ["ring", "logging", "std", "tls12"] }
