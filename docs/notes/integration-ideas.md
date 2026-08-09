@@ -70,6 +70,25 @@ Cloudron gives every app a set of platform UIs for free. usv should be
   (hosting, DNS, payments) to be anonymous, which is out of usv's
   hands.
 
+## The beautiful placeholder (director, 2026-08-09)
+
+usv doubles as "a beautiful way for Cloudron users to put up a simple
+page on e.g. their bare domain — 'nothing here, move along'". This
+costs nothing: the Gemini port can already be disabled (mandatory
+code path per cloudron-fit recon), the HTTP surface stands alone, and
+the themed first-run skeleton just needs to be *gorgeous by default*.
+Consequences to carry into M2/M5:
+- The default content skeleton is a lovely single page (theme-aware,
+  charming copy — offer a few stock moods: "nothing here yet",
+  "under construction", a minimal card) — not a techy test page.
+- Store/docs positioning names the use case explicitly: "also the
+  nicest 'nothing here yet' page you can install on a bare domain" —
+  a wide, low-commitment install funnel; some of those users later
+  flip the Gemini port on and discover the capsule. The tile is never
+  a dead end in either direction.
+- The placeholder mode needs no dedicated config: skeleton + port
+  toggle already express it.
+
 ## Responses anti-spam (director Q 2026-08-09; feeds ADR 0009)
 
 Layered, all self-hosted, no external services ever:
