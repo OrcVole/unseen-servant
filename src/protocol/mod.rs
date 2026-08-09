@@ -35,6 +35,19 @@ pub const GEMINI_DEFAULT_PORT: u16 = 1965;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ForeignAuthority;
 
+/// Layer 3, scheme-independent: does this host/port pair name *this*
+/// server? Shared by the Gemini and Titan paths — Titan rides the same
+/// listener (recon: titan.md §5.4), so "is this authority ours" must be
+/// one rule, not two that can drift apart.
+pub fn authority_is_ours(
+    host: &str,
+    port: Option<u16>,
+    serves_host: impl Fn(&str) -> bool,
+    advertised_port: u16,
+) -> bool {
+    port.unwrap_or(GEMINI_DEFAULT_PORT) == advertised_port && serves_host(host)
+}
+
 /// Layer 3: is this validated target one this server actually serves?
 pub fn check_authority(
     target: uri::Target,
@@ -44,14 +57,32 @@ pub fn check_authority(
     match target {
         uri::Target::Foreign { .. } => Err(ForeignAuthority),
         uri::Target::Gemini(req) => {
-            let effective_port = req.port.unwrap_or(GEMINI_DEFAULT_PORT);
-            if effective_port == advertised_port && serves_host(&req.host) {
+            if authority_is_ours(&req.host, req.port, serves_host, advertised_port) {
                 Ok(req)
             } else {
                 Err(ForeignAuthority)
             }
         }
     }
+}
+
+/// Scheme peek for same-listener dispatch: do these framed request bytes
+/// begin with `titan:`?
+///
+/// Deliberately the *only* thing decided before parsing — the framing
+/// layer has already bounded the bytes, and each scheme then gets its own
+/// layer-2 parser ([`uri::validate_uri`] or [`titan::parse`]). Comparing
+/// the literal scheme prefix here, rather than routing on a full parse,
+/// keeps the two parsers independent: neither has to understand the
+/// other's grammar to decide whether the request is its business.
+///
+/// Case-insensitive per RFC 3986 (schemes are case-insensitive), and it
+/// requires the colon, so a path or host merely *starting with* "titan"
+/// is not mistaken for the scheme.
+pub fn is_titan_request(framed_uri: &[u8]) -> bool {
+    framed_uri
+        .get(..6)
+        .is_some_and(|prefix| prefix.eq_ignore_ascii_case(b"titan:"))
 }
 
 #[cfg(test)]
@@ -90,6 +121,43 @@ mod authority_tests {
     #[test]
     fn foreign_scheme_is_refused() {
         assert!(check_authority(target("http://example.org/"), ours, 1965).is_err());
+    }
+
+    #[test]
+    fn titan_scheme_is_detected_case_insensitively() {
+        for line in [
+            &b"titan://example.org/p;size=1"[..],
+            b"TITAN://example.org/p;size=1",
+            b"TiTaN://example.org/p;size=1",
+        ] {
+            assert!(is_titan_request(line), "{:?}", str::from_utf8(line));
+        }
+    }
+
+    #[test]
+    fn non_titan_schemes_are_not_dispatched_to_titan() {
+        for line in [
+            &b"gemini://example.org/"[..],
+            b"http://example.org/",
+            // A host or path that merely starts with the letters "titan"
+            // is not the titan scheme — the colon is required.
+            b"gemini://titan.example.org/",
+            b"titanic://example.org/",
+            b"titan",
+            b"",
+        ] {
+            assert!(!is_titan_request(line), "{:?}", str::from_utf8(line));
+        }
+    }
+
+    #[test]
+    fn authority_predicate_is_shared_by_both_schemes() {
+        // The same rule the Gemini path uses must accept/refuse a Titan
+        // authority identically — one rule, no drift (recon titan.md §5.4).
+        assert!(authority_is_ours("example.org", None, ours, 1965));
+        assert!(authority_is_ours("example.org", Some(1965), ours, 1965));
+        assert!(!authority_is_ours("example.org", Some(1966), ours, 1965));
+        assert!(!authority_is_ours("other.example", None, ours, 1965));
     }
 
     #[test]
