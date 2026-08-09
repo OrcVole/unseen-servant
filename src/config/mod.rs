@@ -76,6 +76,15 @@ pub struct HostConfig {
     /// The hostname, as clients will send it: lowercase ASCII, punycoded if
     /// internationalized, no port. Matched case-insensitively.
     pub name: String,
+    /// Where this host's static content lives. Defaults to
+    /// `${state_dir}/content` (ADR 0008); a host-specified `docroot` is
+    /// resolved relative to `state_dir` if relative, used as-is if
+    /// absolute.
+    pub docroot: PathBuf,
+    /// Redirect rules, tried in config order (C2; `handler::redirect`).
+    pub redirects: Vec<crate::handler::redirect::Rule>,
+    /// Certificate zones, longest-prefix-matched (C2; `handler::cert_zone`).
+    pub cert_zones: Vec<crate::handler::cert_zone::Zone>,
 }
 
 /// Why configuration loading failed. Every variant renders as one actionable
@@ -155,6 +164,28 @@ struct RawServer {
 #[serde(deny_unknown_fields)]
 struct RawHost {
     name: String,
+    docroot: Option<PathBuf>,
+    #[serde(default, rename = "redirect")]
+    redirects: Vec<RawRedirect>,
+    #[serde(default, rename = "cert_zone")]
+    cert_zones: Vec<RawCertZone>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawRedirect {
+    pattern: String,
+    target: String,
+    #[serde(default)]
+    permanent: bool,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawCertZone {
+    path_prefix: String,
+    #[serde(default)]
+    fingerprints: Vec<String>,
 }
 
 /// Environment override names honored by the core (ADR 0007). Kept in one
@@ -323,15 +354,60 @@ impl Config {
             }
         };
 
-        let host_names: Vec<String> = match &env.hostname {
-            Some(name) => vec![name.clone()],
-            None if raw.hosts.is_empty() => vec!["localhost".into()],
-            None => raw.hosts.into_iter().map(|h| h.name).collect(),
+        let bare = |name: &str| RawHost {
+            name: name.to_string(),
+            docroot: None,
+            redirects: Vec::new(),
+            cert_zones: Vec::new(),
         };
-        let mut hosts = Vec::with_capacity(host_names.len());
-        for name in host_names {
-            let name = validate_hostname(&name)?;
-            hosts.push(HostConfig { name });
+        let raw_hosts: Vec<RawHost> = match &env.hostname {
+            // USV_HOSTNAME overrides the *name*, but a file-configured host
+            // still contributes its docroot/redirects/cert_zones when the
+            // names happen to line up; the common platform case is a single
+            // configured host whose name the env fact replaces.
+            Some(name) => {
+                if let Some(mut h) = raw
+                    .hosts
+                    .into_iter()
+                    .find(|h| h.name.eq_ignore_ascii_case(name))
+                {
+                    h.name = name.clone();
+                    vec![h]
+                } else {
+                    vec![bare(name)]
+                }
+            }
+            None if raw.hosts.is_empty() => vec![bare("localhost")],
+            None => raw.hosts,
+        };
+        let mut hosts = Vec::with_capacity(raw_hosts.len());
+        for raw_host in raw_hosts {
+            let name = validate_hostname(&raw_host.name)?;
+            let docroot = match raw_host.docroot {
+                Some(d) if d.is_absolute() => d,
+                Some(d) => state_dir.join(d),
+                None => state_dir.join("content"),
+            };
+            let mut redirects = Vec::with_capacity(raw_host.redirects.len());
+            for r in raw_host.redirects {
+                let rule = crate::handler::redirect::Rule::new(&r.pattern, &r.target, r.permanent)
+                    .map_err(|e| ConfigError::Rejected(format!("host {name:?} redirect: {e}")))?;
+                redirects.push(rule);
+            }
+            let cert_zones = raw_host
+                .cert_zones
+                .into_iter()
+                .map(|z| crate::handler::cert_zone::Zone {
+                    path_prefix: z.path_prefix,
+                    allowed_fingerprints: z.fingerprints,
+                })
+                .collect();
+            hosts.push(HostConfig {
+                name,
+                docroot,
+                redirects,
+                cert_zones,
+            });
         }
 
         let max_connections = server.max_connections.unwrap_or(512);
@@ -361,6 +437,14 @@ impl Config {
     /// Case-insensitive membership test for the authority check (layer 3).
     pub fn serves_host(&self, name: &str) -> bool {
         self.hosts.iter().any(|h| h.name.eq_ignore_ascii_case(name))
+    }
+
+    /// Case-insensitive lookup of a host's full configuration (docroot,
+    /// redirects, cert zones) for request dispatch (C2).
+    pub fn find_host(&self, name: &str) -> Option<&HostConfig> {
+        self.hosts
+            .iter()
+            .find(|h| h.name.eq_ignore_ascii_case(name))
     }
 }
 
@@ -468,6 +552,67 @@ mod tests {
         assert!(cfg.serves_host("EXAMPLE.org"));
         assert!(cfg.serves_host("xn--mller-kva.example"));
         assert!(!cfg.serves_host("other.example"));
+    }
+
+    #[test]
+    fn docroot_defaults_under_state_dir() {
+        let cfg =
+            Config::from_toml_str("[[host]]\nname = \"example.org\"", &no_env()).expect("valid");
+        assert_eq!(cfg.hosts[0].docroot, cfg.state_dir.join("content"));
+    }
+
+    #[test]
+    fn relative_docroot_resolves_under_state_dir() {
+        let cfg = Config::from_toml_str(
+            "[[host]]\nname = \"example.org\"\ndocroot = \"mysite\"",
+            &no_env(),
+        )
+        .expect("valid");
+        assert_eq!(cfg.hosts[0].docroot, cfg.state_dir.join("mysite"));
+    }
+
+    #[test]
+    fn absolute_docroot_is_used_as_is() {
+        let cfg = Config::from_toml_str(
+            "[[host]]\nname = \"example.org\"\ndocroot = \"/srv/gemini\"",
+            &no_env(),
+        )
+        .expect("valid");
+        assert_eq!(cfg.hosts[0].docroot, PathBuf::from("/srv/gemini"));
+    }
+
+    #[test]
+    fn redirects_parse_and_compile() {
+        let cfg = Config::from_toml_str(
+            "[[host]]\nname = \"example.org\"\n\
+             [[host.redirect]]\npattern = \"^/old$\"\ntarget = \"/new\"\npermanent = true",
+            &no_env(),
+        )
+        .expect("valid");
+        assert_eq!(cfg.hosts[0].redirects.len(), 1);
+    }
+
+    #[test]
+    fn bad_redirect_pattern_is_rejected() {
+        let err = Config::from_toml_str(
+            "[[host]]\nname = \"example.org\"\n\
+             [[host.redirect]]\npattern = \"[unclosed\"\ntarget = \"/new\"",
+            &no_env(),
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("redirect"));
+    }
+
+    #[test]
+    fn cert_zones_parse() {
+        let cfg = Config::from_toml_str(
+            "[[host]]\nname = \"example.org\"\n\
+             [[host.cert_zone]]\npath_prefix = \"/private/\"\nfingerprints = [\"aabb\"]",
+            &no_env(),
+        )
+        .expect("valid");
+        assert_eq!(cfg.hosts[0].cert_zones.len(), 1);
+        assert_eq!(cfg.hosts[0].cert_zones[0].path_prefix, "/private/");
     }
 
     #[test]

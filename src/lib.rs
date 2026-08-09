@@ -33,6 +33,7 @@
 //! | `titan` | C4 | uploads (ADR 0006) |
 
 pub mod config;
+pub mod handler;
 pub mod identity;
 pub mod protocol;
 pub mod server;
