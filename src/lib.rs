@@ -16,10 +16,8 @@
 //!
 //! # Build-phase state
 //!
-//! Phase C1 (wire core): protocol, config, identity, TLS, and the listener
-//! exist; requests are served by a built-in hello handler. The module map
-//! below is the intended shape; modules appear as their phase arrives
-//! (docs/BUILD-PLAN.md):
+//! C1-C5 of `docs/BUILD-PLAN.md` are underway; the module map below is the
+//! intended shape, updated as each module lands:
 //!
 //! | Module | Phase | Owns |
 //! |---|---|---|
@@ -28,15 +26,19 @@
 //! | [`identity`] | C1 | keys and certificates (ADR 0003) — sole holder of key material |
 //! | [`tls`] | C1 | rustls server policy: versions, SNI, client-cert capture, no tickets |
 //! | [`server`] | C1 | listener, per-connection lifecycle, timeouts, drain |
-//! | `handler` | C2 | the request → response trait and its implementations (ADR 0005) |
-//! | `render` | C3 | gemtext → HTML/Atom/feeds pipeline (ADR 0004) |
-//! | `titan` | C4 | uploads (ADR 0006) |
+//! | [`handler`] | C2 | the request → response trait and its implementations (ADR 0005); Titan uploads (ADR 0006) land here in C4 |
+//! | [`render`] | C3 | gemtext → HTML/Atom/feeds pipeline (ADR 0004) |
+//! | [`roster`] | C4 | client-cert fingerprint → capability lookups (ADR 0011) |
+//! | [`runtime_state`] | C5 | in-process state that must survive a SIGHUP config reload: activity log, last render snapshot |
+//! | [`cli`] | C5 | business logic behind every `usv` subcommand except `init`'s interactive wizard |
+//! | [`init`] | C5 | `usv init`'s validation and file-writing — the wizard's own event loop lives in the binary |
 
 pub mod cli;
 pub mod config;
 pub mod handler;
 pub mod http;
 pub mod identity;
+pub mod init;
 pub mod protocol;
 pub mod render;
 pub mod roster;

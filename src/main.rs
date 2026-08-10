@@ -5,13 +5,16 @@
 //! (ADR 0003), Gemini served on the configured listeners.
 //!
 //! C5 (`docs/BUILD-PLAN.md`): `status`, `fingerprint`, `check`, `zones`,
-//! `stats`, `render [--force]`, `identity add/rotate/revoke`, `export`
-//! are implemented — thin argument-parsing wrappers in this file around
-//! business logic in [`unseen_servant::cli`]/[`unseen_servant::handler::
-//! admin`], which is where every format/lint/export function is actually
-//! tested. `init` (the ratatui wizard) and Tor/I2P affordances are still
-//! reserved: naming `init` today is a loud, named error, never a silent
-//! no-op or a fallthrough to "unknown argument".
+//! `stats`, `render [--force]`, `identity add/rotate/revoke`, `export`,
+//! `init [--defaults]` are implemented — thin argument-parsing wrappers
+//! in this file around business logic in [`unseen_servant::cli`]/
+//! [`unseen_servant::init`]/[`unseen_servant::handler::admin`], which is
+//! where every format/lint/export/validation function is actually
+//! tested. Only the interactive `init` event loop itself lives here —
+//! ratatui rendering has no meaningful unit test, so everything it could
+//! get wrong (what a bad hostname looks like, what the file ends up
+//! containing) is pushed into `init::validate`/`init::write_config`
+//! instead, where it can be. Tor/I2P affordances are still reserved.
 //!
 //! Signal discipline (ADR 0002): SIGHUP reloads config + certificates
 //! without dropping listeners (an invalid file keeps the old config);
@@ -28,6 +31,8 @@ use unseen_servant::cli;
 use unseen_servant::config::{Config, EnvOverrides};
 use unseen_servant::http;
 use unseen_servant::identity::IdentityStore;
+use unseen_servant::init::{self, InitAnswers};
+use unseen_servant::render::theme;
 use unseen_servant::render::{pipeline, watcher};
 use unseen_servant::runtime_state::{RenderSnapshot, RuntimeState};
 use unseen_servant::server::{self, Shared};
@@ -50,6 +55,7 @@ const HELP: &str = concat!(
     "  usv identity rotate <label> <new-fingerprint> --until <date>\n",
     "  usv identity revoke <label> (--capability <c>... | --all)\n",
     "  usv export     [--config <p>] <destination>   copy the rendered tree out\n",
+    "  usv init       [--config <p>] [--defaults]   write a working usv.toml\n",
     "  usv --version | --help\n",
     "\n",
     "CONFIG:\n",
@@ -80,15 +86,21 @@ const HELP: &str = concat!(
     "\"copy it out for OnionShare or any other static host\", not a second\n",
     "render. Never renders anything new: run `usv render` first if needed.\n",
     "\n",
-    "`usv init` (the ratatui wizard) and Tor/I2P affordances arrive per\n",
-    "docs/BUILD-PLAN.md C5. Nothing is announced or exposed publicly before\n",
-    "the v1.0 gates pass (docs/ROADMAP.md).\n",
+    "`usv init` writes a new usv.toml (refuses to overwrite an existing\n",
+    "one) at --config's path, or the default search location. Interactive\n",
+    "by default (a small terminal wizard); `--defaults` skips it and writes\n",
+    "the same defaults an absent config already resolves to, written down\n",
+    "explicitly as a starting point to edit.\n",
+    "\n",
+    "Tor/I2P affordances arrive per docs/BUILD-PLAN.md C5. Nothing is\n",
+    "announced or exposed publicly before the v1.0 gates pass\n",
+    "(docs/ROADMAP.md).\n",
 );
 
 /// A subcommand not yet implemented — recognised and named rather than
 /// falling through to the generic "unknown argument" error, so the
 /// director gets "not yet, see BUILD-PLAN C5" instead of "typo?".
-const RESERVED_SUBCOMMANDS: &[&str] = &["init"];
+const RESERVED_SUBCOMMANDS: &[&str] = &[];
 
 /// `usv identity <action>`'s own parsed action — kept separate from the
 /// flat single-token subcommands, since it takes positional arguments and
@@ -122,6 +134,7 @@ enum Command {
     Render { force: bool },
     Identity(IdentityAction),
     Export { destination: PathBuf },
+    Init { defaults: bool },
 }
 
 struct Args {
@@ -138,6 +151,7 @@ fn parse_args() -> Parsed {
     let mut config = None;
     let mut command = None;
     let mut force = false;
+    let mut defaults = false;
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
         match arg.as_str() {
@@ -183,7 +197,8 @@ fn parse_args() -> Parsed {
                     command: Command::Export { destination },
                 });
             }
-            "status" | "fingerprint" | "check" | "zones" | "stats" | "render"
+            "--defaults" => defaults = true,
+            "status" | "fingerprint" | "check" | "zones" | "stats" | "render" | "init"
                 if command.is_none() =>
             {
                 command = Some(arg);
@@ -209,10 +224,15 @@ fn parse_args() -> Parsed {
         Some("zones") => Command::Zones,
         Some("stats") => Command::Stats,
         Some("render") => Command::Render { force },
+        Some("init") => Command::Init { defaults },
         Some(_) => unreachable!("only recognised subcommand strings are stored"),
     };
     if force && !matches!(command, Command::Render { .. }) {
         eprintln!("usv: --force only applies to 'render'");
+        return Parsed::Exit(ExitCode::from(2));
+    }
+    if defaults && !matches!(command, Command::Init { .. }) {
+        eprintln!("usv: --defaults only applies to 'init'");
         return Parsed::Exit(ExitCode::from(2));
     }
     Parsed::Run(Args { config, command })
@@ -430,6 +450,52 @@ async fn run_command(args: Args) -> ExitCode {
         Command::Render { force } => cmd_render(config_path, force).await,
         Command::Identity(action) => cmd_identity(config_path, action),
         Command::Export { destination } => cmd_export(config_path, &destination).await,
+        Command::Init { defaults } => cmd_init(config_path, defaults).await,
+    }
+}
+
+/// Where `usv init` writes, absent an explicit destination flag of its
+/// own: the exact ADR 0007 search order `Config::load` itself uses for
+/// "no `--config`" (`$USV_CONFIG`, else `${state_dir}/usv.toml`) — a
+/// wizard that wrote somewhere the real loader wouldn't look would be
+/// worse than no wizard at all.
+fn init_target_path(config_path: Option<&Path>) -> PathBuf {
+    if let Some(p) = config_path {
+        return p.to_path_buf();
+    }
+    if let Some(p) = std::env::var_os(unseen_servant::config::env_keys::CONFIG) {
+        return PathBuf::from(p);
+    }
+    unseen_servant::config::default_state_dir(&EnvOverrides::from_process_env()).join("usv.toml")
+}
+
+/// `usv init [--defaults]`.
+async fn cmd_init(config_path: Option<&Path>, defaults: bool) -> ExitCode {
+    let path = init_target_path(config_path);
+    let answers = if defaults {
+        InitAnswers::defaults()
+    } else {
+        match run_init_wizard(&path) {
+            Ok(Some(a)) => a,
+            Ok(None) => {
+                println!("cancelled — nothing was written");
+                return ExitCode::SUCCESS;
+            }
+            Err(e) => {
+                eprintln!("usv: init wizard failed: {e}");
+                return ExitCode::FAILURE;
+            }
+        }
+    };
+    match init::write_config(&path, &answers).await {
+        Ok(()) => {
+            println!("wrote {}", path.display());
+            ExitCode::SUCCESS
+        }
+        Err(e) => {
+            eprintln!("usv: {e}");
+            ExitCode::FAILURE
+        }
     }
 }
 
@@ -933,5 +999,385 @@ async fn signal_loop(
                 return;
             }
         }
+    }
+}
+
+// ---------------------------------------------------------------------
+// `usv init`'s interactive wizard. Rendering has no meaningful unit test
+// (see the module docs) — every decision that *can* be tested lives in
+// `unseen_servant::init` instead, and is. What's here is the minimum
+// event-loop shell around it.
+// ---------------------------------------------------------------------
+
+/// One field of the wizard, in the order the operator fills them.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum WizardStep {
+    Hostname,
+    Lang,
+    Theme,
+    HttpEnabled,
+    HttpAddress,
+    Confirm,
+}
+
+/// The step after `current`, given whether the HTTP surface is enabled —
+/// `HttpAddress` is skipped entirely when it's off, since there is
+/// nothing to type. A pure function so the skip logic is checkable
+/// without a terminal.
+fn wizard_next(current: WizardStep, http_enabled: bool) -> WizardStep {
+    match current {
+        WizardStep::Hostname => WizardStep::Lang,
+        WizardStep::Lang => WizardStep::Theme,
+        WizardStep::Theme => WizardStep::HttpEnabled,
+        WizardStep::HttpEnabled if http_enabled => WizardStep::HttpAddress,
+        WizardStep::HttpEnabled => WizardStep::Confirm,
+        WizardStep::HttpAddress => WizardStep::Confirm,
+        WizardStep::Confirm => WizardStep::Confirm,
+    }
+}
+
+/// The step before `current` — the mirror of [`wizard_next`], used by
+/// Backspace-to-go-back. `Hostname` has no predecessor; it is its own.
+fn wizard_prev(current: WizardStep, http_enabled: bool) -> WizardStep {
+    match current {
+        WizardStep::Hostname => WizardStep::Hostname,
+        WizardStep::Lang => WizardStep::Hostname,
+        WizardStep::Theme => WizardStep::Lang,
+        WizardStep::HttpEnabled => WizardStep::Theme,
+        WizardStep::HttpAddress => WizardStep::HttpEnabled,
+        WizardStep::Confirm if http_enabled => WizardStep::HttpAddress,
+        WizardStep::Confirm => WizardStep::HttpEnabled,
+    }
+}
+
+/// Everything the wizard's UI needs to hold between frames.
+struct WizardState {
+    step: WizardStep,
+    hostname: String,
+    lang: String,
+    theme_idx: usize,
+    http_enabled: bool,
+    http_address: String,
+    error: Option<String>,
+}
+
+impl WizardState {
+    fn new() -> WizardState {
+        let defaults = InitAnswers::defaults();
+        WizardState {
+            step: WizardStep::Hostname,
+            hostname: defaults.hostname,
+            lang: defaults.lang,
+            theme_idx: theme::THEMES
+                .iter()
+                .position(|t| t.name == defaults.theme)
+                .unwrap_or(0),
+            http_enabled: false,
+            http_address: "0.0.0.0:8080".to_string(),
+            error: None,
+        }
+    }
+
+    /// Validate the collected answers via `init::validate` — the single
+    /// source of truth this wizard defers to rather than re-implementing
+    /// any check.
+    fn validate(&self) -> Result<InitAnswers, init::InitError> {
+        let http = self.http_enabled.then_some(self.http_address.as_str());
+        init::validate(
+            &self.hostname,
+            &self.lang,
+            theme::THEMES[self.theme_idx].name,
+            http,
+        )
+    }
+}
+
+/// Run the interactive wizard. `Ok(None)` means the operator cancelled
+/// (Esc/Ctrl-C); `path` is shown in the confirm screen so the operator
+/// knows exactly what they're about to write, and is never touched here
+/// — writing is `cmd_init`'s job, after this returns.
+fn run_init_wizard(path: &Path) -> std::io::Result<Option<InitAnswers>> {
+    let mut terminal = ratatui::init();
+    let result = run_wizard_loop(&mut terminal, path);
+    ratatui::restore();
+    result
+}
+
+fn run_wizard_loop(
+    terminal: &mut ratatui::DefaultTerminal,
+    path: &Path,
+) -> std::io::Result<Option<InitAnswers>> {
+    use crossterm::event::{self, Event, KeyCode, KeyModifiers};
+    use ratatui::layout::{Constraint, Direction, Layout};
+    use ratatui::style::{Color, Modifier, Style};
+    use ratatui::text::{Line, Span};
+    use ratatui::widgets::{Block, Borders, List, ListItem, Paragraph};
+
+    let mut state = WizardState::new();
+    loop {
+        terminal.draw(|frame| {
+            let area = Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([
+                    Constraint::Length(3),
+                    Constraint::Min(6),
+                    Constraint::Length(2),
+                ])
+                .split(frame.area());
+
+            frame.render_widget(
+                Paragraph::new(vec![
+                    Line::from(Span::styled(
+                        "usv init",
+                        Style::default().add_modifier(Modifier::BOLD),
+                    )),
+                    Line::from(Span::styled(
+                        format!("writing to {}", path.display()),
+                        Style::default().fg(Color::DarkGray),
+                    )),
+                ]),
+                area[0],
+            );
+
+            let body: Vec<Line> = match state.step {
+                WizardStep::Hostname => vec![
+                    Line::from("Hostname"),
+                    Line::from(Span::styled(
+                        format!("> {}_", state.hostname),
+                        Style::default().fg(Color::Yellow),
+                    )),
+                ],
+                WizardStep::Lang => vec![
+                    Line::from("Language (BCP 47, e.g. en, fr, pt-BR)"),
+                    Line::from(Span::styled(
+                        format!("> {}_", state.lang),
+                        Style::default().fg(Color::Yellow),
+                    )),
+                ],
+                WizardStep::Theme => {
+                    let mut lines = vec![Line::from("Theme (↑↓ to choose, Enter to accept)")];
+                    for (i, t) in theme::THEMES.iter().enumerate() {
+                        let marker = if i == state.theme_idx { "> " } else { "  " };
+                        let style = if i == state.theme_idx {
+                            Style::default()
+                                .fg(Color::Yellow)
+                                .add_modifier(Modifier::BOLD)
+                        } else {
+                            Style::default()
+                        };
+                        lines.push(Line::from(Span::styled(
+                            format!("{marker}{} — {}", t.name, t.description),
+                            style,
+                        )));
+                    }
+                    lines
+                }
+                WizardStep::HttpEnabled => vec![
+                    Line::from("Enable the HTTP (web mirror) surface? (y/n)"),
+                    Line::from(Span::styled(
+                        if state.http_enabled { "> yes" } else { "> no" },
+                        Style::default().fg(Color::Yellow),
+                    )),
+                ],
+                WizardStep::HttpAddress => vec![
+                    Line::from("HTTP listen address (e.g. 0.0.0.0:8080)"),
+                    Line::from(Span::styled(
+                        format!("> {}_", state.http_address),
+                        Style::default().fg(Color::Yellow),
+                    )),
+                ],
+                WizardStep::Confirm => {
+                    let mut lines = vec![Line::from("Review — Enter to write, Backspace to edit")];
+                    match state.validate() {
+                        Ok(answers) => {
+                            for line in init::render_toml(&answers).lines() {
+                                lines.push(Line::from(line.to_string()));
+                            }
+                        }
+                        Err(e) => {
+                            lines.push(Line::from(Span::styled(
+                                format!("Cannot write yet: {e}"),
+                                Style::default().fg(Color::Red),
+                            )));
+                        }
+                    }
+                    lines
+                }
+            };
+            let mut all_lines = body;
+            if let Some(err) = &state.error {
+                all_lines.push(Line::from(""));
+                all_lines.push(Line::from(Span::styled(
+                    err.clone(),
+                    Style::default().fg(Color::Red),
+                )));
+            }
+            frame.render_widget(
+                List::new(all_lines.into_iter().map(ListItem::new).collect::<Vec<_>>())
+                    .block(Block::default().borders(Borders::TOP)),
+                area[1],
+            );
+
+            frame.render_widget(
+                Paragraph::new(Line::from(Span::styled(
+                    "Enter: next · Backspace: back · Esc/Ctrl-C: cancel",
+                    Style::default().fg(Color::DarkGray),
+                ))),
+                area[2],
+            );
+        })?;
+
+        let Event::Key(key) = event::read()? else {
+            continue;
+        };
+        let ctrl_c =
+            key.code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::CONTROL);
+        if ctrl_c || key.code == KeyCode::Esc {
+            return Ok(None);
+        }
+        state.error = None;
+        match state.step {
+            WizardStep::Hostname | WizardStep::Lang | WizardStep::HttpAddress => {
+                let buf = match state.step {
+                    WizardStep::Hostname => &mut state.hostname,
+                    WizardStep::Lang => &mut state.lang,
+                    _ => &mut state.http_address,
+                };
+                match key.code {
+                    KeyCode::Char(c) => buf.push(c),
+                    KeyCode::Backspace if buf.is_empty() => {
+                        state.step = wizard_prev(state.step, state.http_enabled);
+                    }
+                    KeyCode::Backspace => {
+                        buf.pop();
+                    }
+                    KeyCode::Enter => {
+                        state.step = wizard_next(state.step, state.http_enabled);
+                    }
+                    _ => {}
+                }
+            }
+            WizardStep::Theme => match key.code {
+                KeyCode::Up => {
+                    state.theme_idx = state.theme_idx.saturating_sub(1);
+                }
+                KeyCode::Down => {
+                    state.theme_idx = (state.theme_idx + 1).min(theme::THEMES.len() - 1);
+                }
+                KeyCode::Enter => state.step = wizard_next(state.step, state.http_enabled),
+                KeyCode::Backspace => state.step = wizard_prev(state.step, state.http_enabled),
+                _ => {}
+            },
+            WizardStep::HttpEnabled => match key.code {
+                KeyCode::Char('y') | KeyCode::Char('Y') => state.http_enabled = true,
+                KeyCode::Char('n') | KeyCode::Char('N') => state.http_enabled = false,
+                KeyCode::Enter => state.step = wizard_next(state.step, state.http_enabled),
+                KeyCode::Backspace => state.step = wizard_prev(state.step, state.http_enabled),
+                _ => {}
+            },
+            WizardStep::Confirm => match key.code {
+                KeyCode::Enter => match state.validate() {
+                    Ok(answers) => return Ok(Some(answers)),
+                    Err(e) => state.error = Some(e.to_string()),
+                },
+                KeyCode::Backspace => {
+                    state.step = wizard_prev(state.step, state.http_enabled);
+                }
+                _ => {}
+            },
+        }
+    }
+}
+
+#[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    reason = "unwrap/unwrap_err are idiomatic in tests"
+)]
+mod wizard_tests {
+    use super::*;
+
+    #[test]
+    fn http_address_is_skipped_when_the_surface_is_off() {
+        assert_eq!(
+            wizard_next(WizardStep::HttpEnabled, false),
+            WizardStep::Confirm
+        );
+        assert_eq!(
+            wizard_next(WizardStep::HttpEnabled, true),
+            WizardStep::HttpAddress
+        );
+    }
+
+    #[test]
+    fn forward_and_back_are_mirror_images_off_http() {
+        for step in [
+            WizardStep::Hostname,
+            WizardStep::Lang,
+            WizardStep::Theme,
+            WizardStep::HttpEnabled,
+        ] {
+            let forward = wizard_next(step, false);
+            assert_eq!(
+                wizard_prev(forward, false),
+                step,
+                "{step:?} -> {forward:?} -> back"
+            );
+        }
+    }
+
+    #[test]
+    fn forward_and_back_are_mirror_images_with_http_on() {
+        for step in [WizardStep::HttpEnabled, WizardStep::HttpAddress] {
+            let forward = wizard_next(step, true);
+            assert_eq!(
+                wizard_prev(forward, true),
+                step,
+                "{step:?} -> {forward:?} -> back"
+            );
+        }
+    }
+
+    #[test]
+    fn hostname_has_no_predecessor() {
+        assert_eq!(
+            wizard_prev(WizardStep::Hostname, false),
+            WizardStep::Hostname
+        );
+        assert_eq!(
+            wizard_prev(WizardStep::Hostname, true),
+            WizardStep::Hostname
+        );
+    }
+
+    #[test]
+    fn confirm_is_the_terminal_step() {
+        assert_eq!(wizard_next(WizardStep::Confirm, false), WizardStep::Confirm);
+        assert_eq!(wizard_next(WizardStep::Confirm, true), WizardStep::Confirm);
+    }
+
+    #[test]
+    fn wizard_state_defaults_match_init_answers_defaults() {
+        let state = WizardState::new();
+        let defaults = InitAnswers::defaults();
+        assert_eq!(state.hostname, defaults.hostname);
+        assert_eq!(state.lang, defaults.lang);
+        assert_eq!(theme::THEMES[state.theme_idx].name, defaults.theme);
+        assert!(!state.http_enabled);
+    }
+
+    #[test]
+    fn wizard_state_validate_matches_init_validate() {
+        let state = WizardState::new();
+        let validated = state.validate().unwrap();
+        let direct = init::validate(
+            &state.hostname,
+            &state.lang,
+            theme::THEMES[state.theme_idx].name,
+            None,
+        )
+        .unwrap();
+        assert_eq!(validated.hostname, direct.hostname);
+        assert_eq!(validated.theme, direct.theme);
     }
 }
