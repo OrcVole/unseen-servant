@@ -100,6 +100,10 @@ pub struct HostConfig {
     pub redirects: Vec<crate::handler::redirect::Rule>,
     /// Certificate zones, longest-prefix-matched (C2; `handler::cert_zone`).
     pub cert_zones: Vec<crate::handler::cert_zone::Zone>,
+    /// Writable Titan upload zones (C4; `handler::titan`). Empty means this
+    /// host accepts no uploads at all — the default, and the only state in
+    /// which no certificate can write anything (ADR 0006).
+    pub titan_zones: Vec<crate::handler::titan::Zone>,
 }
 
 /// Why configuration loading failed. Every variant renders as one actionable
@@ -111,9 +115,6 @@ pub enum ConfigError {
     /// TOML syntax or unknown-key rejection, with the file's path for
     /// context. Unknown keys land here via serde's deny_unknown_fields.
     Invalid(String, String),
-    /// A `[titan]` section is present but Titan arrives in phase C4
-    /// (ADR 0006).
-    TitanReserved,
     /// A `[responses]` section is present but the responses feature has no
     /// release assignment yet (ADR 0009).
     ResponsesReserved,
@@ -129,12 +130,6 @@ impl std::fmt::Display for ConfigError {
                 write!(f, "config file {} cannot be read: {e}", p.display())
             }
             ConfigError::Invalid(src, e) => write!(f, "config {src} is invalid: {e}"),
-            ConfigError::TitanReserved => write!(
-                f,
-                "config has a [titan] section, but Titan uploads are not implemented yet \
-                 (they arrive in phase C4; ADR 0006). Remove the section for now — \
-                 it is reserved so your future settings can never be silently ignored"
-            ),
             ConfigError::ResponsesReserved => write!(
                 f,
                 "config has a [responses] section, but the responses feature is not \
@@ -157,8 +152,10 @@ struct RawConfig {
     server: Option<RawServer>,
     #[serde(default, rename = "host")]
     hosts: Vec<RawHost>,
-    /// Reserved for phase C4 (ADR 0006); presence is a startup error.
-    titan: Option<toml::Table>,
+    /// Server-wide Titan defaults (C4; ADR 0006). Writable zones themselves
+    /// are per-host (`[[host.titan_zone]]`) because writable paths belong
+    /// to a host's content tree.
+    titan: Option<RawTitan>,
     /// Reserved (ADR 0009); presence is a startup error.
     responses: Option<toml::Table>,
 }
@@ -187,6 +184,8 @@ struct RawHost {
     redirects: Vec<RawRedirect>,
     #[serde(default, rename = "cert_zone")]
     cert_zones: Vec<RawCertZone>,
+    #[serde(default, rename = "titan_zone")]
+    titan_zones: Vec<RawTitanZone>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -204,6 +203,33 @@ struct RawCertZone {
     path_prefix: String,
     #[serde(default)]
     fingerprints: Vec<String>,
+}
+
+/// `[titan]` — server-wide upload defaults (C4; ADR 0006).
+#[derive(Debug, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawTitan {
+    /// Default per-upload cap for zones that name none. Falls back to
+    /// `handler::titan::DEFAULT_MAX_UPLOAD_BYTES` (10 MiB, the GmCapsule
+    /// default) when unset.
+    max_upload_bytes: Option<u64>,
+}
+
+/// `[[host.titan_zone]]` — one writable upload zone.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawTitanZone {
+    path_prefix: String,
+    /// SHA-256 fingerprints permitted to write here. Unlike a cert_zone,
+    /// an empty list is a startup error, never "any valid certificate" —
+    /// see `handler::titan`.
+    #[serde(default)]
+    fingerprints: Vec<String>,
+    max_upload_bytes: Option<u64>,
+    mime: Option<Vec<String>>,
+    token: Option<String>,
+    #[serde(default)]
+    allow_delete: bool,
 }
 
 /// Environment override names honored by the core (ADR 0007). Kept in one
@@ -322,13 +348,12 @@ impl Config {
     }
 
     fn resolve(raw: RawConfig, env: &EnvOverrides) -> Result<Config, ConfigError> {
-        if raw.titan.is_some() {
-            return Err(ConfigError::TitanReserved);
-        }
         if raw.responses.is_some() {
             return Err(ConfigError::ResponsesReserved);
         }
         let server = raw.server.unwrap_or_default();
+        // Server-wide Titan default, applied to zones that name no cap.
+        let titan_default_max_upload = raw.titan.unwrap_or_default().max_upload_bytes;
 
         let state_dir = env
             .state_dir
@@ -384,6 +409,7 @@ impl Config {
             docroot: None,
             redirects: Vec::new(),
             cert_zones: Vec::new(),
+            titan_zones: Vec::new(),
         };
         let raw_hosts: Vec<RawHost> = match &env.hostname {
             // USV_HOSTNAME overrides the *name*, but a file-configured host
@@ -427,11 +453,29 @@ impl Config {
                     allowed_fingerprints: z.fingerprints,
                 })
                 .collect();
+            let mut titan_zones = Vec::with_capacity(raw_host.titan_zones.len());
+            for z in raw_host.titan_zones {
+                // A zone's own cap wins; otherwise the server-wide default;
+                // otherwise the bundled 10 MiB. Validation (non-empty
+                // allowlist above all) lives in the handler with the rest of
+                // the upload policy, so config and enforcement cannot drift.
+                let zone = crate::handler::titan::Zone::new(
+                    &z.path_prefix,
+                    z.fingerprints,
+                    z.max_upload_bytes.or(titan_default_max_upload),
+                    z.mime,
+                    z.token,
+                    z.allow_delete,
+                )
+                .map_err(|e| ConfigError::Rejected(format!("host {name:?}: {e}")))?;
+                titan_zones.push(zone);
+            }
             hosts.push(HostConfig {
                 name,
                 docroot,
                 redirects,
                 cert_zones,
+                titan_zones,
             });
         }
 
@@ -581,10 +625,72 @@ mod tests {
     }
 
     #[test]
-    fn titan_section_errors_helpfully() {
-        let err = Config::from_toml_str("[titan]\n", &no_env()).unwrap_err();
-        assert!(matches!(err, ConfigError::TitanReserved));
-        assert!(err.to_string().contains("C4"), "message names the phase");
+    fn no_titan_zones_means_nothing_is_writable() {
+        // The default posture: a capsule that never mentions Titan cannot
+        // be written to by anyone (ADR 0006).
+        let cfg = Config::from_toml_str("[[host]]\nname = \"a.example\"\n", &no_env()).unwrap();
+        assert!(cfg.hosts[0].titan_zones.is_empty());
+    }
+
+    #[test]
+    fn a_titan_zone_parses_with_its_defaults() {
+        let cfg = Config::from_toml_str(
+            "[[host]]\nname = \"a.example\"\n\
+             [[host.titan_zone]]\npath_prefix = \"/uploads/\"\nfingerprints = [\"aabb\"]\n",
+            &no_env(),
+        )
+        .unwrap();
+        let zone = &cfg.hosts[0].titan_zones[0];
+        assert_eq!(zone.path_prefix, "/uploads/");
+        assert_eq!(zone.allowed_fingerprints, vec!["aabb".to_string()]);
+        assert_eq!(
+            zone.max_upload_bytes,
+            crate::handler::titan::DEFAULT_MAX_UPLOAD_BYTES
+        );
+        assert!(!zone.allow_delete, "deletion is opt-in");
+        assert!(zone.token.is_none());
+    }
+
+    #[test]
+    fn a_titan_zone_without_fingerprints_is_a_startup_error() {
+        // The asymmetry with cert_zone that matters: a writable zone may
+        // never be left open to any certificate.
+        let err = Config::from_toml_str(
+            "[[host]]\nname = \"a.example\"\n\
+             [[host.titan_zone]]\npath_prefix = \"/uploads/\"\n",
+            &no_env(),
+        )
+        .unwrap_err();
+        assert!(matches!(err, ConfigError::Rejected(_)), "{err}");
+        assert!(err.to_string().contains("fingerprint"), "{err}");
+    }
+
+    #[test]
+    fn the_server_wide_titan_cap_is_a_default_zones_can_override() {
+        let cfg = Config::from_toml_str(
+            "[titan]\nmax_upload_bytes = 4096\n\
+             [[host]]\nname = \"a.example\"\n\
+             [[host.titan_zone]]\npath_prefix = \"/small/\"\nfingerprints = [\"aa\"]\n\
+             [[host.titan_zone]]\npath_prefix = \"/big/\"\nfingerprints = [\"aa\"]\nmax_upload_bytes = 999999\n",
+            &no_env(),
+        )
+        .unwrap();
+        let zones = &cfg.hosts[0].titan_zones;
+        let small = zones.iter().find(|z| z.path_prefix == "/small/").unwrap();
+        let big = zones.iter().find(|z| z.path_prefix == "/big/").unwrap();
+        assert_eq!(small.max_upload_bytes, 4096, "inherits the server default");
+        assert_eq!(big.max_upload_bytes, 999_999, "own value wins");
+    }
+
+    #[test]
+    fn unknown_keys_in_a_titan_zone_are_startup_errors() {
+        let err = Config::from_toml_str(
+            "[[host]]\nname = \"a.example\"\n\
+             [[host.titan_zone]]\npath_prefix = \"/u/\"\nfingerprints = [\"aa\"]\ntypo = 1\n",
+            &no_env(),
+        )
+        .unwrap_err();
+        assert!(matches!(err, ConfigError::Invalid(..)), "{err}");
     }
 
     #[test]

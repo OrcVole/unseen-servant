@@ -15,6 +15,7 @@ pub mod cert_zone;
 pub mod mime;
 pub mod redirect;
 pub mod static_file;
+pub mod titan;
 
 use crate::protocol::response::Header;
 
