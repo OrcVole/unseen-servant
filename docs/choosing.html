@@ -98,6 +98,41 @@
   /* colour the rail of a branch that leads somewhere definite */
   li.u > ul, li.a > ul, li.g > ul, li.m > ul, li.p > ul{border-left-color:var(--c)}
 
+  /* ================= the doors =================
+     One server, seven surfaces. Each panel apes the shape of what that
+     protocol actually returns, so the contrast does the explaining. */
+  .doors{display:grid; gap:1.6rem; grid-template-columns:repeat(auto-fit,minmax(330px,1fr)); margin-top:1.5rem}
+  .door{
+    margin:0; background:var(--card); border:2px solid var(--rail);
+    border-top:10px solid var(--c); border-radius:16px; overflow:hidden;
+    display:flex; flex-direction:column;
+  }
+  .door figcaption{
+    display:flex; justify-content:space-between; align-items:baseline; gap:.8rem; flex-wrap:wrap;
+    padding:.85rem 1.2rem; border-bottom:2px solid var(--rail); background:var(--paper);
+  }
+  .door .addr{
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    font-size:.98rem; font-weight:700; color:var(--c); word-break:break-all;
+  }
+  .door .port{font-size:.88rem; color:var(--soft); font-weight:650; white-space:nowrap}
+  .screen{padding:1.2rem 1.3rem; flex:1; font-size:1rem; line-height:1.55}
+  .screen p{margin:0 0 .5rem} .screen p:last-child{margin:0}
+  .screen .h1{font-size:1.15rem; font-weight:730; margin-bottom:.6rem}
+  .screen.prose .lnk{color:var(--c); font-weight:650}
+  .screen.web .meta,.screen.prose .meta{color:var(--soft); font-size:.9rem; font-style:italic}
+  .screen.menu,.screen.plain,.screen.agent{
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:.95rem;
+  }
+  .screen.menu .t{color:var(--c); font-weight:700}
+  .screen.agent .k{color:var(--c); font-weight:700}
+  .why{
+    margin:0; padding:1rem 1.3rem 1.2rem; border-top:2px dashed var(--rail);
+    font-size:.98rem; color:var(--soft);
+  }
+  .why b{color:var(--ink)}
+  .mm{--c:var(--molly)}
+
   /* ================= cards ================= */
   .cards{display:grid; gap:1.4rem; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); margin-top:1.5rem}
   .card{
@@ -143,6 +178,10 @@ to reach, and add others later when you have a reason.</p>
         <span class="pick">Anyone at all — I will put this address on a CV or in an email</span>
         <span class="go u">The web, mirrored <em>and keep a Gemini copy from the same folder</em></span>
       </li>
+      <li class="u">
+        <span class="pick">Software, mostly — AI agents, scripts, things that index</span>
+        <span class="go u">The web, plus <code>/llms.txt</code> <em>one fetch instead of a crawl; Markdown by suffix</em></span>
+      </li>
       <li>
         <span class="pick">People who chose to be in a quieter place</span>
         <ul>
@@ -183,6 +222,111 @@ to reach, and add others later when you have a reason.</p>
 </ul>
 </div>
 
+<h2>One server, seven doors</h2>
+<p class="lede">This is the same machine, the same hostname, the same folder of writing. Only the
+scheme at the front of the address changes — and with it the port, the client, and what the
+protocol is actually <em>good</em> at. Read down the seven and the differences stop being abstract.</p>
+
+<div class="doors">
+
+  <figure class="door u">
+    <figcaption><span class="addr">gemini://unseenservant.dev/</span><span class="port">port 1965</span></figcaption>
+    <div class="screen prose">
+      <p class="h1">Notes from a small server</p>
+      <p>The third draft finally holds. Writing it twice taught me more than
+      reading the specification did.</p>
+      <p class="lnk">⇒ 2026-08-09 · On arriving last</p>
+      <p class="lnk">⇒ 2026-07-28 · Certificates that never change</p>
+      <p class="lnk">⇒ subscribe to this log</p>
+    </div>
+    <p class="why"><b>Best for a blog people follow.</b> Feeds, replies, aggregators, and clients
+    good enough to read in all evening.</p>
+  </figure>
+
+  <figure class="door p">
+    <figcaption><span class="addr">https://unseenservant.dev/</span><span class="port">port 443</span></figcaption>
+    <div class="screen web">
+      <p class="h1">Notes from a small server</p>
+      <p>The third draft finally holds. Writing it twice taught me more than
+      reading the specification did.</p>
+      <p class="meta">Rendered from the same file · shareable · findable</p>
+    </div>
+    <p class="why"><b>Best for reach.</b> The identical words for everyone who cannot open a
+    <code>gemini://</code> link — a CV, an email footer, a search result.</p>
+  </figure>
+
+  <figure class="door a">
+    <figcaption><span class="addr">gopher://unseenservant.dev:70/</span><span class="port">port 70</span></figcaption>
+    <div class="screen menu">
+      <p><span class="t">[DIR]</span>  archive/ .................. 148 items</p>
+      <p><span class="t">[DIR]</span>  images/</p>
+      <p><span class="t">[TXT]</span>  on-arriving-last.txt</p>
+      <p><span class="t">[TXT]</span>  certificates.txt</p>
+      <p><span class="t">[BIN]</span>  usv-0.1.0.tar.gz</p>
+    </div>
+    <p class="why"><b>Best for an archive you browse.</b> A filing cabinet, not an essay — and
+    still readable by software nobody has touched in decades.</p>
+  </figure>
+
+  <figure class="door g">
+    <figcaption><span class="addr">spartan://unseenservant.dev:300/</span><span class="port">port 300</span></figcaption>
+    <div class="screen prose">
+      <p class="h1">Notes from a small server</p>
+      <p>The third draft finally holds. Writing it twice taught me more than
+      reading the specification did.</p>
+      <p class="meta">no certificate · no handshake · no clock to be wrong</p>
+    </div>
+    <p class="why"><b>Best where TLS is a burden.</b> The same gemtext document, on a machine too
+    small for cryptography or a network that does not need it.</p>
+  </figure>
+
+  <figure class="door m">
+    <figcaption><span class="addr">nex://unseenservant.dev:1900/</span><span class="port">port 1900</span></figcaption>
+    <div class="screen plain">
+      <p>a note, left where someone might find it</p>
+      <p>&nbsp;</p>
+      <p>no headers. no status codes. no types.</p>
+      <p>you asked for a path; these are the bytes.</p>
+    </div>
+    <p class="why"><b>Best for one small thing.</b> The whole protocol fits in your head — you can
+    speak it by hand over telnet.</p>
+  </figure>
+
+  <figure class="door mm">
+    <figcaption><span class="addr">finger://unseenservant.dev</span><span class="port">port 79</span></figcaption>
+    <div class="screen plain">
+      <p>unseenservant.dev</p>
+      <p>-----------------</p>
+      <p>Plan: rewriting the gopher renderer.</p>
+      <p>Mood: patient.</p>
+      <p>Last seen: this morning.</p>
+    </div>
+    <p class="why"><b>Best for “what am I up to?”</b> A now-page with no page — one command, four
+    lines back, and nothing to maintain.</p>
+  </figure>
+
+  <figure class="door u">
+    <figcaption><span class="addr">https://unseenservant.dev/llms.txt</span><span class="port">for machines</span></figcaption>
+    <div class="screen agent">
+      <p><span class="k"># unseenservant.dev</span></p>
+      <p>&nbsp;</p>
+      <p>&gt; Every page, generated whenever the</p>
+      <p>&gt; content changes. One fetch, not a crawl.</p>
+      <p>&nbsp;</p>
+      <p><span class="k">## Pages</span></p>
+      <p>- /on-arriving-last<span class="k">.md</span></p>
+      <p>- /certificates<span class="k">.md</span></p>
+    </div>
+    <p class="why"><b>Best for an AI agent or a script.</b> A whole capsule in one request, every
+    page also available as Markdown by suffix, and a certificate-gated door for agents you have
+    authorised to <em>write</em> — scoped by capability, not by API key.</p>
+  </figure>
+
+</div>
+
+<p class="lede" style="margin-top:2rem">One folder produced all seven. Nothing above was written
+twice, and turning any of them off is a single line of configuration.</p>
+
 <h2>Two · Which server should run it?</h2>
 <p class="lede">Five good servers, all different. What separates them is not how they serve
 files — it is everything else they will or will not do.</p>
@@ -209,6 +353,10 @@ files — it is everything else they will or will not do.</p>
           <li class="u">
             <span class="pick">I want more than Gemini: the web, or Gopher, Spartan, Nex, Finger</span>
             <span class="go u">usv <em>the only one that does</em></span>
+          </li>
+          <li class="u">
+            <span class="pick">I want AI agents to read it cleanly — and some of them to write to it</span>
+            <span class="go u">usv <em>llms.txt and Markdown by default; writes scoped by capability</em></span>
           </li>
           <li>
             <span class="ask">Gemini only, then. Do readers or agents need to write to it, over Titan?</span>
@@ -239,6 +387,7 @@ files — it is everything else they will or will not do.</p>
     <p>One folder, served to Gemini, Titan, the web, Gopher, Spartan, Nex and Finger. The only one
     here that reaches past Geminispace without a second site.</p>
     <dl>
+      <dt>Agents</dt><dd>First-class: <code>/llms.txt</code>, Markdown, gated writes</dd>
       <dt>Written in</dt><dd>Rust, <code>unsafe</code> forbidden crate-wide</dd>
       <dt>Config</dt><dd>TOML — or none at all</dd>
       <dt>Costs you</dt><dd>Pre-1.0, and the newest here</dd>
