@@ -54,6 +54,9 @@ pub struct Config {
     /// Minimum TLS version. 1.3 unless the operator opts down to 1.2
     /// (docs/recon/protocol.md "Implementation guidance" §4).
     pub tls_min: TlsMinVersion,
+    /// How much of a visitor's address the request log may carry.
+    /// Defaults to [`PeerLogging::Off`] (OQ-9).
+    pub log_peer: PeerLogging,
     /// Hostnames this server answers for (authority check layer 3; SNI cert
     /// selection). Requests naming any other host get status 53.
     pub hosts: Vec<HostConfig>,
@@ -107,6 +110,35 @@ pub enum TlsMinVersion {
     /// TLS 1.3 — the default. Client certificates over 1.2 travel in
     /// cleartext, which is the contested-issue #12 concern.
     V1_3,
+}
+
+/// How much of a visitor's address the request log may carry (OQ-9).
+///
+/// Geminispace's stated norm is aggressive log minimalism — operators
+/// routinely make a point of *not* retaining visitor addresses
+/// (`docs/recon/community-wisdom.md` §3). usv's own request line was
+/// already query-redacted by construction, since status 10/11 input
+/// lands in the query and can contain anything a visitor types; the
+/// address was the remaining durable identifier, and the default now
+/// matches the norm rather than the habit inherited from web servers.
+///
+/// The operator can still opt back in: an abuse investigation is a real
+/// need, and this is a choice they should make deliberately rather than
+/// discover they had already made.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum PeerLogging {
+    /// **Default.** No address in the logs at all; the field renders as
+    /// `-`, so the line shape stays stable and greppable.
+    #[default]
+    Off,
+    /// A short digest of the address under a salt generated fresh at
+    /// every start. Repeat visits correlate *within one run of the
+    /// process* — enough to see one client hammering a path — and
+    /// nothing survives a restart, because the salt does not.
+    Hashed,
+    /// The address, verbatim. Everything a conventional access log
+    /// keeps. Deliberately the value an operator has to type out.
+    Full,
 }
 
 /// Per-hostname configuration: one `[[host]]` table each.
@@ -196,6 +228,7 @@ struct RawServer {
     listen: Option<Vec<String>>,
     advertised_port: Option<u16>,
     tls_min: Option<String>,
+    log_peer: Option<String>,
     max_connections: Option<usize>,
     request_timeout_secs: Option<u64>,
     response_timeout_secs: Option<u64>,
@@ -487,6 +520,20 @@ impl Config {
             }
         };
 
+        let log_peer = match server.log_peer.as_deref() {
+            None | Some("off") => PeerLogging::Off,
+            Some("hashed") => PeerLogging::Hashed,
+            Some("full") => PeerLogging::Full,
+            Some(other) => {
+                return Err(ConfigError::Rejected(format!(
+                    "server.log_peer {other:?} is not a valid setting: \"off\" (default — no \
+                     visitor address in the logs), \"hashed\" (a per-boot-salted digest that \
+                     correlates repeat visits within one run and survives no restart), or \
+                     \"full\" (the address verbatim)"
+                )));
+            }
+        };
+
         // The roster is built before hosts, so a zone can be checked
         // against it for a mistyped identity label at startup.
         let mut identities = Vec::with_capacity(raw.identities.len());
@@ -664,6 +711,7 @@ impl Config {
             listen,
             advertised_port,
             tls_min,
+            log_peer,
             hosts,
             advertised_host,
             max_connections,
@@ -979,6 +1027,42 @@ mod tests {
         assert_eq!(cfg.tls_min, TlsMinVersion::V1_2);
         let err = Config::from_toml_str("[server]\ntls_min = \"1.1\"", &no_env()).unwrap_err();
         assert!(err.to_string().contains("1.2"));
+    }
+
+    #[test]
+    fn not_logging_visitor_addresses_is_the_default() {
+        // OQ-9. The default is the privacy-preserving one, and it holds
+        // for a capsule with no configuration file at all — which is the
+        // configuration most capsules actually run.
+        let cfg = Config::from_toml_str("", &no_env()).expect("valid");
+        assert_eq!(cfg.log_peer, PeerLogging::Off);
+        let cfg = Config::from_toml_str("[server]\ntheme = \"paper\"", &no_env()).expect("valid");
+        assert_eq!(cfg.log_peer, PeerLogging::Off);
+    }
+
+    #[test]
+    fn keeping_visitor_addresses_has_to_be_asked_for() {
+        for (value, want) in [
+            ("off", PeerLogging::Off),
+            ("hashed", PeerLogging::Hashed),
+            ("full", PeerLogging::Full),
+        ] {
+            let cfg =
+                Config::from_toml_str(&format!("[server]\nlog_peer = \"{value}\""), &no_env())
+                    .expect("valid");
+            assert_eq!(cfg.log_peer, want, "log_peer = {value:?}");
+        }
+    }
+
+    #[test]
+    fn a_mistyped_log_peer_setting_is_refused_not_ignored() {
+        // Failing open here would silently keep addresses the operator
+        // believed they had turned off.
+        let err = Config::from_toml_str("[server]\nlog_peer = \"none\"", &no_env()).unwrap_err();
+        let msg = err.to_string();
+        assert!(msg.contains("off"), "must list the real values: {msg}");
+        assert!(msg.contains("hashed"), "must list the real values: {msg}");
+        assert!(msg.contains("full"), "must list the real values: {msg}");
     }
 
     #[test]

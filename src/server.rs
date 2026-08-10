@@ -24,8 +24,9 @@
 //! strict reading and gemini-diagnostics' RequestMissingCR expectation
 //! (which fails a server that answers).
 
+use std::fmt;
 use std::net::SocketAddr;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 use sha2::{Digest, Sha256};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -133,6 +134,79 @@ pub async fn accept_loop(
     }
 }
 
+/// The salt for [`PeerLogging::Hashed`], generated once per process and
+/// never written anywhere.
+///
+/// Entropy comes from `RandomState`, whose keys the standard library
+/// seeds from the OS specifically to resist an adversary who can see
+/// hash outputs and wants to work backwards — which is exactly the
+/// adversary here, someone holding the log file. Deliberately *not*
+/// persisted: a salt that survived a restart would make the digests a
+/// durable identifier again, which is the thing this setting exists to
+/// avoid.
+static PEER_SALT: OnceLock<[u8; 16]> = OnceLock::new();
+
+fn peer_salt() -> &'static [u8; 16] {
+    PEER_SALT.get_or_init(|| {
+        use std::hash::{BuildHasher, Hasher};
+        let mut out = [0u8; 16];
+        for (i, chunk) in out.chunks_mut(8).enumerate() {
+            let mut h = std::collections::hash_map::RandomState::new().build_hasher();
+            h.write_usize(i);
+            chunk.copy_from_slice(&h.finish().to_le_bytes());
+        }
+        out
+    })
+}
+
+/// A visitor's address as it is permitted to appear in logs (OQ-9).
+///
+/// The whole point of the type is that request-handling code holds one
+/// of these instead of the `SocketAddr`, so logging the real address is
+/// not something that can be done by reaching for the wrong variable.
+pub(crate) struct PeerLabel(String);
+
+impl fmt::Display for PeerLabel {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+impl PeerLabel {
+    fn new(peer: &SocketAddr, mode: crate::config::PeerLogging) -> Self {
+        use crate::config::PeerLogging;
+        Self(match mode {
+            // A placeholder rather than an absent field: the log line
+            // keeps one shape, so anything parsing it does not need to
+            // care how the operator configured this.
+            PeerLogging::Off => "-".to_string(),
+            PeerLogging::Hashed => {
+                // The IP only, never the ephemeral source port — that
+                // changes per connection and would defeat the
+                // correlation this mode exists to provide.
+                let mut hasher = Sha256::new();
+                hasher.update(peer_salt());
+                match peer.ip() {
+                    std::net::IpAddr::V4(a) => hasher.update(a.octets()),
+                    std::net::IpAddr::V6(a) => hasher.update(a.octets()),
+                }
+                let digest = hasher.finalize();
+                // 48 bits: ample to tell visitors apart in one process
+                // lifetime, and obviously not an address to anyone
+                // reading the log.
+                let mut s = String::with_capacity(14);
+                s.push_str("h:");
+                for b in &digest[..6] {
+                    use fmt::Write as _;
+                    let _ = write!(s, "{b:02x}");
+                }
+                s
+            }
+            PeerLogging::Full => peer.to_string(),
+        })
+    }
+}
+
 /// Serve one connection start to finish. Never panics; never leaves a
 /// completed handshake without a close_notify attempt.
 async fn handle_connection(
@@ -141,6 +215,10 @@ async fn handle_connection(
     state: Shared,
     runtime: Arc<RuntimeState>,
 ) {
+    // Shadow the address immediately. Everything below logs the label;
+    // the raw `peer` stays available for anything that genuinely needs
+    // the address itself, but no logging path can reach it by accident.
+    let peer = PeerLabel::new(&peer, state.config.log_peer);
     let request_deadline = Duration::from_secs(state.config.request_timeout_secs);
     let response_deadline = Duration::from_secs(state.config.response_timeout_secs);
 
@@ -771,5 +849,71 @@ pub fn warn_if_nonstandard(config: &Config) {
              explicit gemini://host:{}/ URLs",
             config.advertised_port
         );
+    }
+}
+
+#[cfg(test)]
+mod peer_label_tests {
+    use super::*;
+    use crate::config::PeerLogging;
+
+    fn addr(s: &str) -> SocketAddr {
+        s.parse().expect("test address")
+    }
+
+    #[test]
+    fn off_emits_a_placeholder_not_the_address() {
+        let label = PeerLabel::new(&addr("203.0.113.7:52000"), PeerLogging::Off);
+        assert_eq!(label.to_string(), "-");
+        assert!(!label.to_string().contains("203.0.113"));
+    }
+
+    #[test]
+    fn full_emits_the_address_verbatim() {
+        let label = PeerLabel::new(&addr("203.0.113.7:52000"), PeerLogging::Full);
+        assert_eq!(label.to_string(), "203.0.113.7:52000");
+    }
+
+    #[test]
+    fn hashed_never_contains_the_address() {
+        let label = PeerLabel::new(&addr("203.0.113.7:52000"), PeerLogging::Hashed);
+        let s = label.to_string();
+        assert!(s.starts_with("h:"), "{s}");
+        assert_eq!(s.len(), 2 + 12, "48 bits as hex: {s}");
+        assert!(!s.contains("203"), "{s}");
+    }
+
+    #[test]
+    fn hashed_ignores_the_ephemeral_source_port() {
+        // The port changes on every connection. Including it would make
+        // each request from one visitor look like a different visitor,
+        // defeating the only reason this mode exists.
+        let a = PeerLabel::new(&addr("203.0.113.7:52000"), PeerLogging::Hashed).to_string();
+        let b = PeerLabel::new(&addr("203.0.113.7:41234"), PeerLogging::Hashed).to_string();
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn hashed_distinguishes_different_visitors() {
+        let a = PeerLabel::new(&addr("203.0.113.7:52000"), PeerLogging::Hashed).to_string();
+        let b = PeerLabel::new(&addr("203.0.113.8:52000"), PeerLogging::Hashed).to_string();
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn hashed_covers_ipv6_too() {
+        let a = PeerLabel::new(&addr("[2001:db8::1]:52000"), PeerLogging::Hashed).to_string();
+        let b = PeerLabel::new(&addr("[2001:db8::2]:52000"), PeerLogging::Hashed).to_string();
+        assert!(a.starts_with("h:") && b.starts_with("h:"));
+        assert_ne!(a, b);
+        assert!(!a.contains("2001"), "{a}");
+    }
+
+    #[test]
+    fn the_salt_is_stable_within_a_process() {
+        // Correlation has to work for the whole run, or the mode is
+        // useless; it must equally not survive one, which is why the
+        // salt is never persisted (see PEER_SALT).
+        assert_eq!(peer_salt(), peer_salt());
     }
 }

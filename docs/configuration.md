@@ -40,9 +40,26 @@ name = "example.org"
 | `theme` | string | `daybreak` | `daybreak`, `midnight`, `tokyo-night`, `paper`. Unknown names are a startup error listing the real ones |
 | `lang` | string | `en` | Emitted as `<html lang>` and as the `text/gemini; lang=` parameter |
 | `tls_min` | string | `1.3` | Set `1.2` only if you must serve an old client |
+| `log_peer` | string | `off` | How much of a visitor's address the request log carries: `off` (nothing — the default), `hashed` (per-boot-salted digest, correlates within one run only), `full` (verbatim) |
 | `max_connections` | integer | — | Concurrent connection ceiling |
 | `request_timeout_secs` | integer | — | Slowloris defence |
 | `response_timeout_secs` | integer | — | Write-side timeout |
+
+### Visitor addresses in logs
+
+`log_peer` defaults to `off`, so a capsule you never configure logs no
+visitor addresses at all — matching Geminispace's log-minimalism norm
+rather than web-server habit. The query string is redacted by
+construction in every mode, since status `10`/`11` input lands there.
+
+```toml
+[server]
+log_peer = "hashed"    # correlate repeat visits within one run, keep nothing
+```
+
+`hashed` digests the address only, never the ephemeral source port, and
+the salt is regenerated at every start and never written down. A
+mistyped value is a startup error rather than a silent fallback.
 
 ## `[[host]]` — one block per hostname
 

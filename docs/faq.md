@@ -79,6 +79,18 @@ and every hostname gets its own certificate. On Cloudron specifically,
 one *app* can hold port 1965 per server, so use alias domains rather
 than a second install.
 
+### Does it log my visitors' IP addresses?
+
+Not by default. The request log carries the status and the path, and the
+peer field reads as `-`. Query strings are redacted by construction,
+since Gemini's input flow puts whatever a visitor typed into the query.
+
+If you want addresses, `server.log_peer` gives you two opt-ins: `full`
+for a conventional access log, or `hashed` for a digest under a salt
+made fresh at every start — repeat visits correlate within one run of
+the process, and nothing survives a restart. See
+[`configuration.md`](configuration.md).
+
 ### Where does my data live?
 
 One state directory: identity, content, rendered output, config. It's
