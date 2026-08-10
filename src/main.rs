@@ -17,7 +17,7 @@
 //! SIGTERM/SIGINT drain gracefully — Cloudron and systemd both stop with
 //! SIGTERM.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::sync::Arc;
 
@@ -44,6 +44,9 @@ const HELP: &str = concat!(
     "  usv zones      [--config <p>]   list certificate and Titan zones\n",
     "  usv stats      [--config <p>]   what's currently published (read-only)\n",
     "  usv render     [--config <p>] [--force]   render the content tree now\n",
+    "  usv identity add    <label> <fingerprint> [--capability <c>]... [--enrolled <date>]\n",
+    "  usv identity rotate <label> <new-fingerprint> --until <date>\n",
+    "  usv identity revoke <label> (--capability <c>... | --all)\n",
     "  usv --version | --help\n",
     "\n",
     "CONFIG:\n",
@@ -63,6 +66,11 @@ const HELP: &str = concat!(
     "`stats` is read-only and never renders; `render` always performs a real\n",
     "render (the same atomic staging-swap the server itself uses).\n",
     "\n",
+    "`usv identity add/rotate/revoke` print a ready-to-paste [[identity]]\n",
+    "block; they never write to usv.toml (director-confirmed 2026-08-10).\n",
+    "Look the identity up first with `--config` pointed at the real file, so\n",
+    "rotate/revoke can find the existing entry.\n",
+    "\n",
     "Subcommands (init, export) and Tor/I2P affordances arrive per\n",
     "docs/BUILD-PLAN.md C5. Nothing is announced or exposed publicly before\n",
     "the v1.0 gates pass (docs/ROADMAP.md).\n",
@@ -71,7 +79,29 @@ const HELP: &str = concat!(
 /// A subcommand not yet implemented — recognised and named rather than
 /// falling through to the generic "unknown argument" error, so the
 /// director gets "not yet, see BUILD-PLAN C5" instead of "typo?".
-const RESERVED_SUBCOMMANDS: &[&str] = &["init", "export", "identity"];
+const RESERVED_SUBCOMMANDS: &[&str] = &["init", "export"];
+
+/// `usv identity <action>`'s own parsed action — kept separate from the
+/// flat single-token subcommands, since it takes positional arguments and
+/// repeatable flags the top-level parser has no shape for.
+enum IdentityAction {
+    Add {
+        label: String,
+        fingerprint: String,
+        capabilities: Vec<String>,
+        enrolled: Option<String>,
+    },
+    Rotate {
+        label: String,
+        new_fingerprint: String,
+        until: String,
+    },
+    Revoke {
+        label: String,
+        capabilities: Vec<String>,
+        all: bool,
+    },
+}
 
 enum Command {
     Serve,
@@ -81,6 +111,7 @@ enum Command {
     Zones,
     Stats,
     Render { force: bool },
+    Identity(IdentityAction),
 }
 
 struct Args {
@@ -116,6 +147,15 @@ fn parse_args() -> Parsed {
                 }
             },
             "--force" => force = true,
+            "identity" if command.is_none() => {
+                return match parse_identity_action(args) {
+                    Ok(action) => Parsed::Run(Args {
+                        config,
+                        command: Command::Identity(action),
+                    }),
+                    Err(code) => Parsed::Exit(code),
+                };
+            }
             "status" | "fingerprint" | "check" | "zones" | "stats" | "render"
                 if command.is_none() =>
             {
@@ -149,6 +189,142 @@ fn parse_args() -> Parsed {
         return Parsed::Exit(ExitCode::from(2));
     }
     Parsed::Run(Args { config, command })
+}
+
+/// Parse `identity <action> ...` — everything after the `identity` token.
+/// `--config` is not accepted here (see the module docs/`--help`: it must
+/// come before `identity`, same as every other subcommand); seeing one
+/// here is a clear, named error rather than the flag being silently
+/// swallowed as a positional label or fingerprint.
+fn parse_identity_action(
+    mut args: impl Iterator<Item = String>,
+) -> Result<IdentityAction, ExitCode> {
+    let action_word = args.next().ok_or_else(|| {
+        eprintln!("usv: 'identity' needs an action: add, rotate, or revoke (see --help)");
+        ExitCode::from(2)
+    })?;
+    match action_word.as_str() {
+        "add" => parse_identity_add(args),
+        "rotate" => parse_identity_rotate(args),
+        "revoke" => parse_identity_revoke(args),
+        other => {
+            eprintln!("usv: unknown identity action '{other}' (expected add, rotate, or revoke)");
+            Err(ExitCode::from(2))
+        }
+    }
+}
+
+fn misplaced_config_error() -> ExitCode {
+    eprintln!("usv: --config must come before 'identity' (see --help)");
+    ExitCode::from(2)
+}
+
+fn missing_positional(what: &str) -> ExitCode {
+    eprintln!("usv: identity: missing {what} (see --help)");
+    ExitCode::from(2)
+}
+
+fn parse_identity_add(mut args: impl Iterator<Item = String>) -> Result<IdentityAction, ExitCode> {
+    let label = args.next().ok_or_else(|| missing_positional("<label>"))?;
+    let fingerprint = args
+        .next()
+        .ok_or_else(|| missing_positional("<fingerprint>"))?;
+    let mut capabilities = Vec::new();
+    let mut enrolled = None;
+    while let Some(arg) = args.next() {
+        match arg.as_str() {
+            "--capability" => capabilities.push(
+                args.next()
+                    .ok_or_else(|| missing_positional("a value for --capability"))?,
+            ),
+            "--enrolled" => {
+                enrolled = Some(
+                    args.next()
+                        .ok_or_else(|| missing_positional("a value for --enrolled"))?,
+                );
+            }
+            "--config" => return Err(misplaced_config_error()),
+            other => {
+                eprintln!("usv: identity add: unknown argument '{other}' (see --help)");
+                return Err(ExitCode::from(2));
+            }
+        }
+    }
+    Ok(IdentityAction::Add {
+        label,
+        fingerprint,
+        capabilities,
+        enrolled,
+    })
+}
+
+fn parse_identity_rotate(
+    mut args: impl Iterator<Item = String>,
+) -> Result<IdentityAction, ExitCode> {
+    let label = args.next().ok_or_else(|| missing_positional("<label>"))?;
+    let new_fingerprint = args
+        .next()
+        .ok_or_else(|| missing_positional("<new-fingerprint>"))?;
+    let mut until = None;
+    while let Some(arg) = args.next() {
+        match arg.as_str() {
+            "--until" => {
+                until = Some(
+                    args.next()
+                        .ok_or_else(|| missing_positional("a value for --until"))?,
+                );
+            }
+            "--config" => return Err(misplaced_config_error()),
+            other => {
+                eprintln!("usv: identity rotate: unknown argument '{other}' (see --help)");
+                return Err(ExitCode::from(2));
+            }
+        }
+    }
+    let until = until.ok_or_else(|| missing_positional("--until <date>"))?;
+    Ok(IdentityAction::Rotate {
+        label,
+        new_fingerprint,
+        until,
+    })
+}
+
+fn parse_identity_revoke(
+    mut args: impl Iterator<Item = String>,
+) -> Result<IdentityAction, ExitCode> {
+    let label = args.next().ok_or_else(|| missing_positional("<label>"))?;
+    let mut capabilities = Vec::new();
+    let mut all = false;
+    while let Some(arg) = args.next() {
+        match arg.as_str() {
+            "--capability" => capabilities.push(
+                args.next()
+                    .ok_or_else(|| missing_positional("a value for --capability"))?,
+            ),
+            "--all" => all = true,
+            "--config" => return Err(misplaced_config_error()),
+            other => {
+                eprintln!("usv: identity revoke: unknown argument '{other}' (see --help)");
+                return Err(ExitCode::from(2));
+            }
+        }
+    }
+    if all && !capabilities.is_empty() {
+        eprintln!("usv: identity revoke: --all and --capability are mutually exclusive");
+        return Err(ExitCode::from(2));
+    }
+    if !all && capabilities.is_empty() {
+        eprintln!(
+            "usv: identity revoke: name at least one --capability to remove, or pass --all \
+             to remove the whole identity"
+        );
+        return Err(ExitCode::from(2));
+    }
+    Ok(IdentityAction::Revoke {
+        label,
+        capabilities,
+        all,
+    })
 }
 
 /// The content directory rendering reads from: the primary host's
@@ -188,9 +364,14 @@ fn render_context(config: &Config) -> pipeline::RenderContext {
 
 /// Load config the same way every subcommand does: env overrides, the
 /// `--config` search order (ADR 0007), a plain error message on failure.
-fn load_config(args: &Args) -> Result<Config, ExitCode> {
+///
+/// Takes the path directly rather than `&Args`, so callers can pull
+/// `config` out of an owned `Args` (as `run_command` does, matching on
+/// `args.command` by value) without fighting the borrow checker over a
+/// struct one of whose other fields was just moved.
+fn load_config(config_path: Option<&Path>) -> Result<Config, ExitCode> {
     let env = EnvOverrides::from_process_env();
-    Config::load(args.config.as_deref(), &env).map_err(|e| {
+    Config::load(config_path, &env).map_err(|e| {
         eprintln!("usv: {e}");
         ExitCode::FAILURE
     })
@@ -210,19 +391,68 @@ fn open_identities(config: &Config) -> Result<IdentityStore, ExitCode> {
 }
 
 async fn run_command(args: Args) -> ExitCode {
-    match args.command {
+    let Args { config, command } = args;
+    let config_path = config.as_deref();
+    match command {
         Command::Serve => unreachable!("Serve is dispatched by main() before reaching here"),
-        Command::Status => cmd_status(&args).await,
-        Command::Fingerprint => cmd_fingerprint(&args).await,
-        Command::Check => cmd_check(&args).await,
-        Command::Zones => cmd_zones(&args),
-        Command::Stats => cmd_stats(&args).await,
-        Command::Render { force } => cmd_render(&args, force).await,
+        Command::Status => cmd_status(config_path).await,
+        Command::Fingerprint => cmd_fingerprint(config_path).await,
+        Command::Check => cmd_check(config_path).await,
+        Command::Zones => cmd_zones(config_path),
+        Command::Stats => cmd_stats(config_path).await,
+        Command::Render { force } => cmd_render(config_path, force).await,
+        Command::Identity(action) => cmd_identity(config_path, action),
     }
 }
 
-async fn cmd_status(args: &Args) -> ExitCode {
-    let config = match load_config(args) {
+/// `usv identity add/rotate/revoke`: load config for context (so
+/// rotate/revoke can find the identity they're named against, and add
+/// can refuse a colliding label), then print the snippet or the error —
+/// never touch the config file (director-confirmed 2026-08-10: printing
+/// is the whole design, not a stopgap for a future `--write`).
+fn cmd_identity(config_path: Option<&Path>, action: IdentityAction) -> ExitCode {
+    let config = match load_config(config_path) {
+        Ok(c) => c,
+        Err(code) => return code,
+    };
+    let result = match action {
+        IdentityAction::Add {
+            label,
+            fingerprint,
+            capabilities,
+            enrolled,
+        } => cli::identity_add_snippet(
+            &config.roster,
+            &label,
+            &fingerprint,
+            &capabilities,
+            enrolled.as_deref(),
+        ),
+        IdentityAction::Rotate {
+            label,
+            new_fingerprint,
+            until,
+        } => cli::identity_rotate_snippet(&config.roster, &label, &new_fingerprint, &until),
+        IdentityAction::Revoke {
+            label,
+            capabilities,
+            all,
+        } => cli::identity_revoke_snippet(&config.roster, &label, &capabilities, all),
+    };
+    match result {
+        Ok(snippet) => {
+            print!("{snippet}");
+            ExitCode::SUCCESS
+        }
+        Err(e) => {
+            eprintln!("usv: {e}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
+async fn cmd_status(config_path: Option<&Path>) -> ExitCode {
+    let config = match load_config(config_path) {
         Ok(c) => c,
         Err(code) => return code,
     };
@@ -235,8 +465,8 @@ async fn cmd_status(args: &Args) -> ExitCode {
     ExitCode::SUCCESS
 }
 
-async fn cmd_fingerprint(args: &Args) -> ExitCode {
-    let config = match load_config(args) {
+async fn cmd_fingerprint(config_path: Option<&Path>) -> ExitCode {
+    let config = match load_config(config_path) {
         Ok(c) => c,
         Err(code) => return code,
     };
@@ -248,8 +478,8 @@ async fn cmd_fingerprint(args: &Args) -> ExitCode {
     ExitCode::SUCCESS
 }
 
-fn cmd_zones(args: &Args) -> ExitCode {
-    let config = match load_config(args) {
+fn cmd_zones(config_path: Option<&Path>) -> ExitCode {
+    let config = match load_config(config_path) {
         Ok(c) => c,
         Err(code) => return code,
     };
@@ -257,8 +487,8 @@ fn cmd_zones(args: &Args) -> ExitCode {
     ExitCode::SUCCESS
 }
 
-async fn cmd_check(args: &Args) -> ExitCode {
-    let config = match load_config(args) {
+async fn cmd_check(config_path: Option<&Path>) -> ExitCode {
+    let config = match load_config(config_path) {
         Ok(c) => c,
         Err(code) => return code,
     };
@@ -277,8 +507,8 @@ async fn cmd_check(args: &Args) -> ExitCode {
     ExitCode::SUCCESS
 }
 
-async fn cmd_stats(args: &Args) -> ExitCode {
-    let config = match load_config(args) {
+async fn cmd_stats(config_path: Option<&Path>) -> ExitCode {
+    let config = match load_config(config_path) {
         Ok(c) => c,
         Err(code) => return code,
     };
@@ -287,7 +517,7 @@ async fn cmd_stats(args: &Args) -> ExitCode {
     ExitCode::SUCCESS
 }
 
-async fn cmd_render(args: &Args, _force: bool) -> ExitCode {
+async fn cmd_render(config_path: Option<&Path>, _force: bool) -> ExitCode {
     // `render_tree` is already always a full rebuild (design brief §5.4:
     // "full-tree rebuild every time, not incremental"), so `--force` has
     // no distinct behaviour to select today. It is accepted and parsed
@@ -295,7 +525,7 @@ async fn cmd_render(args: &Args, _force: bool) -> ExitCode {
     // future incremental-render mode would need exactly this flag to
     // force a full one, and the surface should be stable before that
     // exists, not after.
-    let config = match load_config(args) {
+    let config = match load_config(config_path) {
         Ok(c) => c,
         Err(code) => return code,
     };

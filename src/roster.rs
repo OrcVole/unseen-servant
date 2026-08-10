@@ -335,7 +335,12 @@ impl Roster {
 
 /// Exactly 64 hexadecimal characters — the length of a SHA-256 digest in
 /// hex, and nothing else.
-fn is_sha256_hex(s: &str) -> bool {
+///
+/// `pub(crate)`: `cli::identity` reuses this to validate a fingerprint
+/// *before* generating a config snippet, so a typo is caught immediately
+/// rather than only surfacing later when the operator pastes it in and
+/// usv refuses to start — one validation rule, not two that could drift.
+pub(crate) fn is_sha256_hex(s: &str) -> bool {
     s.len() == 64 && s.bytes().all(|b| b.is_ascii_hexdigit())
 }
 
