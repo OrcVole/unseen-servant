@@ -31,6 +31,7 @@ measurement and the base-image reasoning.
 | Thing | Value |
 |---|---|
 | Gemini port | 1965, fixed (`readOnly` in the manifest) |
+| Gopher port | optional, **off by default**, default 7070 |
 | HTTP port (internal) | 8000, proxied by Cloudron's nginx |
 | Health check | `/` on the HTTP surface, always 2xx |
 | Persistent data | `/app/data` (`localstorage` addon) — backed up |
@@ -41,6 +42,25 @@ measurement and the base-image reasoning.
 The Gemini port is pinned deliberately. Gemini clients assume 1965; a
 capsule on another port is only reachable via an explicit
 `gemini://host:PORT/` URL, which breaks discovery and aggregators.
+
+## Gopher, and why not port 70
+
+The gopher service is declared but disabled until an admin enables it —
+switching on a cleartext protocol is a decision an operator makes, not
+one they inherit (ADR 0012 §2).
+
+**Cloudron will not allocate a privileged port through `tcpPorts`.**
+Found live on 2026-08-10: requesting external port 70 is rejected with
+`70 for GOPHER_PORT is not in permitted range in ports`. Gopher clients
+assume port 70 when none is given, so a Cloudron-hosted gopher hole is
+necessarily reached with an explicit port —
+`gopher://your.capsule:7070/` — and links to it must carry that port.
+The same constraint does not bite Gemini only because 1965 is already
+above 1024.
+
+`advertised_port` exists for exactly this: the container binds 7070 and
+menus advertise whatever external port Cloudron allocated, since gopher
+menu lines carry an absolute host and port.
 
 ## Editing content
 
