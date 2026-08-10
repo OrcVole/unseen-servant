@@ -48,6 +48,14 @@ rcgen = { version = "0.14.8", default-features = false, features = ["ring", "pem
 regex = "1.13.1"
 rustls = { version = "0.23.43", default-features = false, features = ["ring", "logging", "std", "tls12"] }
 rustls-pki-types = { version = "1.15.1", features = ["std"] }
+# Direct dependency (already pulled in transitively by rustls at this exact
+# version) so tls.rs can verify a client certificate's handshake signature
+# against its bare SubjectPublicKeyInfo, bypassing webpki's EndEntityCert
+# parser — which hard-rejects any certificate that isn't X.509v3. Gemini
+# client certs are commonly minimal self-signed certs that omit the version
+# field entirely (which defaults to v1 per RFC 5280), so that rejection is a
+# real interop break, not a security-relevant one (see tls.rs module docs).
+rustls-webpki = { version = "0.103.13", default-features = false, features = ["alloc", "ring"] }
 serde = { version = "1.0.229", features = ["derive"] }
 sha2 = "0.11.0"
 socket2 = "0.6.5"
