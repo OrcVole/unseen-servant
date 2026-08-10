@@ -59,6 +59,57 @@ platform (subspaces, feeds, issue-tracker mode), runs as a GmCapsule
 extension module rather than a separate daemon — proof that
 "interaction wants to be a server module," not a bolt-on service.
 
+## Choose usv when
+
+Six situations where `usv` is the right answer and the others are not.
+Each is a real reason someone would pick it; if none of them describe
+you, the next section probably does.
+
+**You want one piece of writing read by two audiences.** You like
+gemtext and Geminispace, but you also want to put your address on a CV,
+in an email footer, or in a toot — where most people cannot open a
+`gemini://` link. `usv` renders one content tree to both, at write time,
+from the same files. No second site, no static-site generator, nothing
+to keep in sync. No other server in this table does this at all.
+
+**You want to publish from your Gemini client.** Open the page in
+Lagrange, "Edit Page with Titan", save. `usv` implements Titan natively
+on the same listener with per-zone fingerprint allowlists. gmid
+validates and hands off to a FastCGI backend you have to build;
+GmCapsule does it natively but you are then running a Python
+application. If you want to write without a shell, this is the shortest
+path.
+
+**You want to install it, not package it.** Cloudron app, `.deb`, RPM,
+AUR `PKGBUILD`, Nix flake, an 8.77MB distroless container, a static
+musl tarball, and a hardened systemd unit — all built and tested. The
+Cloudron niche in particular has been open since a 2021 forum request
+that nobody ever filled. If your objection to running a capsule has
+been "I would have to figure out how to deploy it", this is the one
+built to remove that.
+
+**Your capsule's identity has to survive your infrastructure.** TOFU
+means readers pin your certificate, and quietly replacing it looks
+exactly like an impersonation. `usv` mints once per hostname and never
+silently regenerates — through restarts, updates, backups, restores and
+migrations — and treats damaged key material as a loud failure rather
+than an excuse to make a new key. If you expect to move hosts, that
+discipline is the difference between a warning your readers can trust
+and one they learn to click through.
+
+**You want the capsule to exist off the network too.** `usv export`
+hands you a self-contained folder that works with no server behind it —
+straight into OnionShare, onto a USB stick, into any static host. That
+falls out of rendering at write time; a per-request converter has
+nothing to hand you.
+
+**You want to stop thinking about it.** No CGI, no FastCGI, no
+scripting, no proxying, no plugin API, and no admin web UI — so no
+credential to leak, no session to hijack, no default password, and no
+script directory to audit. Everything is edited as files or over
+authenticated Titan. Whole categories of upkeep are absent because the
+feature that creates them was refused (ADR 0005).
+
 ## When the others are the better choice
 
 This is the part marketing copy leaves out. Pick the other server if:
