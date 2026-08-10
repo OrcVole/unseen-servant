@@ -409,11 +409,28 @@ fn render_context(config: &Config) -> pipeline::RenderContext {
         .http_listen
         .map(|_| format!("https://{advertised_host}"))
         .unwrap_or_default();
+    // The cleartext target is built only when the operator enabled it,
+    // and carries its own exclusion set — a capsule with gopher off has
+    // no gopher tree at all, so there is nothing to leak (ADR 0012).
+    let gopher = config.gopher.as_ref().map(|g| {
+        let mut gate = unseen_servant::render::cleartext::Gate::default();
+        if let Some(host) = config.hosts.first() {
+            gate = unseen_servant::render::cleartext::Gate::for_host(host);
+        }
+        pipeline::GopherRender {
+            ctx: unseen_servant::render::gopher::Context {
+                host: advertised_host.clone(),
+                port: g.advertised_port,
+            },
+            gate,
+        }
+    });
     pipeline::RenderContext {
         theme_css: config.theme.css.to_string(),
         web_base_url,
         capsule_title: advertised_host,
         lang: config.lang.clone(),
+        gopher,
     }
 }
 

@@ -54,6 +54,22 @@ pub struct RenderContext {
     /// BCP 47 language tag for the capsule (ADR 0010) — becomes the HTML
     /// `lang` attribute on every rendered page.
     pub lang: String,
+    /// Gopher menu emission (ADR 0012 §4). `None` — the default — means
+    /// the cleartext target is not built at all, which is what an
+    /// operator who never enabled gopher should get: no tree to leak.
+    pub gopher: Option<GopherRender>,
+}
+
+/// What the gopher render target needs, and what it must leave out.
+#[derive(Debug, Clone)]
+pub struct GopherRender {
+    /// Host and advertised port baked into every menu line — gopher
+    /// menus are absolute, so this cannot be deferred to request time.
+    pub ctx: super::gopher::Context,
+    /// Paths gated behind a client certificate, which this target must
+    /// never emit (ADR 0012 §6). Applied here, at build time, so no
+    /// request path can serve what was never written.
+    pub gate: super::cleartext::Gate,
 }
 
 impl RenderContext {
@@ -65,6 +81,7 @@ impl RenderContext {
             web_base_url: String::new(),
             capsule_title: "Unseen Servant".to_string(),
             lang: "en".to_string(),
+            gopher: None,
         }
     }
 }
@@ -171,6 +188,10 @@ pub async fn render_tree(
     ctx: &RenderContext,
 ) -> std::io::Result<RenderStats> {
     let staging = state_dir.join("html.tmp");
+    // The cleartext tree gets its own staging root and its own swap: it
+    // must never live inside the web tree, which the HTTP surface serves
+    // wholesale (see gopher_output_path).
+    let gopher_staging = state_dir.join("gopher.tmp");
     let live = state_dir.join("html");
     let old = state_dir.join("html.old");
 
@@ -178,6 +199,10 @@ pub async fn render_tree(
     // stale pages into this run's output.
     let _ = tokio::fs::remove_dir_all(&staging).await;
     tokio::fs::create_dir_all(&staging).await?;
+    let _ = tokio::fs::remove_dir_all(&gopher_staging).await;
+    if ctx.gopher.is_some() {
+        tokio::fs::create_dir_all(&gopher_staging).await?;
+    }
 
     // The gemsub feed is Gemini-native gemtext, so it is written into the
     // *content* directory (served on Gemini directly) BEFORE the walk, so
@@ -198,6 +223,7 @@ pub async fn render_tree(
             &ctx.lang,
             &mut stats,
             &mut pages,
+            ctx.gopher.as_ref().map(|g| (g, gopher_staging.as_path())),
         )
         .await?;
     }
@@ -247,6 +273,19 @@ pub async fn render_tree(
     }
     tokio::fs::rename(&staging, &live).await?;
     let _ = tokio::fs::remove_dir_all(&old).await;
+
+    // Same swap discipline for the cleartext tree, on its own roots: a
+    // reader never sees a half-written gopherspace either.
+    if ctx.gopher.is_some() {
+        let gopher_live = state_dir.join("gopher");
+        let gopher_old = state_dir.join("gopher.old");
+        let _ = tokio::fs::remove_dir_all(&gopher_old).await;
+        if tokio::fs::metadata(&gopher_live).await.is_ok() {
+            tokio::fs::rename(&gopher_live, &gopher_old).await?;
+        }
+        tokio::fs::rename(&gopher_staging, &gopher_live).await?;
+        let _ = tokio::fs::remove_dir_all(&gopher_old).await;
+    }
 
     Ok(stats)
 }
@@ -377,6 +416,7 @@ fn render_dir<'a>(
     lang: &'a str,
     stats: &'a mut RenderStats,
     pages: &'a mut Vec<PageEntry>,
+    gopher: Option<(&'a GopherRender, &'a Path)>,
 ) -> Pin<Box<dyn Future<Output = std::io::Result<()>> + Send + 'a>> {
     Box::pin(async move {
         let mut entries = tokio::fs::read_dir(dir).await?;
@@ -384,9 +424,9 @@ fn render_dir<'a>(
             let path = entry.path();
             let file_type = entry.file_type().await?;
             if file_type.is_dir() {
-                render_dir(root, &path, staging_root, lang, stats, pages).await?;
+                render_dir(root, &path, staging_root, lang, stats, pages, gopher).await?;
             } else if file_type.is_file() && is_gemtext(&path) {
-                let title = render_page(root, &path, staging_root, lang).await?;
+                let title = render_page(root, &path, staging_root, lang, gopher).await?;
                 stats.pages_rendered += 1;
                 let relative = path.strip_prefix(root).unwrap_or(&path);
                 pages.push(page_entry(relative, title));
@@ -426,6 +466,7 @@ async fn render_page(
     path: &Path,
     staging_root: &Path,
     lang: &str,
+    gopher: Option<(&GopherRender, &Path)>,
 ) -> std::io::Result<String> {
     let text = tokio::fs::read_to_string(path).await?;
     let lines = gemtext::parse(&text);
@@ -444,7 +485,44 @@ async fn render_page(
     // Same source, distinct address — an addressable resource, not
     // user-agent-switched content.
     tokio::fs::write(out_path.with_extension("md"), markdown::render(&lines)).await?;
+
+    // The cleartext target, last and conditionally (ADR 0012 §4/§6).
+    if let Some((target, gopher_root)) = gopher {
+        let selector = gopher_selector(relative);
+        // The wall: a gated page is never written into the cleartext
+        // tree at all. Nothing downstream has to remember to check.
+        if !target.gate.excludes(&selector) {
+            let page_dir = selector.rsplit_once('/').map_or("/", |(dir, _)| dir);
+            let page_dir = if page_dir.is_empty() { "/" } else { page_dir };
+            let menu = super::gopher::render_menu(&lines, &title, page_dir, &target.ctx);
+            let gopher_path = gopher_output_path(gopher_root, relative);
+            if let Some(parent) = gopher_path.parent() {
+                tokio::fs::create_dir_all(parent).await?;
+            }
+            tokio::fs::write(&gopher_path, menu).await?;
+        }
+    }
     Ok(title)
+}
+
+/// The selector a content-tree-relative path is reachable at.
+fn gopher_selector(relative: &Path) -> String {
+    let mut s = String::from("/");
+    s.push_str(&relative.to_string_lossy().replace('\\', "/"));
+    s
+}
+
+/// Where a page's gopher menu is written, inside the gopher tree's own
+/// staging root, mirroring the content tree's structure.
+///
+/// A **sibling** of the web tree, never inside it: the HTTP surface
+/// serves everything under its own root, so a gopher subtree living
+/// there would quietly become web-reachable at `/gopher/...`. Separate
+/// roots also make "everything the cleartext listener may serve" one
+/// directory, so ADR 0012 §6's exclusion is visible as an absent file
+/// rather than something a serving path has to re-derive.
+fn gopher_output_path(gopher_root: &Path, relative: &Path) -> PathBuf {
+    gopher_root.join(relative)
 }
 
 /// `staging_root` joined with `relative`, extension swapped `.gmi` →
@@ -533,6 +611,7 @@ mod tests {
             web_base_url: "https://example.org".to_string(),
             capsule_title: "example.org".to_string(),
             lang: "en".to_string(),
+            gopher: None,
         };
         let stats = render_tree(&content, &base, &ctx).await.unwrap();
         assert_eq!(
@@ -667,6 +746,79 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn the_gopher_tree_is_written_and_gated_pages_are_absent_from_it() {
+        // The end-to-end proof of ADR 0012 §6: the wall is applied where
+        // the tree is BUILT, so a gated page has no file at all — there
+        // is nothing for any request path to serve by mistake.
+        let base = tmp_dir("gopher-wall");
+        let content = base.join("content");
+        std::fs::create_dir_all(content.join("private")).unwrap();
+        std::fs::write(
+            content.join("index.gmi"),
+            "# Home\n\n=> private/s.gmi Secret\n",
+        )
+        .unwrap();
+        std::fs::write(
+            content.join("private/s.gmi"),
+            "# Secret\n\nNot for gopher.\n",
+        )
+        .unwrap();
+
+        let mut gate_host = crate::config::HostConfig {
+            name: "example.org".into(),
+            docroot: content.clone(),
+            redirects: Vec::new(),
+            cert_zones: vec![crate::handler::cert_zone::Zone {
+                path_prefix: "/private/".into(),
+                allowed_fingerprints: Vec::new(),
+            }],
+            titan_zones: Vec::new(),
+        };
+        gate_host.docroot = content.clone();
+
+        let ctx = RenderContext {
+            theme_css: "body{}".to_string(),
+            web_base_url: "https://example.org".to_string(),
+            capsule_title: "example.org".to_string(),
+            lang: "en".to_string(),
+            gopher: Some(GopherRender {
+                ctx: super::super::gopher::Context {
+                    host: "example.org".into(),
+                    port: 70,
+                },
+                gate: super::super::cleartext::Gate::for_host(&gate_host),
+            }),
+        };
+        render_tree(&content, &base, &ctx).await.unwrap();
+
+        // The public page is there, and is a menu.
+        let home = std::fs::read_to_string(base.join("gopher/index.gmi")).unwrap();
+        assert!(home.contains("iHome\t"), "{home}");
+        assert!(home.ends_with(".\r\n"));
+
+        // The gated page was never written at all.
+        assert!(
+            !base.join("gopher/private/s.gmi").exists(),
+            "a cert-zoned page must not exist in the cleartext tree"
+        );
+        // ...while still existing on the surfaces that can authenticate.
+        assert!(base.join("html/private/s.html").exists());
+    }
+
+    #[tokio::test]
+    async fn no_gopher_tree_is_written_when_the_target_is_off() {
+        // A capsule that never enabled gopher has no cleartext tree at
+        // all, so there is nothing to leak even by misconfiguration.
+        let base = tmp_dir("gopher-off");
+        let content = base.join("content");
+        std::fs::create_dir_all(&content).unwrap();
+        std::fs::write(content.join("index.gmi"), "# Home\n").unwrap();
+        let ctx = RenderContext::plain("body{}");
+        render_tree(&content, &base, &ctx).await.unwrap();
+        assert!(!base.join("gopher").exists());
+    }
+
+    #[tokio::test]
     async fn packaging_tier_files_land_on_the_web_surface() {
         // ADR 0011: every page gets a .md sibling; the web root gets
         // /llms.txt and a permissive robots.txt; the site map is emitted
@@ -686,6 +838,7 @@ mod tests {
             web_base_url: "https://example.org".to_string(),
             capsule_title: "Example".to_string(),
             lang: "en".to_string(),
+            gopher: None,
         };
         render_tree(&content, &base, &ctx).await.unwrap();
 
