@@ -32,6 +32,7 @@
 //! | `render` | C3 | gemtext → HTML/Atom/feeds pipeline (ADR 0004) |
 //! | `titan` | C4 | uploads (ADR 0006) |
 
+pub mod cli;
 pub mod config;
 pub mod handler;
 pub mod http;

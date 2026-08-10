@@ -135,6 +135,43 @@ impl IdentityStore {
     pub fn hostnames(&self) -> impl Iterator<Item = &str> {
         self.hosts.iter().map(|h| h.name.as_str())
     }
+
+    /// The SHA-256 fingerprint (lowercase hex) of `hostname`'s leaf
+    /// certificate, `None` if `hostname` isn't one this store loaded.
+    ///
+    /// Same hash, same encoding as [`crate::server`]'s client-certificate
+    /// fingerprint (one convention for "what a fingerprint looks like" on
+    /// both sides of a TOFU pin) — this is the *server's own* identity, the
+    /// value an operator publishes out-of-band for a client to verify on
+    /// first connection, or that `usv fingerprint` (C5) prints for them.
+    pub fn fingerprint(&self, hostname: &str) -> Option<String> {
+        self.hosts
+            .iter()
+            .find(|h| h.name.eq_ignore_ascii_case(hostname))
+            .and_then(|h| h.key.cert.first())
+            .map(|leaf| hex_sha256(leaf.as_ref()))
+    }
+
+    /// Every configured hostname paired with its fingerprint, in load
+    /// order — for `usv fingerprint` to print without one lookup per host.
+    pub fn fingerprints(&self) -> impl Iterator<Item = (&str, String)> {
+        self.hosts.iter().filter_map(|h| {
+            h.key
+                .cert
+                .first()
+                .map(|leaf| (h.name.as_str(), hex_sha256(leaf.as_ref())))
+        })
+    }
+}
+
+/// Lowercase-hex SHA-256, the one fingerprint format this crate uses
+/// anywhere a certificate is identified by digest.
+fn hex_sha256(der: &[u8]) -> String {
+    use sha2::Digest;
+    sha2::Sha256::digest(der)
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect()
 }
 
 impl ResolvesServerCert for IdentityStore {
@@ -360,6 +397,67 @@ mod tests {
         assert_eq!(
             cert_before, cert_after,
             "loading must never rewrite identity"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn fingerprint_is_64_lowercase_hex_and_stable_across_loads() {
+        let dir = tmpdir("fingerprint");
+        let hosts = vec!["localhost".to_string()];
+        let first = IdentityStore::open(&dir, &hosts).expect("mints");
+        let fp = first.fingerprint("localhost").expect("host is configured");
+        assert_eq!(fp.len(), 64, "SHA-256 hex is 64 chars");
+        assert!(
+            fp.bytes()
+                .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
+        );
+
+        let second = IdentityStore::open(&dir, &hosts).expect("loads the same identity");
+        assert_eq!(
+            second.fingerprint("localhost"),
+            Some(fp),
+            "loading must report the same fingerprint as minting"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn fingerprint_of_an_unconfigured_host_is_none() {
+        let dir = tmpdir("fingerprint-unknown");
+        let store = IdentityStore::open(&dir, &["localhost".to_string()]).expect("mints");
+        assert_eq!(store.fingerprint("nope.example"), None);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn fingerprint_lookup_is_case_insensitive() {
+        let dir = tmpdir("fingerprint-case");
+        let store = IdentityStore::open(&dir, &["localhost".to_string()]).expect("mints");
+        assert_eq!(
+            store.fingerprint("localhost"),
+            store.fingerprint("LOCALHOST")
+        );
+    }
+
+    #[test]
+    fn fingerprints_lists_every_host_in_order() {
+        let dir = tmpdir("fingerprints-all");
+        let hosts = vec!["a.example".to_string(), "b.example".to_string()];
+        let store = IdentityStore::open(&dir, &hosts).expect("mints both");
+        let listed: Vec<&str> = store.fingerprints().map(|(name, _)| name).collect();
+        assert_eq!(listed, vec!["a.example", "b.example"]);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn two_different_hosts_have_different_fingerprints() {
+        let dir = tmpdir("fingerprint-distinct");
+        let hosts = vec!["a.example".to_string(), "b.example".to_string()];
+        let store = IdentityStore::open(&dir, &hosts).expect("mints both");
+        assert_ne!(
+            store.fingerprint("a.example"),
+            store.fingerprint("b.example")
         );
         let _ = std::fs::remove_dir_all(&dir);
     }
