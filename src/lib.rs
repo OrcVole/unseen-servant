@@ -39,6 +39,7 @@ pub mod handler;
 pub mod http;
 pub mod identity;
 pub mod init;
+pub mod plaintext;
 pub mod protocol;
 pub mod render;
 pub mod roster;
