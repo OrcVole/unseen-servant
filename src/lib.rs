@@ -40,5 +40,6 @@ pub mod identity;
 pub mod protocol;
 pub mod render;
 pub mod roster;
+pub mod runtime_state;
 pub mod server;
 pub mod tls;
