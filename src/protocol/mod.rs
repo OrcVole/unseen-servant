@@ -20,6 +20,7 @@
 //! Every rejection across all three layers maps to Gemini status 59 or 53 per
 //! the table in `docs/recon/protocol.md` §"Implementation guidance".
 
+pub mod finger;
 pub mod gopher;
 pub mod request;
 pub mod response;

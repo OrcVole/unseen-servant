@@ -1055,6 +1055,70 @@ async fn serve(args: Args) -> Result<(), ()> {
         }
     }
 
+    // Finger (v1.1; ADR 0012): a person's status, not the content tree.
+    let mut finger_task = None;
+    if let Some(fcfg) = state_rx.borrow().config.finger.clone() {
+        match server::bind(fcfg.listen) {
+            Ok(listener) => {
+                let bound = listener.local_addr().unwrap_or(fcfg.listen);
+                plaintext::log_trust_disclaimer("finger", bound);
+                let cfg_now = state_rx.borrow().config.clone();
+                let state_dir = cfg_now.state_dir.clone();
+                let addresses = handler::finger::Addresses {
+                    host: cfg_now
+                        .advertised_host
+                        .clone()
+                        .or_else(|| cfg_now.hosts.first().map(|h| h.name.clone()))
+                        .unwrap_or_default(),
+                    gemini_port: cfg_now.advertised_port,
+                    web_base_url: cfg_now.http_listen.map(|_| {
+                        format!(
+                            "https://{}",
+                            cfg_now
+                                .advertised_host
+                                .clone()
+                                .or_else(|| cfg_now.hosts.first().map(|h| h.name.clone()))
+                                .unwrap_or_default()
+                        )
+                    }),
+                    gopher_port: cfg_now.gopher.as_ref().map(|g| g.advertised_port),
+                };
+                let service = plaintext::Service {
+                    name: "finger",
+                    max_request_bytes: unseen_servant::protocol::finger::MAX_REQUEST_BYTES,
+                    request_timeout_secs: cfg_now.request_timeout_secs,
+                    response_timeout_secs: cfg_now.response_timeout_secs,
+                    handler: std::sync::Arc::new(move |line, _cfg| {
+                        let state_dir = state_dir.clone();
+                        let addresses = addresses.clone();
+                        Box::pin(async move {
+                            match unseen_servant::protocol::finger::parse(&line) {
+                                Ok(_) => handler::finger::respond(&state_dir, &addresses).await,
+                                Err(
+                                    unseen_servant::protocol::finger::RequestError::ForwardingRefused,
+                                ) => b"finger forwarding is not supported here\r\n".to_vec(),
+                                Err(_) => b"bad request\r\n".to_vec(),
+                            }
+                        })
+                    }),
+                };
+                let (finger_cfg_tx, finger_cfg_rx) = watch::channel(cfg_now.clone());
+                std::mem::forget(finger_cfg_tx);
+                finger_task = Some(tokio::spawn(plaintext::accept_loop(
+                    listener,
+                    service,
+                    finger_cfg_rx,
+                    std::sync::Arc::new(tokio::sync::Semaphore::new(cfg_now.max_connections)),
+                    shutdown_rx.clone(),
+                )));
+            }
+            Err(e) => {
+                tracing::error!(addr = %fcfg.listen, error = %e, "cannot bind finger listener");
+                return Err(());
+            }
+        }
+    }
+
     tracing::info!(
         hosts = ?state_rx.borrow().config.hosts.iter().map(|h| h.name.clone()).collect::<Vec<_>>(),
         "usv {} serving",
@@ -1072,6 +1136,9 @@ async fn serve(args: Args) -> Result<(), ()> {
         task.abort();
     }
     if let Some(task) = &gopher_task {
+        task.abort();
+    }
+    if let Some(task) = &finger_task {
         task.abort();
     }
     watcher_task.abort();

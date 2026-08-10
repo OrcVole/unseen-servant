@@ -60,6 +60,9 @@ pub struct Config {
     /// The gopher listener, if the operator enabled it. `None` — the
     /// default — means no cleartext service at all (ADR 0012 §2).
     pub gopher: Option<GopherConfig>,
+    /// The finger listener, if enabled. Off by default like every other
+    /// cleartext service.
+    pub finger: Option<FingerConfig>,
     /// Hostnames this server answers for (authority check layer 3; SNI cert
     /// selection). Requests naming any other host get status 53.
     pub hosts: Vec<HostConfig>,
@@ -132,6 +135,18 @@ pub struct GopherConfig {
     /// The port menus advertise, which on a port-remapping platform is
     /// not the bound one. Defaults to the bound port.
     pub advertised_port: u16,
+}
+
+/// The finger listener's configuration (ADR 0012).
+///
+/// Finger answers "what is this?" with a few lines of text; it does not
+/// serve the content tree, so it has no root and no gate — there is
+/// nothing for a gated path to leak through.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FingerConfig {
+    /// Where to bind. Defaults to `0.0.0.0:7979` — port 79 is
+    /// privileged, and the same reasoning as gopher applies.
+    pub listen: SocketAddr,
 }
 
 /// How much of a visitor's address the request log may carry (OQ-9).
@@ -243,6 +258,8 @@ struct RawConfig {
     /// means off, which is also what `enabled = false` means: a capsule
     /// that says nothing gets no cleartext service.
     gopher: Option<RawGopher>,
+    /// `[finger]` — a person's status, not the content tree (ADR 0012).
+    finger: Option<RawFinger>,
     /// Reserved (ADR 0009); presence is a startup error.
     responses: Option<toml::Table>,
 }
@@ -332,6 +349,14 @@ struct RawGopher {
     listen: Option<String>,
     root: Option<String>,
     advertised_port: Option<u16>,
+}
+
+/// `[finger]` — the cleartext finger listener (ADR 0012).
+#[derive(Debug, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawFinger {
+    enabled: Option<bool>,
+    listen: Option<String>,
 }
 
 /// `[[identity]]` — one named client identity (ADR 0011).
@@ -508,6 +533,7 @@ impl Config {
         let server = raw.server.unwrap_or_default();
         // Server-wide Titan default, applied to zones that name no cap.
         let gopher_raw = raw.gopher;
+        let finger_raw = raw.finger;
         let titan_default_max_upload = raw.titan.unwrap_or_default().max_upload_bytes;
 
         let state_dir = env
@@ -813,6 +839,21 @@ impl Config {
             }
         };
 
+        let finger = match finger_raw {
+            None => None,
+            Some(f) if !f.enabled.unwrap_or(false) => None,
+            Some(f) => {
+                let listen_str = f.listen.as_deref().unwrap_or("0.0.0.0:7979");
+                let listen: SocketAddr = listen_str.parse().map_err(|_| {
+                    ConfigError::Rejected(format!(
+                        "finger.listen {listen_str:?} is not a valid socket address \
+                         (e.g. \"0.0.0.0:7979\")"
+                    ))
+                })?;
+                Some(FingerConfig { listen })
+            }
+        };
+
         Ok(Config {
             state_dir,
             listen,
@@ -820,6 +861,7 @@ impl Config {
             tls_min,
             log_peer,
             gopher,
+            finger,
             hosts,
             advertised_host,
             max_connections,
