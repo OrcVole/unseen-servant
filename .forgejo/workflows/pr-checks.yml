@@ -36,6 +36,17 @@
 # Triggers include push-to-main because the project currently works by direct push (solo
 # AI-authored, director-reviewed); when the Update-as-PR culture arrives here, the push
 # trigger can go.
+#
+# 2026-08-10: run #62 failed with no error anywhere in its log — every visible cargo
+# test/clippy/fmt result was clean (413+10+9+44+0 tests, all "ok"), and the log just
+# stopped mid-`cargo deny check` with no failure line at all. It happened while heavy
+# concurrent podman work (a Fedora container building an RPM, a Nix flake build with its
+# own cargo compile) was running directly on this same physical machine — remember the
+# HOST-mode runner-facts note above: this workstation *is* the runner, not an isolated
+# box. Confirmed environmental, not a regression: run #63, on top of the same code plus a
+# docs-only commit, passed clean once that concurrent work had settled. Lesson: don't run
+# heavy local podman/cargo builds on this machine while a push is likely to trigger CI, or
+# expect an occasional false-red that a same-commit (or superset-commit) retry clears.
 
 name: PR checks
 on:
