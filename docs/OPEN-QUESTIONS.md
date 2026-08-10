@@ -83,6 +83,25 @@ recorded.
   adopted: prose name **Unseen Servant**, crate / package / repo name
   **unseen-servant**, binary name **`usv`**.
 
+### Why `usv`, and not `uns` or `uss` (recorded 2026-08-10)
+
+No rationale was captured at the time — the director suggested `usv`
+and it was adopted. Asked later why, and finding nothing on file, the
+following is a *post-hoc* mnemonic rather than the original reason, and
+is marked as such so nobody later mistakes it for one:
+
+> **U**n**S**een ser**V**ant → **usv**
+
+The letters are genuinely in the name, in order, which is what makes it
+worth using in outward-facing copy. Reasons to prefer it over the
+obvious alternatives, also supplied now rather than then: `uns` reads
+as "unsigned" to anyone who writes code; `uss` collides with the ship
+prefix and looks like a typo for "us"; `usv` is short, unambiguous
+letter-by-letter, and is not already a common command name.
+
+**Nobody encountering a served page knows any of this**, which is the
+actual problem — see the colophon work below.
+
 ## OQ-9: Per-request logging records the visitor's IP address
 
 - Raised: 2026-08-10 (found while writing `docs/security.md`)
