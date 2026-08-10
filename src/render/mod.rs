@@ -22,6 +22,7 @@
 //! resolved with a documented, reasonable default at the point its code
 //! lands rather than blocking on all of them up front.
 
+pub mod cleartext;
 pub mod feed;
 pub mod gemtext;
 pub mod gopher;

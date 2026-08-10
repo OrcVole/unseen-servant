@@ -93,15 +93,52 @@ a caution.**
 
 The render pipeline already knows each host's `cert_zones` and
 `titan_zones`. A page whose path falls inside one is skipped when
-emitting the Gopher/Spartan/Nex trees. If an operator's configuration
-would publish a gated path over a plaintext protocol, that is a
-**startup error** naming the path and the zone — the same posture as an
-empty Titan allowlist (ADR 0006), and for the same reason: the failure
-mode is silent disclosure, and silence is what makes it dangerous.
+emitting the Gopher/Spartan/Nex trees.
 
 This is deliberately stricter than "document it plainly", which is what
 the recon proposed. Documentation does not survive an operator adding a
-`cert_zone` six months after enabling Gopher. The check does.
+`cert_zone` six months after enabling Gopher. The exclusion does.
+
+### Amendment, 2026-08-10 — made while implementing this section
+
+This section originally required that a configuration which *would*
+publish a gated path over a cleartext protocol be a **startup error**.
+Implementing it showed that reading to be too strong, and the amendment
+is recorded here rather than the code quietly diverging from the ADR.
+
+Since exclusion already makes disclosure impossible, a blanket error
+would mean a capsule with one small private area could not serve Gopher
+**at all**. That does not make anyone safer; it forces a choice between
+the cert zone and the protocol, and the likeliest casualty is the cert
+zone — the safety measure, abandoned to get the feature. A rule that
+pressures operators into removing their own gates is a bad rule however
+strict it looks.
+
+What the section now requires, and what is implemented in
+`src/render/cleartext.rs`:
+
+1. **Exclusion is unconditional and structural.** Gated prefixes are
+   subtracted where the cleartext trees are *built*, not where they are
+   served — so no request path, no later misconfiguration, and no
+   protocol added in future can serve what was never emitted. Titan
+   zones are excluded alongside certificate zones: a writable area is
+   one whose contents are controlled by a specific key, and mirroring it
+   somewhere anyone can read *and alter* is the same disclosure with an
+   extra step.
+2. **Every exclusion is announced at startup.** An operator who gated
+   `/private/` and then enabled Gopher must not have to deduce why it is
+   missing — silence is how a safety measure gets mistaken for a bug and
+   worked around.
+3. **A contradictory configuration is still a startup error.** A
+   cleartext root pointing *into* a gated prefix can only mean "publish
+   this gated thing in the clear". That is an instruction, not an
+   oversight, and it is refused with a message naming both sides and
+   saying what to do about it.
+
+Prefix matching is on whole path segments in both directions: `/up`
+must not gate `/uploads`, and must still gate `/up` itself as well as
+everything beneath it. Getting that wrong leaks or hides the wrong
+thing, so it is tested explicitly.
 
 ### 7. Honesty about the trust model, in the docs and on the wire
 
