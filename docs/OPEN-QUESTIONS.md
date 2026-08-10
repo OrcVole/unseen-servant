@@ -85,10 +85,13 @@ recorded.
 
 ### Why `usv`, and not `uns` or `uss` (recorded 2026-08-10)
 
-No rationale was captured at the time — the director suggested `usv`
-and it was adopted. Asked later why, and finding nothing on file, the
-following is a *post-hoc* mnemonic rather than the original reason, and
-is marked as such so nobody later mistakes it for one:
+No rationale was captured at the time. The name was **proposed by the
+assistant**, not the director, when the daemon needed one — a detail
+this file previously got wrong in the other direction, which is its own
+small lesson about recording provenance while it is still fresh.
+
+The following is therefore a *post-hoc* mnemonic rather than a recovered
+reason, and is marked as such so nobody later mistakes it for one:
 
 > **U**n**S**een ser**V**ant → **usv**
 
