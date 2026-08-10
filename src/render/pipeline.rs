@@ -54,22 +54,37 @@ pub struct RenderContext {
     /// BCP 47 language tag for the capsule (ADR 0010) — becomes the HTML
     /// `lang` attribute on every rendered page.
     pub lang: String,
-    /// Gopher menu emission (ADR 0012 §4). `None` — the default — means
-    /// the cleartext target is not built at all, which is what an
-    /// operator who never enabled gopher should get: no tree to leak.
-    pub gopher: Option<GopherRender>,
+    /// Cleartext output (ADR 0012 §4). `None` — the default — means no
+    /// cleartext tree is built at all, which is what an operator who
+    /// enabled none of these protocols should get: nothing to leak.
+    pub cleartext: Option<CleartextRender>,
 }
 
-/// What the gopher render target needs, and what it must leave out.
+/// What the cleartext targets need, and what they must leave out.
+///
+/// Two trees come out of this, because the protocols want different
+/// bytes for the same page:
+///
+/// * `gopher/` — rendered **menus**, which only gopher understands;
+/// * `cleartext/` — the **gemtext** sources, which Spartan and Nex serve
+///   as-is (Spartan's document format *is* gemtext, and Nex reuses
+///   gemtext's `=> ` link convention).
+///
+/// Found by pointing Spartan and Nex at the gopher tree and watching a
+/// real client receive tab-delimited menu lines where gemtext belonged.
+/// They cannot simply read the content directory instead, because that
+/// still holds the gated pages — hence a second gate-filtered tree
+/// rather than a fallback.
 #[derive(Debug, Clone)]
-pub struct GopherRender {
-    /// Host and advertised port baked into every menu line — gopher
-    /// menus are absolute, so this cannot be deferred to request time.
-    pub ctx: super::gopher::Context,
-    /// Paths gated behind a client certificate, which this target must
-    /// never emit (ADR 0012 §6). Applied here, at build time, so no
-    /// request path can serve what was never written.
+pub struct CleartextRender {
+    /// Paths gated behind a client certificate, which no cleartext tree
+    /// may contain (ADR 0012 §6). Applied at build time, so no request
+    /// path can serve what was never written.
     pub gate: super::cleartext::Gate,
+    /// Host and advertised port for gopher menus, when gopher is on.
+    /// `None` means Spartan and/or Nex are enabled but gopher is not —
+    /// then only the gemtext tree is built.
+    pub gopher: Option<super::gopher::Context>,
 }
 
 impl RenderContext {
@@ -81,7 +96,7 @@ impl RenderContext {
             web_base_url: String::new(),
             capsule_title: "Unseen Servant".to_string(),
             lang: "en".to_string(),
-            gopher: None,
+            cleartext: None,
         }
     }
 }
@@ -192,6 +207,7 @@ pub async fn render_tree(
     // must never live inside the web tree, which the HTTP surface serves
     // wholesale (see gopher_output_path).
     let gopher_staging = state_dir.join("gopher.tmp");
+    let gemtext_staging = state_dir.join("cleartext.tmp");
     let live = state_dir.join("html");
     let old = state_dir.join("html.old");
 
@@ -200,8 +216,10 @@ pub async fn render_tree(
     let _ = tokio::fs::remove_dir_all(&staging).await;
     tokio::fs::create_dir_all(&staging).await?;
     let _ = tokio::fs::remove_dir_all(&gopher_staging).await;
-    if ctx.gopher.is_some() {
+    let _ = tokio::fs::remove_dir_all(&gemtext_staging).await;
+    if ctx.cleartext.is_some() {
         tokio::fs::create_dir_all(&gopher_staging).await?;
+        tokio::fs::create_dir_all(&gemtext_staging).await?;
     }
 
     // The gemsub feed is Gemini-native gemtext, so it is written into the
@@ -223,7 +241,9 @@ pub async fn render_tree(
             &ctx.lang,
             &mut stats,
             &mut pages,
-            ctx.gopher.as_ref().map(|g| (g, gopher_staging.as_path())),
+            ctx.cleartext
+                .as_ref()
+                .map(|c| (c, gopher_staging.as_path(), gemtext_staging.as_path())),
         )
         .await?;
     }
@@ -276,15 +296,17 @@ pub async fn render_tree(
 
     // Same swap discipline for the cleartext tree, on its own roots: a
     // reader never sees a half-written gopherspace either.
-    if ctx.gopher.is_some() {
-        let gopher_live = state_dir.join("gopher");
-        let gopher_old = state_dir.join("gopher.old");
-        let _ = tokio::fs::remove_dir_all(&gopher_old).await;
-        if tokio::fs::metadata(&gopher_live).await.is_ok() {
-            tokio::fs::rename(&gopher_live, &gopher_old).await?;
+    if ctx.cleartext.is_some() {
+        for (staging, name) in [(&gopher_staging, "gopher"), (&gemtext_staging, "cleartext")] {
+            let live = state_dir.join(name);
+            let old = state_dir.join(format!("{name}.old"));
+            let _ = tokio::fs::remove_dir_all(&old).await;
+            if tokio::fs::metadata(&live).await.is_ok() {
+                tokio::fs::rename(&live, &old).await?;
+            }
+            tokio::fs::rename(staging, &live).await?;
+            let _ = tokio::fs::remove_dir_all(&old).await;
         }
-        tokio::fs::rename(&gopher_staging, &gopher_live).await?;
-        let _ = tokio::fs::remove_dir_all(&gopher_old).await;
     }
 
     Ok(stats)
@@ -416,7 +438,7 @@ fn render_dir<'a>(
     lang: &'a str,
     stats: &'a mut RenderStats,
     pages: &'a mut Vec<PageEntry>,
-    gopher: Option<(&'a GopherRender, &'a Path)>,
+    cleartext: Option<(&'a CleartextRender, &'a Path, &'a Path)>,
 ) -> Pin<Box<dyn Future<Output = std::io::Result<()>> + Send + 'a>> {
     Box::pin(async move {
         let mut entries = tokio::fs::read_dir(dir).await?;
@@ -424,9 +446,9 @@ fn render_dir<'a>(
             let path = entry.path();
             let file_type = entry.file_type().await?;
             if file_type.is_dir() {
-                render_dir(root, &path, staging_root, lang, stats, pages, gopher).await?;
+                render_dir(root, &path, staging_root, lang, stats, pages, cleartext).await?;
             } else if file_type.is_file() && is_gemtext(&path) {
-                let title = render_page(root, &path, staging_root, lang, gopher).await?;
+                let title = render_page(root, &path, staging_root, lang, cleartext).await?;
                 stats.pages_rendered += 1;
                 let relative = path.strip_prefix(root).unwrap_or(&path);
                 pages.push(page_entry(relative, title));
@@ -437,15 +459,22 @@ fn render_dir<'a>(
                 // that it contains *only* what may be served (ADR 0012 §6),
                 // so anything reachable from a menu has to be copied in,
                 // subject to the same gate.
-                if let Some((target, gopher_root)) = gopher {
+                if let Some((target, gopher_root, gemtext_root)) = cleartext {
                     let relative = path.strip_prefix(root).unwrap_or(&path);
                     let selector = gopher_selector(relative);
                     if !target.gate.excludes(&selector) {
-                        let dest = gopher_output_path(gopher_root, relative);
-                        if let Some(parent) = dest.parent() {
-                            tokio::fs::create_dir_all(parent).await?;
+                        // Both trees: a link to an asset has to resolve
+                        // whichever cleartext protocol followed it.
+                        let mut dests = vec![gemtext_root.join(relative)];
+                        if target.gopher.is_some() {
+                            dests.push(gopher_output_path(gopher_root, relative));
                         }
-                        tokio::fs::copy(&path, &dest).await?;
+                        for dest in dests {
+                            if let Some(parent) = dest.parent() {
+                                tokio::fs::create_dir_all(parent).await?;
+                            }
+                            tokio::fs::copy(&path, &dest).await?;
+                        }
                     }
                 }
             }
@@ -484,7 +513,7 @@ async fn render_page(
     path: &Path,
     staging_root: &Path,
     lang: &str,
-    gopher: Option<(&GopherRender, &Path)>,
+    cleartext: Option<(&CleartextRender, &Path, &Path)>,
 ) -> std::io::Result<String> {
     let text = tokio::fs::read_to_string(path).await?;
     let lines = gemtext::parse(&text);
@@ -504,21 +533,31 @@ async fn render_page(
     // user-agent-switched content.
     tokio::fs::write(out_path.with_extension("md"), markdown::render(&lines)).await?;
 
-    // The cleartext target, last and conditionally (ADR 0012 §4/§6).
-    if let Some((target, gopher_root)) = gopher {
+    // The cleartext targets, last and conditionally (ADR 0012 §4/§6).
+    if let Some((target, gopher_root, gemtext_root)) = cleartext {
         let selector = gopher_selector(relative);
-        // The wall: a gated page is never written into the cleartext
-        // tree at all. Nothing downstream has to remember to check.
+        // The wall: a gated page is never written into any cleartext
+        // tree. Nothing downstream has to remember to check.
         if !target.gate.excludes(&selector) {
-            let page_dir = selector.rsplit_once('/').map_or("/", |(dir, _)| dir);
-            let page_dir = if page_dir.is_empty() { "/" } else { page_dir };
-            let menu =
-                super::gopher::render_menu(&lines, &title, page_dir, &target.ctx, &target.gate);
-            let gopher_path = gopher_output_path(gopher_root, relative);
-            if let Some(parent) = gopher_path.parent() {
+            // Gemtext, for Spartan and Nex — their document format is
+            // gemtext, so this is the source verbatim.
+            let gem_path = gemtext_root.join(relative);
+            if let Some(parent) = gem_path.parent() {
                 tokio::fs::create_dir_all(parent).await?;
             }
-            tokio::fs::write(&gopher_path, menu).await?;
+            tokio::fs::write(&gem_path, &text).await?;
+
+            // Menus, for gopher, only when gopher itself is on.
+            if let Some(gctx) = &target.gopher {
+                let page_dir = selector.rsplit_once('/').map_or("/", |(dir, _)| dir);
+                let page_dir = if page_dir.is_empty() { "/" } else { page_dir };
+                let menu = super::gopher::render_menu(&lines, &title, page_dir, gctx, &target.gate);
+                let gopher_path = gopher_output_path(gopher_root, relative);
+                if let Some(parent) = gopher_path.parent() {
+                    tokio::fs::create_dir_all(parent).await?;
+                }
+                tokio::fs::write(&gopher_path, menu).await?;
+            }
         }
     }
     Ok(title)
@@ -630,7 +669,7 @@ mod tests {
             web_base_url: "https://example.org".to_string(),
             capsule_title: "example.org".to_string(),
             lang: "en".to_string(),
-            gopher: None,
+            cleartext: None,
         };
         let stats = render_tree(&content, &base, &ctx).await.unwrap();
         assert_eq!(
@@ -800,12 +839,12 @@ mod tests {
             web_base_url: "https://example.org".to_string(),
             capsule_title: "example.org".to_string(),
             lang: "en".to_string(),
-            gopher: Some(GopherRender {
-                ctx: super::super::gopher::Context {
+            cleartext: Some(CleartextRender {
+                gate: super::super::cleartext::Gate::for_host(&gate_host),
+                gopher: Some(super::super::gopher::Context {
                     host: "example.org".into(),
                     port: 70,
-                },
-                gate: super::super::cleartext::Gate::for_host(&gate_host),
+                }),
             }),
         };
         render_tree(&content, &base, &ctx).await.unwrap();
@@ -815,10 +854,20 @@ mod tests {
         assert!(home.contains("iHome\t"), "{home}");
         assert!(home.ends_with(".\r\n"));
 
-        // The gated page was never written at all.
+        // Spartan and Nex read GEMTEXT, not menus: the cleartext tree
+        // must carry the source, byte for byte.
+        let gem = std::fs::read_to_string(base.join("cleartext/index.gmi")).unwrap();
+        assert!(gem.starts_with("# Home"), "not gemtext: {gem:?}");
+        assert!(!gem.contains('\t'), "menu leaked into the gemtext tree");
+
+        // The gated page was never written into EITHER cleartext tree.
         assert!(
             !base.join("gopher/private/s.gmi").exists(),
-            "a cert-zoned page must not exist in the cleartext tree"
+            "a cert-zoned page must not exist in the gopher tree"
+        );
+        assert!(
+            !base.join("cleartext/private/s.gmi").exists(),
+            "a cert-zoned page must not exist in the gemtext tree"
         );
         // ...while still existing on the surfaces that can authenticate.
         assert!(base.join("html/private/s.html").exists());
@@ -852,20 +901,28 @@ mod tests {
             web_base_url: String::new(),
             capsule_title: "example.org".to_string(),
             lang: "en".to_string(),
-            gopher: Some(GopherRender {
-                ctx: super::super::gopher::Context {
+            cleartext: Some(CleartextRender {
+                gate: super::super::cleartext::Gate::for_host(&host),
+                gopher: Some(super::super::gopher::Context {
                     host: "example.org".into(),
                     port: 70,
-                },
-                gate: super::super::cleartext::Gate::for_host(&host),
+                }),
             }),
         };
         render_tree(&content, &base, &ctx).await.unwrap();
 
         assert!(base.join("gopher/readme.txt").exists(), "asset not copied");
         assert!(
+            base.join("cleartext/readme.txt").exists(),
+            "asset missing from the gemtext tree Spartan and Nex read"
+        );
+        assert!(
             !base.join("gopher/private/secret.txt").exists(),
             "a gated asset must not reach the cleartext tree"
+        );
+        assert!(
+            !base.join("cleartext/private/secret.txt").exists(),
+            "a gated asset must not reach the gemtext tree either"
         );
     }
 
@@ -902,7 +959,7 @@ mod tests {
             web_base_url: "https://example.org".to_string(),
             capsule_title: "Example".to_string(),
             lang: "en".to_string(),
-            gopher: None,
+            cleartext: None,
         };
         render_tree(&content, &base, &ctx).await.unwrap();
 
