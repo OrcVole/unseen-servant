@@ -1,0 +1,27 @@
+# What usv actually does
+
+## One content tree, two surfaces
+
+You write gemtext — plain .gmi files, one per page. usv renders that tree twice: once as-is for Gemini clients on port 1965, and once as themed, classless HTML for anyone arriving over the web. There's no build step and nothing to keep in sync by hand; the render happens automatically whenever a content file changes, and both surfaces come from the same pass. The HTML output is also a self-contained static site on its own — copy the rendered folder anywhere (an onion mirror, an OnionShare folder, a CDN) and it still works with no server behind it.
+
+## TOFU-native identity
+
+Gemini doesn't use certificate authorities the way the web does — clients trust a capsule's certificate the first time they see it (trust-on-first-use, TOFU) and expect it to stay the same afterward. usv generates a certificate once, automatically, the first time it starts for a given hostname, and never silently touches it again. That identity survives every restart, update, backup, and restore. If you move the capsule to a new hostname, usv notices and asks whether to keep the old identity or mint a fresh one — it never guesses for you.
+
+## Titan uploads
+
+Titan is the community's small companion protocol for pushing content to a capsule over the same kind of connection Gemini uses. usv supports it on the same listener, distinguished by URL scheme — no separate port, no separate service. Upload zones are gated by client certificate fingerprint, and nothing is writable unless you configure it that way.
+
+## Everything else is opt-in
+
+Certificate-gated private zones, gemsub and Atom feeds, visitor responses with moderation-first defaults — none of it is on by default. A fresh install with zero configuration is a working capsule with a starter page; every feature beyond that is something you turn on deliberately, in one TOML file.
+
+## Runs anywhere
+
+The same single binary works as a Cloudron app, a systemd service, or standalone with an interactive terminal setup wizard (`usv init`) — no Docker required if you don't want it. It's also packaged for Debian (.deb), Fedora/RHEL/openSUSE (RPM), Arch (AUR), Nix, and as a plain container image, so getting a capsule running doesn't mean picking a Linux distribution first.
+
+## AI Forward
+
+usv is written end to end by an AI, directed by a human, with the reasoning behind every real decision kept on the record rather than only in a commit message. If that's not something you want running your infrastructure, that's a completely reasonable place to stop reading — it's stated here rather than left for you to discover later.
+
+=> index.gmi Back to the front page
