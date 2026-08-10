@@ -11,6 +11,7 @@
 //! machinery, and a fixed set doesn't need dynamic dispatch to get the
 //! "new handler, not a restructure" property the ADR asks for.
 
+pub mod admin;
 pub mod cert_zone;
 pub mod mime;
 pub mod redirect;

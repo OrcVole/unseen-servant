@@ -28,6 +28,7 @@ use unseen_servant::config::{Config, EnvOverrides};
 use unseen_servant::http;
 use unseen_servant::identity::IdentityStore;
 use unseen_servant::render::{pipeline, watcher};
+use unseen_servant::runtime_state::{RenderSnapshot, RuntimeState};
 use unseen_servant::server::{self, Shared};
 use unseen_servant::tls;
 
@@ -695,19 +696,35 @@ async fn serve(args: Args) -> Result<(), ()> {
         capsule_title: primary_host.clone(),
         lang: state.config.lang.clone(),
     };
+    // Created once, before any listener accepts a connection, and never
+    // touched by SIGHUP reload (runtime_state's whole reason to exist —
+    // see its module docs): an operator reloading config mid-incident
+    // must see the activity log keep growing, not reset to empty.
+    let runtime = Arc::new(RuntimeState::new(time::OffsetDateTime::now_utc()));
+
     match pipeline::render_tree(&content_dir, &state.config.state_dir, &render_ctx).await {
-        Ok(stats) => tracing::info!(
-            pages = stats.pages_rendered,
-            robots_mirrored = stats.robots_mirrored,
-            feed_entries = stats.feed_entries,
-            mapped_pages = stats.mapped_pages,
-            "initial render complete"
-        ),
+        Ok(stats) => {
+            tracing::info!(
+                pages = stats.pages_rendered,
+                robots_mirrored = stats.robots_mirrored,
+                feed_entries = stats.feed_entries,
+                mapped_pages = stats.mapped_pages,
+                "initial render complete"
+            );
+            runtime.record_render(RenderSnapshot {
+                at: time::OffsetDateTime::now_utc(),
+                pages_rendered: stats.pages_rendered,
+                feed_entries: stats.feed_entries,
+                mapped_pages: stats.mapped_pages,
+                robots_mirrored: stats.robots_mirrored,
+            });
+        }
         Err(e) => tracing::warn!(error = %e, "initial render failed; HTTP surface may be stale"),
     }
     let watcher_content_dir = content_dir.clone();
     let watcher_state_dir = state.config.state_dir.clone();
     let watcher_ctx = render_ctx.clone();
+    let watcher_runtime = runtime.clone();
     let watcher_task = tokio::spawn(async move {
         let result = watcher::watch(
             watcher_content_dir,
@@ -715,7 +732,16 @@ async fn serve(args: Args) -> Result<(), ()> {
             watcher_ctx,
             watcher::DEFAULT_DEBOUNCE,
             |result| match result {
-                Ok(stats) => tracing::info!(pages = stats.pages_rendered, "content re-rendered"),
+                Ok(stats) => {
+                    tracing::info!(pages = stats.pages_rendered, "content re-rendered");
+                    watcher_runtime.record_render(RenderSnapshot {
+                        at: time::OffsetDateTime::now_utc(),
+                        pages_rendered: stats.pages_rendered,
+                        feed_entries: stats.feed_entries,
+                        mapped_pages: stats.mapped_pages,
+                        robots_mirrored: stats.robots_mirrored,
+                    });
+                }
                 Err(e) => tracing::warn!(error = %e, "re-render failed"),
             },
         )
@@ -738,6 +764,7 @@ async fn serve(args: Args) -> Result<(), ()> {
             state_rx.clone(),
             permits.clone(),
             shutdown_rx.clone(),
+            runtime.clone(),
         )));
     }
 
