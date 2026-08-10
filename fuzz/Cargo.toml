@@ -73,3 +73,10 @@ bench = false
 
 [workspace]
 members = ["."]
+
+[[bin]]
+name = "parse_gopher_selector"
+path = "fuzz_targets/parse_gopher_selector.rs"
+test = false
+doc = false
+bench = false
