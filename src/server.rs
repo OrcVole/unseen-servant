@@ -173,7 +173,7 @@ impl fmt::Display for PeerLabel {
 }
 
 impl PeerLabel {
-    fn new(peer: &SocketAddr, mode: crate::config::PeerLogging) -> Self {
+    pub(crate) fn new(peer: &SocketAddr, mode: crate::config::PeerLogging) -> Self {
         use crate::config::PeerLogging;
         Self(match mode {
             // A placeholder rather than an absent field: the log line
