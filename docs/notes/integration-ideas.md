@@ -47,6 +47,13 @@ Cloudron gives every app a set of platform UIs for free. usv should be
 
 ## Tor / I2P
 
+**Shipped in C5 (2026-08-10), ahead of the v1.1 schedule noted below —
+all three affordances landed, and the Tor path was live-verified against
+a real onion service. See `INTEGRATIONS.md` for the current recipe
+(including a real `advertised_port` gotcha the live test caught) and
+`tests/wire.rs` for the no-SNI regression test. This section is kept as
+the original design record.**
+
 - **Gemini over Tor**: run usv normally, add a torrc onion service
   mapping virtual port 1965 → 127.0.0.1:1965. Needs from usv (all
   cheap, schedule with v1.1): `advertised_host` override so generated

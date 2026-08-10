@@ -50,6 +50,19 @@ pub struct Config {
     /// Hostnames this server answers for (authority check layer 3; SNI cert
     /// selection). Requests naming any other host get status 53.
     pub hosts: Vec<HostConfig>,
+    /// The hostname the render pipeline advertises in generated absolute
+    /// links (Atom self-link, sitemap.xml, /llms.txt, robots.txt's Sitemap
+    /// directive) — `None` means the first configured host, as before this
+    /// field existed. Exists for the case where that isn't the name a
+    /// reader should actually use: a capsule reachable at a real hostname
+    /// *and* mirrored as a Tor onion service wants its feeds to advertise
+    /// the `.onion` name, not whichever `[[host]]` happens to be first
+    /// (docs/notes/integration-ideas.md "Tor / I2P"). Does not affect
+    /// authority checking or SNI cert selection — those still key off the
+    /// real `[[host]]` entries; a Tor deployment adds a `[[host]]` for the
+    /// onion address like any other hostname (`validate_hostname` already
+    /// accepts onion-shaped labels — no separate acceptance rule needed).
+    pub advertised_host: Option<String>,
     /// Maximum concurrent Gemini connections; excess connections wait in the
     /// accept backlog rather than being handed a task.
     pub max_connections: usize,
@@ -180,6 +193,7 @@ struct RawServer {
     http_listen: Option<String>,
     theme: Option<String>,
     lang: Option<String>,
+    advertised_host: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -613,12 +627,22 @@ impl Config {
             )));
         }
 
+        // Same validation and normalization as any `[[host]]` name — this
+        // is a name used in generated URLs, not a routing key, but there is
+        // no reason its rules should differ (see the field's own docs).
+        let advertised_host = server
+            .advertised_host
+            .as_deref()
+            .map(validate_hostname)
+            .transpose()?;
+
         Ok(Config {
             state_dir,
             listen,
             advertised_port,
             tls_min,
             hosts,
+            advertised_host,
             max_connections,
             request_timeout_secs: server.request_timeout_secs.unwrap_or(10),
             response_timeout_secs: server.response_timeout_secs.unwrap_or(300),
@@ -1053,6 +1077,41 @@ mod tests {
         let cfg = Config::from_toml_str("[server]\nlisten = [\"127.0.0.1:11965\"]", &no_env())
             .expect("valid");
         assert_eq!(cfg.advertised_port, 11965);
+    }
+
+    #[test]
+    fn advertised_host_is_absent_by_default() {
+        let cfg = Config::from_toml_str("", &no_env()).expect("valid");
+        assert_eq!(cfg.advertised_host, None);
+    }
+
+    #[test]
+    fn advertised_host_is_validated_and_lowercased_like_any_hostname() {
+        let cfg = Config::from_toml_str("[server]\nadvertised_host = \"EXAMPLE.ORG\"", &no_env())
+            .expect("valid");
+        assert_eq!(cfg.advertised_host.as_deref(), Some("example.org"));
+    }
+
+    #[test]
+    fn advertised_host_accepts_an_onion_v3_shaped_hostname() {
+        // Not a real onion address (those are derived from a key), but the
+        // same shape: a 56-character base32 label plus the .onion TLD.
+        // validate_hostname has no onion-specific rule — this proves the
+        // existing structural checks (ASCII, label length, alphanumeric)
+        // already accept it, so Tor deployment needs no special-casing.
+        let onion = "a".repeat(56) + ".onion";
+        let cfg =
+            Config::from_toml_str(&format!("[server]\nadvertised_host = {onion:?}"), &no_env())
+                .expect("valid");
+        assert_eq!(cfg.advertised_host.as_deref(), Some(onion.as_str()));
+    }
+
+    #[test]
+    fn advertised_host_rejects_the_same_bad_input_a_hostname_would() {
+        let err =
+            Config::from_toml_str("[server]\nadvertised_host = \"not a hostname!\"", &no_env())
+                .unwrap_err();
+        assert!(err.to_string().contains("hostname"), "{err}");
     }
 
     #[test]
