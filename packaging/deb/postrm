@@ -1,0 +1,17 @@
+#!/bin/sh
+# Debian postrm. `remove` keeps /var/lib/usv (and the usv user) so a
+# reinstall recovers the TOFU identity untouched — the same
+# never-silently-lose-the-keypair posture ADR 0003 applies everywhere
+# else. `purge` is the operator's explicit "actually delete everything".
+set -e
+
+if [ -d /run/systemd/system ]; then
+    systemctl stop usv.service 2>/dev/null || true
+fi
+
+if [ "$1" = "purge" ]; then
+    if getent passwd usv >/dev/null 2>&1; then
+        deluser --system usv >/dev/null 2>&1 || true
+    fi
+    rm -rf /var/lib/usv
+fi
