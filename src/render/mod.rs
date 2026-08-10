@@ -23,6 +23,7 @@
 //! lands rather than blocking on all of them up front.
 
 pub mod cleartext;
+pub mod colophon;
 pub mod feed;
 pub mod gemtext;
 pub mod gopher;

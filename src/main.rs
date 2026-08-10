@@ -1017,6 +1017,9 @@ async fn serve(args: Args) -> Result<(), ()> {
 
                 let handler_root = root.clone();
                 let handler_ctx = gctx.clone();
+                let handler_addrs = unseen_servant::render::colophon::Addresses::from_config(
+                    &state_rx.borrow().config.clone(),
+                );
                 let service = plaintext::Service {
                     name: "gopher",
                     max_request_bytes: unseen_servant::protocol::gopher::MAX_SELECTOR_BYTES,
@@ -1025,10 +1028,11 @@ async fn serve(args: Args) -> Result<(), ()> {
                     handler: std::sync::Arc::new(move |line, _cfg| {
                         let root = handler_root.clone();
                         let ctx = handler_ctx.clone();
+                        let addrs = handler_addrs.clone();
                         Box::pin(async move {
                             match unseen_servant::protocol::gopher::parse_selector_line(&line) {
                                 Ok((req, _)) => {
-                                    handler::gopher::serve(&req.selector, &root, &ctx).await
+                                    handler::gopher::serve(&req.selector, &root, &ctx, &addrs).await
                                 }
                                 // Gopher has no status codes: a refusal is
                                 // an ordinary one-line type-3 menu.
@@ -1069,25 +1073,7 @@ async fn serve(args: Args) -> Result<(), ()> {
                 plaintext::log_trust_disclaimer("finger", bound);
                 let cfg_now = state_rx.borrow().config.clone();
                 let state_dir = cfg_now.state_dir.clone();
-                let addresses = handler::finger::Addresses {
-                    host: cfg_now
-                        .advertised_host
-                        .clone()
-                        .or_else(|| cfg_now.hosts.first().map(|h| h.name.clone()))
-                        .unwrap_or_default(),
-                    gemini_port: cfg_now.advertised_port,
-                    web_base_url: cfg_now.http_listen.map(|_| {
-                        format!(
-                            "https://{}",
-                            cfg_now
-                                .advertised_host
-                                .clone()
-                                .or_else(|| cfg_now.hosts.first().map(|h| h.name.clone()))
-                                .unwrap_or_default()
-                        )
-                    }),
-                    gopher_port: cfg_now.gopher.as_ref().map(|g| g.advertised_port),
-                };
+                let addresses = handler::finger::Addresses::from_config(&cfg_now);
                 let service = plaintext::Service {
                     name: "finger",
                     max_request_bytes: unseen_servant::protocol::finger::MAX_REQUEST_BYTES,
@@ -1148,18 +1134,25 @@ async fn serve(args: Args) -> Result<(), ()> {
                     max_request_bytes: unseen_servant::protocol::spartan::MAX_REQUEST_BYTES,
                     request_timeout_secs: cfg_now.request_timeout_secs,
                     response_timeout_secs: cfg_now.response_timeout_secs,
-                    handler: std::sync::Arc::new(move |line, _cfg| {
-                        let root = root.clone();
-                        Box::pin(async move {
-                            match unseen_servant::protocol::spartan::parse(&line) {
-                                Ok((req, _)) => handler::spartan::serve(&req, &root).await,
-                                Err(_) => {
-                                    unseen_servant::protocol::spartan::client_error("bad request")
-                                        .into_bytes()
+                    handler: {
+                        let addrs =
+                            unseen_servant::render::colophon::Addresses::from_config(&cfg_now);
+                        std::sync::Arc::new(move |line, _cfg| {
+                            let root = root.clone();
+                            let addrs = addrs.clone();
+                            Box::pin(async move {
+                                match unseen_servant::protocol::spartan::parse(&line) {
+                                    Ok((req, _)) => {
+                                        handler::spartan::serve(&req, &root, &addrs).await
+                                    }
+                                    Err(_) => unseen_servant::protocol::spartan::client_error(
+                                        "bad request",
+                                    )
+                                    .into_bytes(),
                                 }
-                            }
+                            })
                         })
-                    }),
+                    },
                 };
                 let (tx, rx) = watch::channel(cfg_now.clone());
                 std::mem::forget(tx);
@@ -1193,10 +1186,15 @@ async fn serve(args: Args) -> Result<(), ()> {
                     max_request_bytes: handler::nex::MAX_REQUEST_BYTES,
                     request_timeout_secs: cfg_now.request_timeout_secs,
                     response_timeout_secs: cfg_now.response_timeout_secs,
-                    handler: std::sync::Arc::new(move |line, _cfg| {
-                        let root = root.clone();
-                        Box::pin(async move { handler::nex::serve(&line, &root).await })
-                    }),
+                    handler: {
+                        let addrs =
+                            unseen_servant::render::colophon::Addresses::from_config(&cfg_now);
+                        std::sync::Arc::new(move |line, _cfg| {
+                            let root = root.clone();
+                            let addrs = addrs.clone();
+                            Box::pin(async move { handler::nex::serve(&line, &root, &addrs).await })
+                        })
+                    },
                 };
                 let (tx, rx) = watch::channel(cfg_now.clone());
                 std::mem::forget(tx);
