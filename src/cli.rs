@@ -22,6 +22,7 @@ use std::path::Path;
 
 use crate::config::Config;
 use crate::identity::IdentityStore;
+use crate::roster::{Capability, Roster};
 
 /// `usv fingerprint`: every configured hostname's server certificate
 /// fingerprint, one per line — what an operator publishes out-of-band for
@@ -124,6 +125,244 @@ pub fn format_roster(config: &Config) -> String {
         );
     }
     out
+}
+
+/// Why an `identity add`/`rotate`/`revoke` snippet request was refused.
+/// Every variant is caught *before* any TOML is generated — the whole
+/// point of validating here is that a mistake shows up as an immediate,
+/// specific CLI error, not as usv refusing to start after the operator
+/// has already pasted a bad snippet into their config.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum IdentitySnippetError {
+    /// The label was empty or all whitespace.
+    EmptyLabel,
+    /// Not 64 lowercase-able hex characters — the same rule
+    /// [`crate::roster::Roster`] enforces at config-load time.
+    MalformedFingerprint(String),
+    /// Not one of the closed set of capability names.
+    UnknownCapability(String),
+    /// `add` was asked to create a label that's already in the loaded
+    /// roster — generating a colliding snippet would silently shadow the
+    /// existing entry once pasted in, which usv's config loader refuses
+    /// (`RosterError::DuplicateLabel`) but a snippet-only command should
+    /// catch first, before the operator gets that far.
+    LabelAlreadyExists(String),
+    /// `rotate`/`revoke` named a label the loaded roster doesn't have —
+    /// there's nothing to build a snippet *for*.
+    LabelNotFound(String),
+    /// Not a `YYYY-MM-DD` date.
+    BadDate(String),
+}
+
+impl std::fmt::Display for IdentitySnippetError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            IdentitySnippetError::EmptyLabel => f.write_str("label must not be empty"),
+            IdentitySnippetError::MalformedFingerprint(v) => {
+                write!(f, "{v:?} is not a SHA-256 fingerprint (64 hex characters)")
+            }
+            IdentitySnippetError::UnknownCapability(v) => {
+                let known: Vec<&str> = Capability::ALL.iter().map(|c| c.as_str()).collect();
+                write!(f, "unknown capability {v:?}; known: {}", known.join(", "))
+            }
+            IdentitySnippetError::LabelAlreadyExists(l) => write!(
+                f,
+                "identity {l:?} already exists in the loaded config; pick a different \
+                 label, or use 'usv identity rotate' if you mean to change its key"
+            ),
+            IdentitySnippetError::LabelNotFound(l) => {
+                write!(f, "no identity labelled {l:?} in the loaded config")
+            }
+            IdentitySnippetError::BadDate(v) => write!(f, "{v:?} is not a YYYY-MM-DD date"),
+        }
+    }
+}
+
+impl std::error::Error for IdentitySnippetError {}
+
+fn parse_snippet_date(s: &str) -> Result<time::Date, IdentitySnippetError> {
+    let format = time::macros::format_description!("[year]-[month]-[day]");
+    time::Date::parse(s, &format).map_err(|_| IdentitySnippetError::BadDate(s.to_string()))
+}
+
+fn parse_capabilities(names: &[String]) -> Result<Vec<Capability>, IdentitySnippetError> {
+    names
+        .iter()
+        .map(|n| {
+            Capability::parse(n).ok_or_else(|| IdentitySnippetError::UnknownCapability(n.clone()))
+        })
+        .collect()
+}
+
+/// `usv identity add`: a ready-to-paste `[[identity]]` block. Never
+/// touches the config file (see the module docs on `check`/`stats`'
+/// read-only stance — the director confirmed the same posture applies
+/// here 2026-08-10: printing a snippet for the operator to paste in
+/// themselves is the whole design, not a stopgap for a future `--write`).
+pub fn identity_add_snippet(
+    roster: &Roster,
+    label: &str,
+    fingerprint: &str,
+    capabilities: &[String],
+    enrolled: Option<&str>,
+) -> Result<String, IdentitySnippetError> {
+    if label.trim().is_empty() {
+        return Err(IdentitySnippetError::EmptyLabel);
+    }
+    if !crate::roster::is_sha256_hex(fingerprint) {
+        return Err(IdentitySnippetError::MalformedFingerprint(
+            fingerprint.to_string(),
+        ));
+    }
+    if roster.by_label(label).is_some() {
+        return Err(IdentitySnippetError::LabelAlreadyExists(label.to_string()));
+    }
+    let caps = parse_capabilities(capabilities)?;
+    let enrolled_date = enrolled.map(parse_snippet_date).transpose()?;
+
+    let mut out = String::from(
+        "[[identity]]
+",
+    );
+    out.push_str(&format!(
+        "label = {label:?}
+"
+    ));
+    out.push_str(&format!(
+        "fingerprint = {fingerprint:?}
+"
+    ));
+    if !caps.is_empty() {
+        let list: Vec<String> = caps.iter().map(|c| format!("{:?}", c.as_str())).collect();
+        out.push_str(&format!(
+            "capabilities = [{}]
+",
+            list.join(", ")
+        ));
+    }
+    if let Some(d) = enrolled_date {
+        out.push_str(&format!(
+            "enrolled = {:?}
+",
+            d.to_string()
+        ));
+    }
+    Ok(out)
+}
+
+/// `usv identity rotate`: a snippet updating an *existing* label to a new
+/// current fingerprint, moving its old one to `superseded` with the given
+/// deadline. Requires the label to already be in the loaded roster —
+/// rotation is meaningless for an identity that doesn't exist yet.
+pub fn identity_rotate_snippet(
+    roster: &Roster,
+    label: &str,
+    new_fingerprint: &str,
+    until: &str,
+) -> Result<String, IdentitySnippetError> {
+    let existing = roster
+        .by_label(label)
+        .ok_or_else(|| IdentitySnippetError::LabelNotFound(label.to_string()))?;
+    if !crate::roster::is_sha256_hex(new_fingerprint) {
+        return Err(IdentitySnippetError::MalformedFingerprint(
+            new_fingerprint.to_string(),
+        ));
+    }
+    let until_date = parse_snippet_date(until)?;
+
+    let mut out = String::from(
+        "[[identity]]
+",
+    );
+    out.push_str(&format!(
+        "label = {label:?}
+"
+    ));
+    out.push_str(&format!(
+        "fingerprint = {new_fingerprint:?}
+"
+    ));
+    out.push_str(&format!(
+        "superseded = [{:?}]
+",
+        existing.fingerprint
+    ));
+    out.push_str(&format!(
+        "superseded_until = {:?}
+",
+        until_date.to_string()
+    ));
+    if !existing.capabilities.is_empty() {
+        let list: Vec<String> = existing
+            .capabilities
+            .iter()
+            .map(|c| format!("{:?}", c.as_str()))
+            .collect();
+        out.push_str(&format!(
+            "capabilities = [{}]
+",
+            list.join(", ")
+        ));
+    }
+    Ok(out)
+}
+
+/// `usv identity revoke`: either a snippet with named capabilities
+/// removed, or (when `all` is set) a plain instruction to delete the
+/// whole block — there is no "empty but present" form of an identity
+/// worth generating TOML for.
+pub fn identity_revoke_snippet(
+    roster: &Roster,
+    label: &str,
+    capabilities: &[String],
+    all: bool,
+) -> Result<String, IdentitySnippetError> {
+    let existing = roster
+        .by_label(label)
+        .ok_or_else(|| IdentitySnippetError::LabelNotFound(label.to_string()))?;
+    if all {
+        return Ok(format!(
+            "Remove the entire [[identity]] block labelled {label:?} from usv.toml.
+"
+        ));
+    }
+    let to_remove = parse_capabilities(capabilities)?;
+    let remaining: Vec<&Capability> = existing
+        .capabilities
+        .iter()
+        .filter(|c| !to_remove.contains(c))
+        .collect();
+
+    let mut out = String::from(
+        "[[identity]]
+",
+    );
+    out.push_str(&format!(
+        "label = {label:?}
+"
+    ));
+    out.push_str(&format!(
+        "fingerprint = {:?}
+",
+        existing.fingerprint
+    ));
+    if remaining.is_empty() {
+        out.push_str(
+            "capabilities = []
+",
+        );
+    } else {
+        let list: Vec<String> = remaining
+            .iter()
+            .map(|c| format!("{:?}", c.as_str()))
+            .collect();
+        out.push_str(&format!(
+            "capabilities = [{}]
+",
+            list.join(", ")
+        ));
+    }
+    Ok(out)
 }
 
 /// What `lint_content` found. Never an error by itself — a lint surfaces
@@ -497,6 +736,147 @@ mod tests {
         assert!(out.contains("sitemap.xml: absent"));
         assert!(out.contains("llms.txt: present"));
         assert!(out.contains("atom.xml: absent"));
+    }
+
+    fn roster_with_one(label: &str, fp: &str, caps: &[Capability]) -> Roster {
+        Roster::new(vec![crate::roster::Identity {
+            label: label.to_string(),
+            fingerprint: fp.to_string(),
+            superseded: Vec::new(),
+            superseded_until: None,
+            capabilities: caps.to_vec(),
+            enrolled: None,
+        }])
+        .unwrap()
+    }
+
+    #[test]
+    fn identity_add_produces_a_pasteable_block() {
+        let roster = Roster::new(Vec::new()).unwrap();
+        let fp = "a".repeat(64);
+        let out = identity_add_snippet(
+            &roster,
+            "scribe",
+            &fp,
+            &["titan-write".to_string()],
+            Some("2026-08-10"),
+        )
+        .unwrap();
+        assert!(out.contains("[[identity]]"));
+        assert!(out.contains("label = \"scribe\""));
+        assert!(out.contains(&fp));
+        assert!(out.contains("capabilities = [\"titan-write\"]"));
+        assert!(out.contains("enrolled = \"2026-08-10\""));
+    }
+
+    #[test]
+    fn identity_add_rejects_a_malformed_fingerprint() {
+        let roster = Roster::new(Vec::new()).unwrap();
+        let err = identity_add_snippet(&roster, "scribe", "not-hex", &[], None).unwrap_err();
+        assert!(matches!(err, IdentitySnippetError::MalformedFingerprint(_)));
+    }
+
+    #[test]
+    fn identity_add_rejects_an_empty_label() {
+        let roster = Roster::new(Vec::new()).unwrap();
+        let fp = "a".repeat(64);
+        let err = identity_add_snippet(&roster, "  ", &fp, &[], None).unwrap_err();
+        assert_eq!(err, IdentitySnippetError::EmptyLabel);
+    }
+
+    #[test]
+    fn identity_add_rejects_an_unknown_capability() {
+        let roster = Roster::new(Vec::new()).unwrap();
+        let fp = "a".repeat(64);
+        let err =
+            identity_add_snippet(&roster, "scribe", &fp, &["write".to_string()], None).unwrap_err();
+        assert!(matches!(err, IdentitySnippetError::UnknownCapability(_)));
+    }
+
+    #[test]
+    fn identity_add_refuses_a_label_already_in_the_roster() {
+        let roster = roster_with_one("scribe", &"a".repeat(64), &[]);
+        let err = identity_add_snippet(&roster, "scribe", &"b".repeat(64), &[], None).unwrap_err();
+        assert!(matches!(err, IdentitySnippetError::LabelAlreadyExists(_)));
+    }
+
+    #[test]
+    fn identity_add_rejects_a_bad_date() {
+        let roster = Roster::new(Vec::new()).unwrap();
+        let fp = "a".repeat(64);
+        let err =
+            identity_add_snippet(&roster, "scribe", &fp, &[], Some("not-a-date")).unwrap_err();
+        assert!(matches!(err, IdentitySnippetError::BadDate(_)));
+    }
+
+    #[test]
+    fn identity_rotate_moves_the_old_key_to_superseded() {
+        let old_fp = "a".repeat(64);
+        let new_fp = "b".repeat(64);
+        let roster = roster_with_one("scribe", &old_fp, &[Capability::TitanWrite]);
+        let out = identity_rotate_snippet(&roster, "scribe", &new_fp, "2099-01-01").unwrap();
+        assert!(out.contains(&format!("fingerprint = {new_fp:?}")));
+        assert!(out.contains(&format!("superseded = [{old_fp:?}]")));
+        assert!(out.contains("superseded_until = \"2099-01-01\""));
+        assert!(
+            out.contains("capabilities = [\"titan-write\"]"),
+            "rotation must preserve existing capabilities: {out}"
+        );
+    }
+
+    #[test]
+    fn identity_rotate_of_an_unknown_label_is_refused() {
+        let roster = Roster::new(Vec::new()).unwrap();
+        let err =
+            identity_rotate_snippet(&roster, "nobody", &"a".repeat(64), "2099-01-01").unwrap_err();
+        assert!(matches!(err, IdentitySnippetError::LabelNotFound(_)));
+    }
+
+    #[test]
+    fn identity_rotate_rejects_a_malformed_new_fingerprint() {
+        let roster = roster_with_one("scribe", &"a".repeat(64), &[]);
+        let err = identity_rotate_snippet(&roster, "scribe", "not-hex", "2099-01-01").unwrap_err();
+        assert!(matches!(err, IdentitySnippetError::MalformedFingerprint(_)));
+    }
+
+    #[test]
+    fn identity_revoke_all_says_to_delete_the_block() {
+        let roster = roster_with_one("scribe", &"a".repeat(64), &[Capability::TitanWrite]);
+        let out = identity_revoke_snippet(&roster, "scribe", &[], true).unwrap();
+        assert!(out.to_lowercase().contains("remove"));
+        assert!(out.contains("scribe"));
+        // It's an instruction referring to the block by name, not a
+        // generated snippet — no other TOML field appears alongside it.
+        assert!(!out.contains("fingerprint ="));
+        assert!(!out.contains("capabilities ="));
+    }
+
+    #[test]
+    fn identity_revoke_one_capability_keeps_the_others() {
+        let roster = roster_with_one(
+            "scribe",
+            &"a".repeat(64),
+            &[Capability::TitanWrite, Capability::Read],
+        );
+        let out = identity_revoke_snippet(&roster, "scribe", &["titan-write".to_string()], false)
+            .unwrap();
+        assert!(out.contains("capabilities = [\"read\"]"));
+        assert!(!out.contains("titan-write"));
+    }
+
+    #[test]
+    fn identity_revoke_every_capability_leaves_an_empty_list() {
+        let roster = roster_with_one("scribe", &"a".repeat(64), &[Capability::TitanWrite]);
+        let out = identity_revoke_snippet(&roster, "scribe", &["titan-write".to_string()], false)
+            .unwrap();
+        assert!(out.contains("capabilities = []"));
+    }
+
+    #[test]
+    fn identity_revoke_of_an_unknown_label_is_refused() {
+        let roster = Roster::new(Vec::new()).unwrap();
+        let err = identity_revoke_snippet(&roster, "nobody", &[], true).unwrap_err();
+        assert!(matches!(err, IdentitySnippetError::LabelNotFound(_)));
     }
 
     #[test]
