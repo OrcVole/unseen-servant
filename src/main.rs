@@ -31,9 +31,11 @@ use tokio::sync::{Semaphore, watch};
 
 use unseen_servant::cli;
 use unseen_servant::config::{Config, EnvOverrides};
+use unseen_servant::handler;
 use unseen_servant::http;
 use unseen_servant::identity::IdentityStore;
 use unseen_servant::init::{self, InitAnswers};
+use unseen_servant::plaintext;
 use unseen_servant::render::theme;
 use unseen_servant::render::{pipeline, watcher};
 use unseen_servant::runtime_state::{RenderSnapshot, RuntimeState};
@@ -973,6 +975,86 @@ async fn serve(args: Args) -> Result<(), ()> {
         }
     }
 
+    // Gopher (v1.1; ADR 0012): cleartext, and therefore only ever
+    // present because the operator asked for it.
+    let mut gopher_task = None;
+    if let Some(gcfg) = state_rx.borrow().config.gopher.clone() {
+        match server::bind(gcfg.listen) {
+            Ok(listener) => {
+                let bound = listener.local_addr().unwrap_or(gcfg.listen);
+                let root = state_rx.borrow().config.state_dir.join("gopher");
+                let gctx = unseen_servant::render::gopher::Context {
+                    host: state_rx
+                        .borrow()
+                        .config
+                        .advertised_host
+                        .clone()
+                        .or_else(|| {
+                            state_rx
+                                .borrow()
+                                .config
+                                .hosts
+                                .first()
+                                .map(|h| h.name.clone())
+                        })
+                        .unwrap_or_default(),
+                    port: gcfg.advertised_port,
+                };
+
+                // Say plainly what was just switched on (ADR 0012 §2),
+                // and what will not be in it (§6) — an operator who
+                // gated a path must not have to deduce why it is missing.
+                plaintext::log_trust_disclaimer("gopher", bound);
+                if let Some(host) = state_rx.borrow().config.hosts.first() {
+                    let gate = unseen_servant::render::cleartext::Gate::for_host(host);
+                    unseen_servant::render::cleartext::announce("gopher", &gate);
+                }
+
+                let handler_root = root.clone();
+                let handler_ctx = gctx.clone();
+                let service = plaintext::Service {
+                    name: "gopher",
+                    max_request_bytes: unseen_servant::protocol::gopher::MAX_SELECTOR_BYTES,
+                    request_timeout_secs: state_rx.borrow().config.request_timeout_secs,
+                    response_timeout_secs: state_rx.borrow().config.response_timeout_secs,
+                    handler: std::sync::Arc::new(move |line, _cfg| {
+                        let root = handler_root.clone();
+                        let ctx = handler_ctx.clone();
+                        Box::pin(async move {
+                            match unseen_servant::protocol::gopher::parse_selector_line(&line) {
+                                Ok((req, _)) => {
+                                    handler::gopher::serve(&req.selector, &root, &ctx).await
+                                }
+                                // Gopher has no status codes: a refusal is
+                                // an ordinary one-line type-3 menu.
+                                Err(_) => {
+                                    unseen_servant::protocol::gopher::error_menu("bad request")
+                                        .into_bytes()
+                                }
+                            }
+                        })
+                    }),
+                };
+                let (gopher_cfg_tx, gopher_cfg_rx) =
+                    watch::channel(state_rx.borrow().config.clone());
+                std::mem::forget(gopher_cfg_tx);
+                gopher_task = Some(tokio::spawn(plaintext::accept_loop(
+                    listener,
+                    service,
+                    gopher_cfg_rx,
+                    std::sync::Arc::new(tokio::sync::Semaphore::new(
+                        state_rx.borrow().config.max_connections,
+                    )),
+                    shutdown_rx.clone(),
+                )));
+            }
+            Err(e) => {
+                tracing::error!(addr = %gcfg.listen, error = %e, "cannot bind gopher listener");
+                return Err(());
+            }
+        }
+    }
+
     tracing::info!(
         hosts = ?state_rx.borrow().config.hosts.iter().map(|h| h.name.clone()).collect::<Vec<_>>(),
         "usv {} serving",
@@ -987,6 +1069,9 @@ async fn serve(args: Args) -> Result<(), ()> {
         task.abort();
     }
     if let Some(task) = &http_task {
+        task.abort();
+    }
+    if let Some(task) = &gopher_task {
         task.abort();
     }
     watcher_task.abort();
