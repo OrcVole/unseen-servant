@@ -15,17 +15,21 @@
 #
 # REGISTRY: this repo's own Forgejo instance (forgejo.wanderingmonster.dev)
 # acting as an OCI registry, not an external one — one fewer credential to
-# provision. Forgejo Actions' automatic GITHUB_TOKEN (GitHub-compatible
-# name, Forgejo's own token under the hood) is scoped to this repository
-# and its package registry by `permissions: packages: write` below; no
-# separate secret needed.
+# provision than GHCR or similar. First attempt used the Actions automatic
+# GITHUB_TOKEN with `permissions: packages: write`: login succeeded, the
+# push did not — "writing blob: ... authentication required". The
+# auto-token's package-registry write scope evidently doesn't extend to
+# pushing new blobs the way it does for e.g. checkout, at least not on
+# this Forgejo version. Fixed by using REGISTRY_PUSH_TOKEN, a repo secret
+# holding the same PAT already confirmed (elsewhere in this estate) to
+# carry real `write:package` scope on this instance — a known-working
+# credential instead of an untested assumption about the auto-token.
 #
 # RUNNER FACTS: same `workstation` HOST-mode runner as pr-checks.yml —
 # steps run directly on a real machine, not an isolated container, so
 # whatever build tool is invoked here (podman) must already be installed
-# there. This workflow is new and its first real run is the actual proof
-# it works end to end; if the runner lacks podman or the registry login
-# fails, that first run's log is the place to look, not this comment.
+# there. This workflow's first real run caught the auth issue above; its
+# second run is what actually proved the fix, not this comment.
 #
 # Path-filtered: only the inputs that actually change the image should
 # trigger a rebuild — a docs-only commit shouldn't burn a multi-minute
@@ -45,9 +49,6 @@ on:
       - src/**
       - .forgejo/workflows/build-cloudron-image.yml
 
-permissions:
-  packages: write
-
 jobs:
   build-and-push:
     runs-on: workstation
@@ -62,7 +63,7 @@ jobs:
 
       - name: push
         run: |
-          echo "${{ secrets.GITHUB_TOKEN }}" | podman login forgejo.wanderingmonster.dev \
+          echo "${{ secrets.REGISTRY_PUSH_TOKEN }}" | podman login forgejo.wanderingmonster.dev \
             --username "${{ github.actor }}" --password-stdin
           podman push "${IMAGE}:${{ github.sha }}"
           podman push "${IMAGE}:latest"
