@@ -411,20 +411,25 @@ fn render_context(config: &Config) -> pipeline::RenderContext {
         .http_listen
         .map(|_| format!("https://{advertised_host}"))
         .unwrap_or_default();
-    // The cleartext target is built only when the operator enabled it,
-    // and carries its own exclusion set — a capsule with gopher off has
-    // no gopher tree at all, so there is nothing to leak (ADR 0012).
-    let gopher = config.gopher.as_ref().map(|g| {
-        let mut gate = unseen_servant::render::cleartext::Gate::default();
-        if let Some(host) = config.hosts.first() {
-            gate = unseen_servant::render::cleartext::Gate::for_host(host);
-        }
-        pipeline::GopherRender {
-            ctx: unseen_servant::render::gopher::Context {
-                host: advertised_host.clone(),
-                port: g.advertised_port,
-            },
+    // The cleartext trees are built only when at least one cleartext
+    // protocol is enabled, and they carry the gate that keeps gated
+    // pages out of every one of them (ADR 0012 §6).
+    let any_cleartext = config.gopher.is_some() || config.spartan.is_some() || config.nex.is_some();
+    let cleartext = any_cleartext.then(|| {
+        let gate = config
+            .hosts
+            .first()
+            .map(unseen_servant::render::cleartext::Gate::for_host)
+            .unwrap_or_default();
+        pipeline::CleartextRender {
             gate,
+            gopher: config
+                .gopher
+                .as_ref()
+                .map(|g| unseen_servant::render::gopher::Context {
+                    host: advertised_host.clone(),
+                    port: g.advertised_port,
+                }),
         }
     });
     pipeline::RenderContext {
@@ -432,7 +437,7 @@ fn render_context(config: &Config) -> pipeline::RenderContext {
         web_base_url,
         capsule_title: advertised_host,
         lang: config.lang.clone(),
-        gopher,
+        cleartext,
     }
 }
 
@@ -1119,6 +1124,97 @@ async fn serve(args: Args) -> Result<(), ()> {
         }
     }
 
+    // Spartan and Nex (v1.1; ADR 0012). Both serve the cleartext tree
+    // the gopher target already builds — no third and fourth render
+    // pass, and the wall holds for free because gated pages were never
+    // written into it.
+    // Spartan and Nex serve GEMTEXT, so they read the cleartext tree —
+    // not the gopher tree, which holds menus. Pointing them at the
+    // wrong one is exactly the bug live testing caught.
+    let cleartext_root = state_rx.borrow().config.state_dir.join("cleartext");
+
+    let mut spartan_task = None;
+    if let Some(scfg) = state_rx.borrow().config.spartan.clone() {
+        match server::bind(scfg.listen) {
+            Ok(listener) => {
+                plaintext::log_trust_disclaimer(
+                    "spartan",
+                    listener.local_addr().unwrap_or(scfg.listen),
+                );
+                let root = cleartext_root.clone();
+                let cfg_now = state_rx.borrow().config.clone();
+                let service = plaintext::Service {
+                    name: "spartan",
+                    max_request_bytes: unseen_servant::protocol::spartan::MAX_REQUEST_BYTES,
+                    request_timeout_secs: cfg_now.request_timeout_secs,
+                    response_timeout_secs: cfg_now.response_timeout_secs,
+                    handler: std::sync::Arc::new(move |line, _cfg| {
+                        let root = root.clone();
+                        Box::pin(async move {
+                            match unseen_servant::protocol::spartan::parse(&line) {
+                                Ok((req, _)) => handler::spartan::serve(&req, &root).await,
+                                Err(_) => {
+                                    unseen_servant::protocol::spartan::client_error("bad request")
+                                        .into_bytes()
+                                }
+                            }
+                        })
+                    }),
+                };
+                let (tx, rx) = watch::channel(cfg_now.clone());
+                std::mem::forget(tx);
+                spartan_task = Some(tokio::spawn(plaintext::accept_loop(
+                    listener,
+                    service,
+                    rx,
+                    std::sync::Arc::new(tokio::sync::Semaphore::new(cfg_now.max_connections)),
+                    shutdown_rx.clone(),
+                )));
+            }
+            Err(e) => {
+                tracing::error!(addr = %scfg.listen, error = %e, "cannot bind spartan listener");
+                return Err(());
+            }
+        }
+    }
+
+    let mut nex_task = None;
+    if let Some(ncfg) = state_rx.borrow().config.nex.clone() {
+        match server::bind(ncfg.listen) {
+            Ok(listener) => {
+                plaintext::log_trust_disclaimer(
+                    "nex",
+                    listener.local_addr().unwrap_or(ncfg.listen),
+                );
+                let root = cleartext_root.clone();
+                let cfg_now = state_rx.borrow().config.clone();
+                let service = plaintext::Service {
+                    name: "nex",
+                    max_request_bytes: handler::nex::MAX_REQUEST_BYTES,
+                    request_timeout_secs: cfg_now.request_timeout_secs,
+                    response_timeout_secs: cfg_now.response_timeout_secs,
+                    handler: std::sync::Arc::new(move |line, _cfg| {
+                        let root = root.clone();
+                        Box::pin(async move { handler::nex::serve(&line, &root).await })
+                    }),
+                };
+                let (tx, rx) = watch::channel(cfg_now.clone());
+                std::mem::forget(tx);
+                nex_task = Some(tokio::spawn(plaintext::accept_loop(
+                    listener,
+                    service,
+                    rx,
+                    std::sync::Arc::new(tokio::sync::Semaphore::new(cfg_now.max_connections)),
+                    shutdown_rx.clone(),
+                )));
+            }
+            Err(e) => {
+                tracing::error!(addr = %ncfg.listen, error = %e, "cannot bind nex listener");
+                return Err(());
+            }
+        }
+    }
+
     tracing::info!(
         hosts = ?state_rx.borrow().config.hosts.iter().map(|h| h.name.clone()).collect::<Vec<_>>(),
         "usv {} serving",
@@ -1139,6 +1235,12 @@ async fn serve(args: Args) -> Result<(), ()> {
         task.abort();
     }
     if let Some(task) = &finger_task {
+        task.abort();
+    }
+    if let Some(task) = &spartan_task {
+        task.abort();
+    }
+    if let Some(task) = &nex_task {
         task.abort();
     }
     watcher_task.abort();
