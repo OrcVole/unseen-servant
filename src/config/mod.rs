@@ -73,6 +73,10 @@ pub struct Config {
     /// the default of `en` being wrong for a capsule is a real
     /// accessibility defect rather than a cosmetic one.
     pub lang: String,
+    /// Named client identities: labels, rotation state, and capabilities
+    /// (ADR 0011). Empty unless the operator defines `[[identity]]`
+    /// entries; zones may still name raw fingerprints without one.
+    pub roster: crate::roster::Roster,
 }
 
 /// Minimum accepted TLS protocol version (ADR 0001 / recon guidance §4).
@@ -152,6 +156,9 @@ struct RawConfig {
     server: Option<RawServer>,
     #[serde(default, rename = "host")]
     hosts: Vec<RawHost>,
+    /// `[[identity]]` — the roster (ADR 0011).
+    #[serde(default, rename = "identity")]
+    identities: Vec<RawIdentity>,
     /// Server-wide Titan defaults (C4; ADR 0006). Writable zones themselves
     /// are per-host (`[[host.titan_zone]]`) because writable paths belong
     /// to a host's content tree.
@@ -220,6 +227,9 @@ struct RawTitan {
 #[serde(deny_unknown_fields)]
 struct RawTitanZone {
     path_prefix: String,
+    /// Roster identity labels permitted to write here (ADR 0011).
+    #[serde(default)]
+    identities: Vec<String>,
     /// SHA-256 fingerprints permitted to write here. Unlike a cert_zone,
     /// an empty list is a startup error, never "any valid certificate" —
     /// see `handler::titan`.
@@ -230,6 +240,24 @@ struct RawTitanZone {
     token: Option<String>,
     #[serde(default)]
     allow_delete: bool,
+}
+
+/// `[[identity]]` — one named client identity (ADR 0011).
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawIdentity {
+    label: String,
+    fingerprint: String,
+    /// Fingerprints being retired; requires `superseded_until`.
+    #[serde(default)]
+    superseded: Vec<String>,
+    /// `YYYY-MM-DD` — the day the rotation window closes.
+    superseded_until: Option<String>,
+    #[serde(default)]
+    capabilities: Vec<String>,
+    /// `YYYY-MM-DD` — provenance only; usv records when a key was added,
+    /// never who it belongs to (ADR 0011: continuity, not attestation).
+    enrolled: Option<String>,
 }
 
 /// Environment override names honored by the core (ADR 0007). Kept in one
@@ -280,6 +308,24 @@ impl EnvOverrides {
             http_listen: std::env::var(env_keys::HTTP_LISTEN).ok(),
         }
     }
+}
+
+/// Parse a `YYYY-MM-DD` config date, naming the field it came from so a
+/// malformed value points straight at itself.
+fn parse_config_date(
+    value: Option<&str>,
+    label: &str,
+    field: &str,
+) -> Result<Option<time::Date>, ConfigError> {
+    let Some(text) = value else {
+        return Ok(None);
+    };
+    let format = time::macros::format_description!("[year]-[month]-[day]");
+    time::Date::parse(text, &format).map(Some).map_err(|_| {
+        ConfigError::Rejected(format!(
+            "identity {label:?} has {field} = {text:?}, which is not a YYYY-MM-DD date"
+        ))
+    })
 }
 
 /// The default state directory for this process (ADR 0008): the XDG state
@@ -404,6 +450,39 @@ impl Config {
             }
         };
 
+        // The roster is built before hosts, so a zone can be checked
+        // against it for a mistyped identity label at startup.
+        let mut identities = Vec::with_capacity(raw.identities.len());
+        for raw_id in raw.identities {
+            let mut capabilities = Vec::with_capacity(raw_id.capabilities.len());
+            for name in &raw_id.capabilities {
+                let cap = crate::roster::Capability::parse(name).ok_or_else(|| {
+                    ConfigError::Rejected(
+                        crate::roster::RosterError::UnknownCapability {
+                            label: raw_id.label.clone(),
+                            value: name.clone(),
+                        }
+                        .to_string(),
+                    )
+                })?;
+                capabilities.push(cap);
+            }
+            identities.push(crate::roster::Identity {
+                label: raw_id.label.clone(),
+                fingerprint: raw_id.fingerprint,
+                superseded: raw_id.superseded,
+                superseded_until: parse_config_date(
+                    raw_id.superseded_until.as_deref(),
+                    &raw_id.label,
+                    "superseded_until",
+                )?,
+                capabilities,
+                enrolled: parse_config_date(raw_id.enrolled.as_deref(), &raw_id.label, "enrolled")?,
+            });
+        }
+        let roster = crate::roster::Roster::new(identities)
+            .map_err(|e| ConfigError::Rejected(e.to_string()))?;
+
         let bare = |name: &str| RawHost {
             name: name.to_string(),
             docroot: None,
@@ -459,14 +538,29 @@ impl Config {
                 // otherwise the bundled 10 MiB. Validation (non-empty
                 // allowlist above all) lives in the handler with the rest of
                 // the upload policy, so config and enforcement cannot drift.
-                let zone = crate::handler::titan::Zone::new(
-                    &z.path_prefix,
-                    z.fingerprints,
-                    z.max_upload_bytes.or(titan_default_max_upload),
-                    z.mime,
-                    z.token,
-                    z.allow_delete,
-                )
+                // A mistyped identity label would silently authorize
+                // nobody, so it is a startup error. The *capability* is
+                // deliberately NOT checked here: revoking `titan-write`
+                // from an identity should disable it everywhere at once,
+                // not refuse to start (ADR 0011).
+                for label in &z.identities {
+                    if roster.by_label(label).is_none() {
+                        return Err(ConfigError::Rejected(format!(
+                            "host {name:?} titan_zone {:?} names identity {label:?}, which is \
+                             not defined in any [[identity]] section",
+                            z.path_prefix
+                        )));
+                    }
+                }
+                let zone = crate::handler::titan::Zone::new(crate::handler::titan::ZoneSpec {
+                    path_prefix: z.path_prefix,
+                    fingerprints: z.fingerprints,
+                    identities: z.identities,
+                    max_upload_bytes: z.max_upload_bytes.or(titan_default_max_upload),
+                    allowed_mime: z.mime,
+                    token: z.token,
+                    allow_delete: z.allow_delete,
+                })
                 .map_err(|e| ConfigError::Rejected(format!("host {name:?}: {e}")))?;
                 titan_zones.push(zone);
             }
@@ -531,6 +625,7 @@ impl Config {
             http_listen,
             theme,
             lang,
+            roster,
         })
     }
 
@@ -680,6 +775,123 @@ mod tests {
         let big = zones.iter().find(|z| z.path_prefix == "/big/").unwrap();
         assert_eq!(small.max_upload_bytes, 4096, "inherits the server default");
         assert_eq!(big.max_upload_bytes, 999_999, "own value wins");
+    }
+
+    /// A syntactically valid SHA-256 fingerprint of one repeated nibble.
+    fn hex64(nibble: char) -> String {
+        std::iter::repeat_n(nibble, 64).collect()
+    }
+
+    #[test]
+    fn an_identity_parses_with_capabilities_and_rotation() {
+        let cfg = Config::from_toml_str(
+            &format!(
+                "[[identity]]\nlabel = \"scribe\"\nfingerprint = \"{}\"\n\
+                 superseded = [\"{}\"]\nsuperseded_until = \"2026-09-01\"\n\
+                 capabilities = [\"titan-write\"]\nenrolled = \"2026-08-10\"\n",
+                hex64('a'),
+                hex64('b')
+            ),
+            &no_env(),
+        )
+        .unwrap();
+        let id = cfg.roster.by_label("scribe").expect("identity present");
+        assert_eq!(id.fingerprint, hex64('a'));
+        assert_eq!(id.superseded, vec![hex64('b')]);
+        assert!(id.superseded_until.is_some());
+        assert!(id.holds(crate::roster::Capability::TitanWrite));
+        assert!(id.enrolled.is_some(), "provenance date is recorded");
+    }
+
+    #[test]
+    fn an_unknown_capability_is_a_startup_error_that_lists_the_real_ones() {
+        let err = Config::from_toml_str(
+            &format!(
+                "[[identity]]\nlabel = \"x\"\nfingerprint = \"{}\"\n\
+                 capabilities = [\"write\"]\n",
+                hex64('a')
+            ),
+            &no_env(),
+        )
+        .unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("titan-write"),
+            "must name the real spelling: {msg}"
+        );
+    }
+
+    #[test]
+    fn rotation_without_a_deadline_is_a_startup_error() {
+        let err = Config::from_toml_str(
+            &format!(
+                "[[identity]]\nlabel = \"x\"\nfingerprint = \"{}\"\n\
+                 superseded = [\"{}\"]\n",
+                hex64('a'),
+                hex64('b')
+            ),
+            &no_env(),
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("superseded_until"), "{err}");
+    }
+
+    #[test]
+    fn a_truncated_fingerprint_is_a_startup_error() {
+        let err = Config::from_toml_str(
+            "[[identity]]\nlabel = \"x\"\nfingerprint = \"aabbcc\"\n",
+            &no_env(),
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("64 hex"), "{err}");
+    }
+
+    #[test]
+    fn a_zone_naming_an_undefined_identity_is_a_startup_error() {
+        // A mistyped label would silently authorize nobody.
+        let err = Config::from_toml_str(
+            "[[host]]\nname = \"a.example\"\n\
+             [[host.titan_zone]]\npath_prefix = \"/u/\"\nidentities = [\"typo\"]\n",
+            &no_env(),
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("typo"), "{err}");
+    }
+
+    #[test]
+    fn a_zone_may_name_a_defined_identity_instead_of_raw_fingerprints() {
+        let cfg = Config::from_toml_str(
+            &format!(
+                "[[identity]]\nlabel = \"scribe\"\nfingerprint = \"{}\"\n\
+                 capabilities = [\"titan-write\"]\n\
+                 [[host]]\nname = \"a.example\"\n\
+                 [[host.titan_zone]]\npath_prefix = \"/u/\"\nidentities = [\"scribe\"]\n",
+                hex64('a')
+            ),
+            &no_env(),
+        )
+        .unwrap();
+        let zone = &cfg.hosts[0].titan_zones[0];
+        assert_eq!(zone.allowed_identities, vec!["scribe".to_string()]);
+        assert!(zone.allowed_fingerprints.is_empty());
+    }
+
+    #[test]
+    fn revoking_a_capability_does_not_break_startup() {
+        // Deliberate: the zone keeps naming the identity, the identity no
+        // longer holds titan-write, and the server still starts — the
+        // write is refused at request time instead (ADR 0011).
+        let cfg = Config::from_toml_str(
+            &format!(
+                "[[identity]]\nlabel = \"scribe\"\nfingerprint = \"{}\"\n\
+                 capabilities = []\n\
+                 [[host]]\nname = \"a.example\"\n\
+                 [[host.titan_zone]]\npath_prefix = \"/u/\"\nidentities = [\"scribe\"]\n",
+                hex64('a')
+            ),
+            &no_env(),
+        );
+        assert!(cfg.is_ok(), "revocation must not be a startup failure");
     }
 
     #[test]

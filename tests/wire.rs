@@ -1453,3 +1453,187 @@ fn a_token_zone_requires_both_the_certificate_and_the_token() {
     assert!(status_line(&ok).starts_with("30"));
     assert!(server.dir.join("content/uploads/t.gmi").exists());
 }
+
+// ---------------------------------------------------------------------
+// C4 / ADR 0011: the identity roster over the wire. Named identities with
+// capabilities, and key rotation with a self-closing window.
+// ---------------------------------------------------------------------
+
+/// A server whose writable zone names a roster identity rather than a raw
+/// fingerprint. `capability` is written verbatim so a test can supply the
+/// wrong one; `superseded`/`until` drive the rotation window.
+fn start_with_roster_identity(
+    name: &str,
+    current_fingerprint: &str,
+    capability: &str,
+    superseded: Option<(&str, &str)>,
+) -> TestServer {
+    let dir = std::env::temp_dir().join(format!(
+        "usv-wire-{name}-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("clock")
+            .subsec_nanos()
+    ));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("content")).expect("mkdir");
+    std::fs::write(dir.join("content/index.gmi"), b"# home\n").expect("write");
+
+    let rotation = match superseded {
+        Some((old, until)) => {
+            format!("superseded = [\"{old}\"]\nsuperseded_until = \"{until}\"\n")
+        }
+        None => String::new(),
+    };
+    let toml = format!(
+        "[server]\nlisten = [\"127.0.0.1:0\"]\n\n\
+         [[identity]]\nlabel = \"scribe\"\nfingerprint = \"{current_fingerprint}\"\n\
+         capabilities = [\"{capability}\"]\n{rotation}\n\
+         [[host]]\nname = \"localhost\"\n\n\
+         [[host.titan_zone]]\npath_prefix = \"/uploads/\"\nidentities = [\"scribe\"]\n"
+    );
+    std::fs::write(dir.join("usv.toml"), toml).expect("write usv.toml");
+
+    let mut child = std::process::Command::new(env!("CARGO_BIN_EXE_usv"))
+        .env("USV_STATE_DIR", &dir)
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .expect("usv spawns");
+
+    let stderr = child.stderr.take().expect("piped stderr");
+    let mut reader = std::io::BufReader::new(stderr);
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(15);
+    let mut port = None;
+    let mut line = String::new();
+    use std::io::BufRead;
+    while std::time::Instant::now() < deadline {
+        line.clear();
+        if reader.read_line(&mut line).expect("read stderr") == 0 {
+            break;
+        }
+        if let Some(idx) = line.find("bound=127.0.0.1:") {
+            let digits: String = line[idx + "bound=127.0.0.1:".len()..]
+                .chars()
+                .take_while(char::is_ascii_digit)
+                .collect();
+            port = digits.parse().ok();
+        }
+        if port.is_some() && line.contains("serving") {
+            break;
+        }
+    }
+    let port = port.expect("server announced its bound port");
+    std::thread::spawn(move || {
+        let mut sink = String::new();
+        let _ = reader.read_to_string(&mut sink);
+    });
+    TestServer { child, port, dir }
+}
+
+fn titan_upload(port: u16, path: &str, body: &[u8]) -> Vec<u8> {
+    let mut raw = format!("titan://localhost:{port}{path};size={}\r\n", body.len()).into_bytes();
+    raw.extend_from_slice(body);
+    raw
+}
+
+#[test]
+fn a_roster_identity_with_titan_write_may_upload() {
+    let cert = generate_client_cert(-1, 30);
+    let server =
+        start_with_roster_identity("roster-ok", &cert.fingerprint_hex, "titan-write", None);
+
+    let raw = titan_upload(server.port, "/uploads/named.gmi", b"# by name\n");
+    let response = exchange_with_client_cert(server.port, &raw, Some(&cert));
+    assert!(
+        status_line(&response).starts_with("30"),
+        "a named identity holding titan-write may write: {}",
+        status_line(&response)
+    );
+    assert!(server.dir.join("content/uploads/named.gmi").exists());
+}
+
+#[test]
+fn a_roster_identity_without_titan_write_is_refused() {
+    // The capability is a server-wide grant: the zone naming you is not
+    // enough on its own.
+    let cert = generate_client_cert(-1, 30);
+    let server = start_with_roster_identity("roster-nocap", &cert.fingerprint_hex, "read", None);
+
+    let raw = titan_upload(server.port, "/uploads/nope.gmi", b"# denied\n");
+    let response = exchange_with_client_cert(server.port, &raw, Some(&cert));
+    assert!(status_line(&response).starts_with("61"));
+    assert!(!server.dir.join("content/uploads/nope.gmi").exists());
+}
+
+#[test]
+fn a_superseded_key_still_writes_inside_its_rotation_window() {
+    // The holder has pinned a new key but is still presenting the old one.
+    // Both work until the window closes — that is what makes rotation
+    // possible without a flag-day.
+    let old = generate_client_cert(-1, 30);
+    let new = generate_client_cert(-1, 30);
+    let server = start_with_roster_identity(
+        "roster-rotating",
+        &new.fingerprint_hex,
+        "titan-write",
+        Some((&old.fingerprint_hex, "2099-01-01")),
+    );
+
+    let with_new = titan_upload(server.port, "/uploads/new-key.gmi", b"# new\n");
+    assert!(
+        status_line(&exchange_with_client_cert(
+            server.port,
+            &with_new,
+            Some(&new)
+        ))
+        .starts_with("30")
+    );
+
+    let with_old = titan_upload(server.port, "/uploads/old-key.gmi", b"# old\n");
+    assert!(
+        status_line(&exchange_with_client_cert(
+            server.port,
+            &with_old,
+            Some(&old)
+        ))
+        .starts_with("30"),
+        "the retiring key must still work while its window is open"
+    );
+    assert!(server.dir.join("content/uploads/old-key.gmi").exists());
+}
+
+#[test]
+fn a_superseded_key_stops_working_once_its_window_has_closed() {
+    // The window closes on its own: no operator action, no restart. A
+    // forgotten old key fails closed, which is the whole point.
+    let old = generate_client_cert(-1, 30);
+    let new = generate_client_cert(-1, 30);
+    let server = start_with_roster_identity(
+        "roster-expired",
+        &new.fingerprint_hex,
+        "titan-write",
+        Some((&old.fingerprint_hex, "2020-01-01")),
+    );
+
+    let with_old = titan_upload(server.port, "/uploads/stale.gmi", b"# stale\n");
+    let response = exchange_with_client_cert(server.port, &with_old, Some(&old));
+    assert!(
+        status_line(&response).starts_with("61"),
+        "an expired rotation window must refuse the old key: {}",
+        status_line(&response)
+    );
+    assert!(!server.dir.join("content/uploads/stale.gmi").exists());
+
+    // The current key is unaffected.
+    let with_new = titan_upload(server.port, "/uploads/fresh.gmi", b"# fresh\n");
+    assert!(
+        status_line(&exchange_with_client_cert(
+            server.port,
+            &with_new,
+            Some(&new)
+        ))
+        .starts_with("30")
+    );
+}

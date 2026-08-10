@@ -33,6 +33,8 @@
 use crate::handler::ClientCertInfo;
 use crate::protocol::response::{Header, Status, stock};
 use crate::protocol::titan::TitanRequest;
+use crate::roster::{Capability, KeyAge, Roster};
+use time::Date;
 
 /// The default per-upload size cap when a zone names none: 10 MiB, the
 /// GmCapsule default (recon §4.1) — the one number the ecosystem has
@@ -52,9 +54,17 @@ pub struct Zone {
     /// trailing-slashed (`/uploads/`). The trailing slash is what stops
     /// `/up` from making `/uploads` writable.
     pub path_prefix: String,
-    /// SHA-256 fingerprints (lowercase hex) permitted to write here.
-    /// Guaranteed non-empty by [`Zone::new`] — see the module docs.
+    /// SHA-256 fingerprints (lowercase hex) permitted to write here
+    /// *directly*, without a roster entry. The simple case: one key, one
+    /// zone, no ceremony.
     pub allowed_fingerprints: Vec<String>,
+    /// Roster identity labels permitted to write here (ADR 0011). These
+    /// additionally require the identity to hold
+    /// [`crate::roster::Capability::TitanWrite`], checked at request time
+    /// rather than at startup — so revoking the capability disables the
+    /// identity everywhere at once, without hunting through every zone
+    /// that named it.
+    pub allowed_identities: Vec<String>,
     /// Largest single upload accepted, in bytes.
     pub max_upload_bytes: u64,
     /// Accepted payload MIME types, compared without parameters and
@@ -74,8 +84,9 @@ pub struct Zone {
 pub enum ZoneError {
     /// `path_prefix` does not start with `/`.
     PathNotAbsolute(String),
-    /// No fingerprints were listed. See the module docs for why this is an
-    /// error here but not for a read zone.
+    /// The zone named nobody at all — neither a fingerprint nor a roster
+    /// identity. See the module docs for why this is an error here but not
+    /// for a read zone.
     NoFingerprints(String),
     /// `max_upload_bytes` was zero — a zone that accepts nothing is
     /// certainly a mistake, and silently accepting it would leave the
@@ -97,10 +108,11 @@ impl std::fmt::Display for ZoneError {
             ),
             ZoneError::NoFingerprints(p) => write!(
                 f,
-                "titan_zone {p:?} lists no fingerprints. Unlike a read-gating cert_zone, \
-                 a writable zone may not be left open: an empty allowlist would let anyone \
-                 who can generate a self-signed certificate write to this capsule. List the \
-                 SHA-256 fingerprint of every identity permitted to upload here"
+                "titan_zone {p:?} names nobody. Unlike a read-gating cert_zone, a writable \
+                 zone may not be left open: an empty allowlist would let anyone who can \
+                 generate a self-signed certificate write to this capsule. Either list \
+                 fingerprints = [...] directly, or name roster entries with \
+                 identities = [...]"
             ),
             ZoneError::ZeroMaxUpload(p) => {
                 write!(
@@ -122,22 +134,46 @@ impl std::fmt::Display for ZoneError {
 
 impl std::error::Error for ZoneError {}
 
+/// The configuration a [`Zone`] is built from. A struct rather than a
+/// long positional argument list, so adding a policy knob is a field
+/// addition instead of a signature break at every call site.
+#[derive(Debug, Default, Clone)]
+pub struct ZoneSpec {
+    /// Writable path prefix. Normalised to a trailing slash.
+    pub path_prefix: String,
+    /// Fingerprints permitted directly (the no-roster case).
+    pub fingerprints: Vec<String>,
+    /// Roster identity labels permitted (ADR 0011).
+    pub identities: Vec<String>,
+    /// Per-upload cap; `None` takes [`DEFAULT_MAX_UPLOAD_BYTES`].
+    pub max_upload_bytes: Option<u64>,
+    /// Accepted payload types; `None` takes [`DEFAULT_MIME_ALLOWLIST`].
+    pub allowed_mime: Option<Vec<String>>,
+    /// Optional second-factor token.
+    pub token: Option<String>,
+    /// Whether `size=0` deletion is honored.
+    pub allow_delete: bool,
+}
+
 impl Zone {
     /// Build and validate a zone. Normalizes `path_prefix` to end with a
     /// slash (a zone is a subtree, and `/up` must not gate `/uploads`);
     /// everything else is checked, never silently corrected.
-    pub fn new(
-        path_prefix: &str,
-        allowed_fingerprints: Vec<String>,
-        max_upload_bytes: Option<u64>,
-        allowed_mime: Option<Vec<String>>,
-        token: Option<String>,
-        allow_delete: bool,
-    ) -> Result<Zone, ZoneError> {
+    pub fn new(spec: ZoneSpec) -> Result<Zone, ZoneError> {
+        let ZoneSpec {
+            path_prefix,
+            fingerprints: allowed_fingerprints,
+            identities: allowed_identities,
+            max_upload_bytes,
+            allowed_mime,
+            token,
+            allow_delete,
+        } = spec;
+        let path_prefix = path_prefix.as_str();
         if !path_prefix.starts_with('/') {
             return Err(ZoneError::PathNotAbsolute(path_prefix.to_string()));
         }
-        if allowed_fingerprints.is_empty() {
+        if allowed_fingerprints.is_empty() && allowed_identities.is_empty() {
             return Err(ZoneError::NoFingerprints(path_prefix.to_string()));
         }
         let max_upload_bytes = max_upload_bytes.unwrap_or(DEFAULT_MAX_UPLOAD_BYTES);
@@ -167,6 +203,7 @@ impl Zone {
         Ok(Zone {
             path_prefix,
             allowed_fingerprints,
+            allowed_identities,
             max_upload_bytes,
             allowed_mime,
             token,
@@ -205,6 +242,8 @@ pub enum Decision<'a> {
 /// "forbidden", so probing cannot map which prefixes are writable.
 pub fn decide<'a>(
     zones: &'a [Zone],
+    roster: &Roster,
+    today: Date,
     request: &TitanRequest,
     cert: Option<&ClientCertInfo>,
 ) -> Decision<'a> {
@@ -237,21 +276,29 @@ pub fn decide<'a>(
                 "titan: certificate not currently valid (62)",
             );
         }
-        Some(c) => {
-            let authorized = zone
-                .allowed_fingerprints
-                .iter()
-                .any(|f| f.eq_ignore_ascii_case(&c.fingerprint_sha256));
-            if !authorized {
+        Some(c) => match authorize(zone, roster, today, &c.fingerprint_sha256) {
+            None => {
                 return refuse(
                     gate(
                         Status::CertNotAuthorized,
                         "your certificate is not authorized to upload here",
                     ),
-                    "titan: certificate not on the zone allowlist (61)",
+                    "titan: certificate not authorized for this zone (61)",
                 );
             }
-        }
+            Some(Grant::Direct) => {}
+            Some(Grant::Identity {
+                key_age: KeyAge::Superseded,
+                ..
+            }) => {
+                // Authorized, but the holder is mid-rotation and still
+                // presenting a retiring key. Worth saying out loud: the
+                // window closes on its own, and silence would make that a
+                // surprise rather than a plan.
+                tracing::info!("titan: authorized via a superseded key inside its rotation window");
+            }
+            Some(Grant::Identity { .. }) => {}
+        },
     }
 
     // --- Second factor, if the zone configures one. Constant-time, and
@@ -318,6 +365,53 @@ pub fn decide<'a>(
         zone,
         delete: false,
     }
+}
+
+/// How a certificate earned its way into a zone.
+#[derive(Debug, Clone, Copy)]
+enum Grant {
+    /// Listed on the zone's own fingerprint allowlist — no roster entry
+    /// involved, and therefore no capability to hold.
+    Direct,
+    /// Resolved through the roster (ADR 0011): the identity is named by
+    /// the zone *and* holds `titan-write`.
+    Identity {
+        /// Whether the current or a retiring key was presented.
+        key_age: KeyAge,
+    },
+}
+
+/// Decide whether `fingerprint` may write to `zone`, by either route.
+///
+/// One function rather than two scattered checks, because "is this caller
+/// authorized" is exactly the question that must have a single answer.
+/// The two routes are deliberately different in ceremony, not in strength:
+///
+/// * a **direct** fingerprint on the zone is the simple case — listing the
+///   key on the zone *is* the grant, so there is no capability to check;
+/// * a **roster identity** must be both named by the zone (local grant)
+///   and hold [`Capability::TitanWrite`] (server-wide grant). Requiring
+///   both is what lets an operator revoke an identity's write access
+///   everywhere by editing one place.
+fn authorize(zone: &Zone, roster: &Roster, today: Date, fingerprint: &str) -> Option<Grant> {
+    if zone
+        .allowed_fingerprints
+        .iter()
+        .any(|f| f.eq_ignore_ascii_case(fingerprint))
+    {
+        return Some(Grant::Direct);
+    }
+    let found = roster.lookup(fingerprint, today)?;
+    let named_here = zone
+        .allowed_identities
+        .iter()
+        .any(|l| l.eq_ignore_ascii_case(&found.identity.label));
+    if named_here && found.identity.holds(Capability::TitanWrite) {
+        return Some(Grant::Identity {
+            key_age: found.key_age,
+        });
+    }
+    None
 }
 
 fn refuse<'a>(header: Header, log: &'static str) -> Decision<'a> {
@@ -493,11 +587,50 @@ async fn confine(docroot: &std::path::Path, dir: &std::path::Path) -> Result<(),
 mod tests {
     use super::*;
 
+    /// Positional shim for the tests written before [`ZoneSpec`] existed:
+    /// same six knobs, built into a spec.
+    fn zone_with(
+        path_prefix: &str,
+        fingerprints: Vec<String>,
+        max_upload_bytes: Option<u64>,
+        allowed_mime: Option<Vec<String>>,
+        token: Option<String>,
+        allow_delete: bool,
+    ) -> Result<Zone, ZoneError> {
+        Zone::new(ZoneSpec {
+            path_prefix: path_prefix.to_string(),
+            fingerprints,
+            identities: Vec::new(),
+            max_upload_bytes,
+            allowed_mime,
+            token,
+            allow_delete,
+        })
+    }
+
+    fn no_roster() -> Roster {
+        Roster::new(Vec::new()).expect("an empty roster is valid")
+    }
+
+    fn a_day() -> Date {
+        Date::from_calendar_date(2026, time::Month::August, 10).expect("valid date")
+    }
+
+    /// `decide` against an empty roster — the direct-fingerprint path,
+    /// which is what most of these tests exercise.
+    fn decide_direct<'a>(
+        zones: &'a [Zone],
+        request: &TitanRequest,
+        cert: Option<&ClientCertInfo>,
+    ) -> Decision<'a> {
+        decide(zones, &no_roster(), a_day(), request, cert)
+    }
+
     const FP: &str = "aabbccdd";
     const OTHER_FP: &str = "11223344";
 
     fn zone(prefix: &str) -> Zone {
-        Zone::new(prefix, vec![FP.to_string()], None, None, None, false).unwrap()
+        zone_with(prefix, vec![FP.to_string()], None, None, None, false).unwrap()
     }
 
     fn request(path: &str, size: u64) -> TitanRequest {
@@ -529,7 +662,7 @@ mod tests {
     #[test]
     fn an_authorized_upload_within_limits_is_accepted() {
         let zones = [zone("/uploads/")];
-        let d = decide(
+        let d = decide_direct(
             &zones,
             &request("/uploads/a.gmi", 10),
             Some(&cert(FP, true)),
@@ -541,7 +674,7 @@ mod tests {
     fn a_writable_zone_may_not_be_left_open_to_any_certificate() {
         // The load-bearing asymmetry with cert_zone: an empty allowlist is
         // a startup error here, not "any valid cert".
-        let err = Zone::new("/uploads/", vec![], None, None, None, false).unwrap_err();
+        let err = zone_with("/uploads/", vec![], None, None, None, false).unwrap_err();
         assert!(matches!(err, ZoneError::NoFingerprints(_)));
         assert!(err.to_string().contains("self-signed"), "{err}");
     }
@@ -550,13 +683,13 @@ mod tests {
     fn a_path_outside_every_zone_is_not_found_not_forbidden() {
         // Probing must not be able to map which prefixes are writable.
         let zones = [zone("/uploads/")];
-        let d = decide(&zones, &request("/secret/a.gmi", 10), Some(&cert(FP, true)));
+        let d = decide_direct(&zones, &request("/secret/a.gmi", 10), Some(&cert(FP, true)));
         assert_eq!(status_of(&d), Some(Status::NotFound));
     }
 
     #[test]
     fn no_zones_configured_means_nothing_is_writable() {
-        let d = decide(&[], &request("/uploads/a.gmi", 10), Some(&cert(FP, true)));
+        let d = decide_direct(&[], &request("/uploads/a.gmi", 10), Some(&cert(FP, true)));
         assert_eq!(status_of(&d), Some(Status::NotFound));
     }
 
@@ -565,7 +698,7 @@ mod tests {
         // "/up" must not make "/uploads" writable.
         let zones = [zone("/up")];
         assert_eq!(zones[0].path_prefix, "/up/");
-        let d = decide(
+        let d = decide_direct(
             &zones,
             &request("/uploads/a.gmi", 10),
             Some(&cert(FP, true)),
@@ -575,12 +708,12 @@ mod tests {
 
     #[test]
     fn the_longest_matching_prefix_wins() {
-        let general = Zone::new("/w/", vec![FP.into()], Some(100), None, None, false).unwrap();
+        let general = zone_with("/w/", vec![FP.into()], Some(100), None, None, false).unwrap();
         let specific =
-            Zone::new("/w/big/", vec![FP.into()], Some(9_000), None, None, false).unwrap();
+            zone_with("/w/big/", vec![FP.into()], Some(9_000), None, None, false).unwrap();
         let zones = [general, specific];
         // 5000 bytes is over the general cap but under the specific one.
-        let d = decide(
+        let d = decide_direct(
             &zones,
             &request("/w/big/x.gmi", 5_000),
             Some(&cert(FP, true)),
@@ -593,23 +726,23 @@ mod tests {
         let zones = [zone("/uploads/")];
         let req = request("/uploads/a.gmi", 10);
         assert_eq!(
-            status_of(&decide(&zones, &req, None)),
+            status_of(&decide_direct(&zones, &req, None)),
             Some(Status::ClientCertRequired)
         );
         assert_eq!(
-            status_of(&decide(&zones, &req, Some(&cert(FP, false)))),
+            status_of(&decide_direct(&zones, &req, Some(&cert(FP, false)))),
             Some(Status::CertNotValid)
         );
         assert_eq!(
-            status_of(&decide(&zones, &req, Some(&cert(OTHER_FP, true)))),
+            status_of(&decide_direct(&zones, &req, Some(&cert(OTHER_FP, true)))),
             Some(Status::CertNotAuthorized)
         );
     }
 
     #[test]
     fn fingerprint_comparison_is_case_insensitive() {
-        let zones = [Zone::new("/u/", vec!["AABBCCDD".into()], None, None, None, false).unwrap()];
-        let d = decide(
+        let zones = [zone_with("/u/", vec!["AABBCCDD".into()], None, None, None, false).unwrap()];
+        let d = decide_direct(
             &zones,
             &request("/u/a.gmi", 5),
             Some(&cert("aabbccdd", true)),
@@ -621,8 +754,8 @@ mod tests {
     fn identity_is_checked_before_limits_are_disclosed() {
         // An oversize upload from an unauthorized cert must report the
         // certificate problem, never the size limit.
-        let zones = [Zone::new("/u/", vec![FP.into()], Some(10), None, None, false).unwrap()];
-        let d = decide(
+        let zones = [zone_with("/u/", vec![FP.into()], Some(10), None, None, false).unwrap()];
+        let d = decide_direct(
             &zones,
             &request("/u/a.gmi", 1_000_000),
             Some(&cert(OTHER_FP, true)),
@@ -636,7 +769,7 @@ mod tests {
 
     #[test]
     fn a_token_is_a_second_factor_never_a_replacement() {
-        let zones = [Zone::new(
+        let zones = [zone_with(
             "/u/",
             vec![FP.into()],
             None,
@@ -650,7 +783,7 @@ mod tests {
         let mut req = request("/u/a.gmi", 5);
         req.token = Some("hunter2".into());
         assert_eq!(
-            status_of(&decide(&zones, &req, Some(&cert(OTHER_FP, true)))),
+            status_of(&decide_direct(&zones, &req, Some(&cert(OTHER_FP, true)))),
             Some(Status::CertNotAuthorized)
         );
 
@@ -658,13 +791,13 @@ mod tests {
         let mut bad = request("/u/a.gmi", 5);
         bad.token = Some("wrong".into());
         assert_eq!(
-            status_of(&decide(&zones, &bad, Some(&cert(FP, true)))),
+            status_of(&decide_direct(&zones, &bad, Some(&cert(FP, true)))),
             Some(Status::CertNotAuthorized)
         );
 
         // Right certificate, missing token: refused.
         assert_eq!(
-            status_of(&decide(
+            status_of(&decide_direct(
                 &zones,
                 &request("/u/a.gmi", 5),
                 Some(&cert(FP, true))
@@ -674,14 +807,14 @@ mod tests {
 
         // Both correct: accepted.
         assert!(matches!(
-            decide(&zones, &req, Some(&cert(FP, true))),
+            decide_direct(&zones, &req, Some(&cert(FP, true))),
             Decision::Accept { .. }
         ));
     }
 
     #[test]
     fn a_rejected_token_is_never_echoed_back() {
-        let zones = [Zone::new(
+        let zones = [zone_with(
             "/u/",
             vec![FP.into()],
             None,
@@ -692,7 +825,7 @@ mod tests {
         .unwrap()];
         let mut req = request("/u/a.gmi", 5);
         req.token = Some("guessed-secret".into());
-        let d = decide(&zones, &req, Some(&cert(FP, true)));
+        let d = decide_direct(&zones, &req, Some(&cert(FP, true)));
         if let Decision::Refuse { header, log } = d {
             let wire = String::from_utf8_lossy(&header.to_wire()).into_owned();
             assert!(!wire.contains("guessed-secret"), "{wire}");
@@ -705,8 +838,8 @@ mod tests {
 
     #[test]
     fn an_oversize_declaration_is_refused_before_any_body_is_read() {
-        let zones = [Zone::new("/u/", vec![FP.into()], Some(1_024), None, None, false).unwrap()];
-        let d = decide(&zones, &request("/u/a.gmi", 1_025), Some(&cert(FP, true)));
+        let zones = [zone_with("/u/", vec![FP.into()], Some(1_024), None, None, false).unwrap()];
+        let d = decide_direct(&zones, &request("/u/a.gmi", 1_025), Some(&cert(FP, true)));
         assert_eq!(status_of(&d), Some(Status::BadRequest));
         // Authorized callers DO get told the limit — "too big" alone is
         // unactionable.
@@ -718,8 +851,8 @@ mod tests {
 
     #[test]
     fn exactly_the_cap_is_accepted() {
-        let zones = [Zone::new("/u/", vec![FP.into()], Some(1_024), None, None, false).unwrap()];
-        let d = decide(&zones, &request("/u/a.gmi", 1_024), Some(&cert(FP, true)));
+        let zones = [zone_with("/u/", vec![FP.into()], Some(1_024), None, None, false).unwrap()];
+        let d = decide_direct(&zones, &request("/u/a.gmi", 1_024), Some(&cert(FP, true)));
         assert!(matches!(d, Decision::Accept { .. }));
     }
 
@@ -729,7 +862,7 @@ mod tests {
         let mut req = request("/u/a.gmi", 10);
         req.mime = "application/x-executable".into();
         assert_eq!(
-            status_of(&decide(&zones, &req, Some(&cert(FP, true)))),
+            status_of(&decide_direct(&zones, &req, Some(&cert(FP, true)))),
             Some(Status::BadRequest)
         );
     }
@@ -749,7 +882,7 @@ mod tests {
             req.mime = declared.into();
             assert!(
                 matches!(
-                    decide(&zones, &req, Some(&cert(FP, true))),
+                    decide_direct(&zones, &req, Some(&cert(FP, true))),
                     Decision::Accept { .. }
                 ),
                 "{declared} should be accepted by the default allowlist"
@@ -760,25 +893,25 @@ mod tests {
     #[test]
     fn deletion_requires_an_explicit_opt_in() {
         let closed = [zone("/u/")];
-        let d = decide(&closed, &request("/u/a.gmi", 0), Some(&cert(FP, true)));
+        let d = decide_direct(&closed, &request("/u/a.gmi", 0), Some(&cert(FP, true)));
         assert_eq!(status_of(&d), Some(Status::PermanentFailure));
 
-        let open = [Zone::new("/u/", vec![FP.into()], None, None, None, true).unwrap()];
+        let open = [zone_with("/u/", vec![FP.into()], None, None, None, true).unwrap()];
         assert!(matches!(
-            decide(&open, &request("/u/a.gmi", 0), Some(&cert(FP, true))),
+            decide_direct(&open, &request("/u/a.gmi", 0), Some(&cert(FP, true))),
             Decision::Accept { delete: true, .. }
         ));
     }
 
     #[test]
     fn deletion_still_requires_an_authorized_certificate() {
-        let open = [Zone::new("/u/", vec![FP.into()], None, None, None, true).unwrap()];
+        let open = [zone_with("/u/", vec![FP.into()], None, None, None, true).unwrap()];
         assert_eq!(
-            status_of(&decide(&open, &request("/u/a.gmi", 0), None)),
+            status_of(&decide_direct(&open, &request("/u/a.gmi", 0), None)),
             Some(Status::ClientCertRequired)
         );
         assert_eq!(
-            status_of(&decide(
+            status_of(&decide_direct(
                 &open,
                 &request("/u/a.gmi", 0),
                 Some(&cert(OTHER_FP, true))
@@ -790,15 +923,15 @@ mod tests {
     #[test]
     fn zone_validation_rejects_the_obvious_mistakes() {
         assert!(matches!(
-            Zone::new("uploads/", vec![FP.into()], None, None, None, false).unwrap_err(),
+            zone_with("uploads/", vec![FP.into()], None, None, None, false).unwrap_err(),
             ZoneError::PathNotAbsolute(_)
         ));
         assert!(matches!(
-            Zone::new("/u/", vec![FP.into()], Some(0), None, None, false).unwrap_err(),
+            zone_with("/u/", vec![FP.into()], Some(0), None, None, false).unwrap_err(),
             ZoneError::ZeroMaxUpload(_)
         ));
         assert!(matches!(
-            Zone::new(
+            zone_with(
                 "/u/",
                 vec![FP.into()],
                 None,
@@ -810,8 +943,173 @@ mod tests {
             ZoneError::EmptyMime(_)
         ));
         assert!(matches!(
-            Zone::new("/u/", vec![FP.into()], None, None, Some("".into()), false).unwrap_err(),
+            zone_with("/u/", vec![FP.into()], None, None, Some("".into()), false).unwrap_err(),
             ZoneError::EmptyToken(_)
+        ));
+    }
+
+    // --- Roster-backed authorization (ADR 0011) ---
+
+    /// A syntactically valid SHA-256 fingerprint of one repeated nibble.
+    fn hex(nibble: char) -> String {
+        std::iter::repeat_n(nibble, 64).collect()
+    }
+
+    fn roster_with(identity: crate::roster::Identity) -> Roster {
+        Roster::new(vec![identity]).expect("valid roster")
+    }
+
+    fn named(label: &str, current: char, capabilities: Vec<Capability>) -> crate::roster::Identity {
+        crate::roster::Identity {
+            label: label.to_string(),
+            fingerprint: hex(current),
+            superseded: Vec::new(),
+            superseded_until: None,
+            capabilities,
+            enrolled: None,
+        }
+    }
+
+    fn zone_naming(labels: &[&str]) -> Zone {
+        Zone::new(ZoneSpec {
+            path_prefix: "/u/".into(),
+            identities: labels.iter().map(|l| (*l).to_string()).collect(),
+            ..Default::default()
+        })
+        .expect("a zone naming identities is valid without raw fingerprints")
+    }
+
+    #[test]
+    fn a_named_identity_holding_the_capability_may_write() {
+        let roster = roster_with(named("scribe", 'a', vec![Capability::TitanWrite]));
+        let zones = [zone_naming(&["scribe"])];
+        let d = decide(
+            &zones,
+            &roster,
+            a_day(),
+            &request("/u/a.gmi", 10),
+            Some(&cert(&hex('a'), true)),
+        );
+        assert!(matches!(d, Decision::Accept { .. }), "{d:?}");
+    }
+
+    #[test]
+    fn the_capability_is_enforced_at_request_time_not_merely_at_startup() {
+        // The operational win ADR 0011 is after: revoking `titan-write`
+        // from an identity disables it everywhere at once, without having
+        // to find and edit every zone that named it. So a zone may keep
+        // naming an identity that no longer holds the capability, and the
+        // write is refused.
+        let roster = roster_with(named("reader", 'a', vec![Capability::Read]));
+        let zones = [zone_naming(&["reader"])];
+        let d = decide(
+            &zones,
+            &roster,
+            a_day(),
+            &request("/u/a.gmi", 10),
+            Some(&cert(&hex('a'), true)),
+        );
+        assert_eq!(status_of(&d), Some(Status::CertNotAuthorized));
+    }
+
+    #[test]
+    fn an_identity_not_named_by_the_zone_may_not_write_to_it() {
+        // Holding `titan-write` is a server-wide grant, not a key to every
+        // zone: the zone must name you as well.
+        let roster = roster_with(named("scribe", 'a', vec![Capability::TitanWrite]));
+        let zones = [zone_naming(&["someone-else"])];
+        let d = decide(
+            &zones,
+            &roster,
+            a_day(),
+            &request("/u/a.gmi", 10),
+            Some(&cert(&hex('a'), true)),
+        );
+        assert_eq!(status_of(&d), Some(Status::CertNotAuthorized));
+    }
+
+    #[test]
+    fn a_rotating_identity_can_write_with_either_key_until_the_window_closes() {
+        let mut id = named("scribe", 'a', vec![Capability::TitanWrite]);
+        id.superseded = vec![hex('b')];
+        id.superseded_until =
+            Some(Date::from_calendar_date(2026, time::Month::September, 1).expect("valid date"));
+        let roster = roster_with(id);
+        let zones = [zone_naming(&["scribe"])];
+
+        let inside = Date::from_calendar_date(2026, time::Month::August, 10).expect("date");
+        let outside = Date::from_calendar_date(2026, time::Month::September, 2).expect("date");
+
+        for key in [hex('a'), hex('b')] {
+            let d = decide(
+                &zones,
+                &roster,
+                inside,
+                &request("/u/a.gmi", 10),
+                Some(&cert(&key, true)),
+            );
+            assert!(
+                matches!(d, Decision::Accept { .. }),
+                "both keys work mid-rotation"
+            );
+        }
+
+        // After the window, only the current key is honored — with no
+        // operator action and no restart.
+        let old = decide(
+            &zones,
+            &roster,
+            outside,
+            &request("/u/a.gmi", 10),
+            Some(&cert(&hex('b'), true)),
+        );
+        assert_eq!(status_of(&old), Some(Status::CertNotAuthorized));
+        let current = decide(
+            &zones,
+            &roster,
+            outside,
+            &request("/u/a.gmi", 10),
+            Some(&cert(&hex('a'), true)),
+        );
+        assert!(matches!(current, Decision::Accept { .. }));
+    }
+
+    #[test]
+    fn a_direct_fingerprint_needs_no_roster_entry_or_capability() {
+        // The simple case stays simple: listing a key on the zone IS the
+        // grant, so there is no identity to define and no capability to
+        // hold.
+        let zones = [zone("/u/")];
+        let d = decide(
+            &zones,
+            &no_roster(),
+            a_day(),
+            &request("/u/a.gmi", 10),
+            Some(&cert(FP, true)),
+        );
+        assert!(matches!(d, Decision::Accept { .. }));
+    }
+
+    #[test]
+    fn a_zone_may_name_identities_without_listing_any_raw_fingerprint() {
+        // The "names nobody" guard must count identities too, or the
+        // roster route would be impossible to use.
+        assert!(
+            Zone::new(ZoneSpec {
+                path_prefix: "/u/".into(),
+                identities: vec!["scribe".into()],
+                ..Default::default()
+            })
+            .is_ok()
+        );
+        // Neither route named: still refused.
+        assert!(matches!(
+            Zone::new(ZoneSpec {
+                path_prefix: "/u/".into(),
+                ..Default::default()
+            })
+            .unwrap_err(),
+            ZoneError::NoFingerprints(_)
         ));
     }
 
