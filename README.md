@@ -82,6 +82,10 @@ Authoritative version, with the reasoning:
 | Spartan · Nex · Finger | **Planned — v1.1** | Not implemented |
 | Anything else | Rejected | Answered `53`; `usv` is not a proxy |
 
+Deciding which to serve — the distinct case for each, and the cleartext
+trade the last four ask you to accept — is
+[`docs/choosing-protocols.md`](docs/choosing-protocols.md).
+
 Gopher, Spartan, Nex and Finger are designed and researched
 (`docs/recon/smolnet.md`) and scheduled as optional, off-by-default
 listeners for v1.1. **They are not written yet**, and nothing here will
