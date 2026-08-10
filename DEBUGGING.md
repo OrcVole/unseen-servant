@@ -49,6 +49,28 @@ usv defects; recorded here so a future run isn't re-litigated:
   byte is peeked before the TLS acceptor runs; anything that isn't a TLS
   handshake record (0x16) is dropped with no response at all.
 
+### C7 exit gate: gemini-diagnostics run against the live deployment (2026-08-10)
+
+25/27 clean against `usv.example.com:1965` — the actual Cloudron
+deployment, not a local instance, run from this workstation (a genuinely
+external vantage point, not the Cloudron host itself), satisfying the
+hard-gate wording in `docs/BUILD-PLAN.md` (C7 exit criterion). Two
+failures, both re-confirmations of already-documented non-defects, not
+new findings:
+
+- **`TLSClaims`** — the same `ssl.match_hostname` removal as the C1 run,
+  now on Python 3.14.6/OpenSSL 3.5.7 here too. Still not actionable on
+  our side (see the C1 entry above).
+- **`IPv6Address`** — timed out, but traced to this specific test
+  machine, not usv or the deployment: `curl -6` to a known-good external
+  IPv6 host (`ipv6.google.com`) from here also fails outright — this
+  workstation has no IPv6 egress at all. usv itself binds `0.0.0.0:1965`
+  (IPv4-only) per `start.sh`, so IPv6 reachability was never claimed;
+  this check needs re-running from a host with real IPv6 connectivity to
+  actually exercise it, not accepted as passing.
+- `URLByIPAddress` again reported `None` for the same spec-legitimate
+  reason as the C1 run.
+
 ## Cloudron (arrives at C6)
 
 Per `docs/recon/cloudron-fit.md`: `cloudron logs -f` streams the app;

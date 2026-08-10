@@ -1,0 +1,26 @@
+# Getting it running
+
+usv is pre-release. None of what follows is published to a public package repository, store, or download page yet — everything here means building from the source tree, following the instructions each packaging format ships with. That will change at v1.0; this page is accurate to today, not a promise about tomorrow.
+
+## What's in the repository
+
+The source tree carries a build script for each of these, each one actually built and tested against a real install/run/remove cycle before being considered done:
+
+* A static, self-contained musl binary tarball with a systemd unit (`packaging/systemd/`).
+* A Debian/Ubuntu .deb (`packaging/deb/build.sh`).
+* An Arch AUR-style PKGBUILD (`packaging/aur/`).
+* An RPM spec for Fedora, RHEL, and openSUSE (`packaging/rpm/build.sh`).
+* A Nix flake (`flake.nix`) — `nix build .#default`.
+* A plain OCI container image, no platform assumptions (`packaging/oci/Dockerfile`).
+* A Cloudron app package (the repository root `Dockerfile` and `CloudronManifest.json`) — install with `cloudron install --image <built-image-ref>`.
+
+## The fastest way to try it
+
+If you have a Rust toolchain: clone the repository, `cargo build --release`, then run the binary with no arguments and no configuration. A fresh, empty state directory gets a self-signed identity and a starter capsule automatically — that's the whole setup. `usv init` walks you through the interactive wizard instead, if you'd rather answer a few questions than edit a TOML file by hand.
+
+## Configuration
+
+One file, `usv.toml`, read from the server's state directory. Zero configuration is a valid, working configuration — every setting has a sensible default, and the file only needs to exist for the things you want to change from that default.
+
+=> index.gmi Back to the front page
+=> https://forgejo.wanderingmonster.dev/WanderingMonster/unseen-servant Source repository
