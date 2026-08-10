@@ -37,7 +37,7 @@ reloads configuration and certificates without dropping listeners.
 
 | Module | Responsibility |
 |---|---|
-| `protocol/` | Wire layer: request-line framing, URI validation, response writing, Titan request lines. Pure, no I/O, all fuzzed. |
+| `protocol/` | Wire layer: request-line framing, URI validation, response writing, Titan request lines, gopher selectors and menu writing. Pure, no I/O, all fuzzed. |
 | `server.rs` | Accept loop, TLS, scheme dispatch, timeouts, per-request logging. |
 | `handler/` | `Handler` trait. Static files (traversal-proof), redirects, certificate zones, Titan uploads, the admin wire resource. |
 | `render/` | gemtext parser → metadata → HTML/Atom/gemsub/sitemap/markdown/llms emitters; themes; the first-run skeleton; the pipeline and its watcher. |
@@ -57,13 +57,13 @@ Measured 2026-08-10 with `find src -name '*.rs' | xargs cat`:
 
 | | Lines |
 |---|---:|
-| `src/` total | 14,894 |
-| — code | 10,850 |
-| — comments | 2,898 |
-| — blank | 1,146 |
+| `src/` total | 15,523 |
+| — code | 11,245 |
+| — comments | 3,081 |
+| — blank | 1,197 |
 | `tests/` (integration) | 2,010 |
 
-38 source files; 415 test functions across 32 in-module test suites, plus
+39 source files; 438 test functions across in-module test suites, plus
 the integration suites.
 
 Two caveats, because a bare LOC figure invites the wrong conclusion.

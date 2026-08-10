@@ -18,9 +18,9 @@ for supported versions and disclosure handling.
 project-wide in `Cargo.toml`, so the crate cannot contain an `unsafe`
 block — not "we avoid it", the compiler refuses it.
 
-**Every parser is fuzzed.** Seven `cargo-fuzz` targets cover the request
+**Every parser is fuzzed.** Eight `cargo-fuzz` targets cover the request
 line, URI validation, config parsing, static path sanitisation, gemtext,
-HTML rendering, and Titan framing. A bounded 60s-per-target smoke run
+HTML rendering, Titan framing, and gopher selectors. A bounded 60s-per-target smoke run
 gates every push; extended campaigns run to hundreds of millions of
 executions per target (most recently: 327M on `validate_uri`, 309M on
 `static_path_sanitize`, zero crashes) with the minimised corpus committed
