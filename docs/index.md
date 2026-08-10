@@ -9,6 +9,7 @@ Start at the [README](../README.md) if you haven't. This is the manual.
 | [`configuration.md`](configuration.md) | Every setting, the real TOML shape, environment overrides |
 | [`titan.md`](titan.md) | Remote editing: zones, allowlists, key rotation |
 | [`protocols.md`](protocols.md) | **What `usv` actually speaks** — the authority every other page defers to |
+| [`choosing-protocols.md`](choosing-protocols.md) | Which protocols to serve, and the distinct case for each |
 | [`faq.md`](faq.md) | The questions people ask first |
 | [`security.md`](security.md) | The posture, and what it deliberately doesn't protect you from |
 
