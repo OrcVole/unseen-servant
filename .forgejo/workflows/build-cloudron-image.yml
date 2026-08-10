@@ -31,6 +31,18 @@
 # there. This workflow's first real run caught the auth issue above; its
 # second run is what actually proved the fix, not this comment.
 #
+# PUSH RELIABILITY (found live, 2026-08-10): run #55, with auth fixed,
+# still failed — the blob-upload PATCH died with `EOF` twice in a row at
+# consistent ~4.5-minute intervals, exhausting podman's default `--retry 3`
+# before the transfer could finish. Diagnosed by manually running the
+# identical `podman push` from this same machine, outside CI: it
+# succeeded outright, but took a genuine 6m30s — so the registry side is
+# fine, this is just a slow transfer that's more prone to a transient
+# connection drop than a fast one, and 3 quick-fire retries aren't enough
+# runway. Fixed with a larger retry budget and a real delay between
+# attempts, so a dropped connection gets another full attempt instead of
+# immediately re-hitting the same bad window.
+#
 # Path-filtered: only the inputs that actually change the image should
 # trigger a rebuild — a docs-only commit shouldn't burn a multi-minute
 # compile.
@@ -65,8 +77,8 @@ jobs:
         run: |
           echo "${{ secrets.REGISTRY_PUSH_TOKEN }}" | podman login forgejo.wanderingmonster.dev \
             --username "${{ github.actor }}" --password-stdin
-          podman push "${IMAGE}:${{ github.sha }}"
-          podman push "${IMAGE}:latest"
+          podman push --retry 8 --retry-delay 20s "${IMAGE}:${{ github.sha }}"
+          podman push --retry 8 --retry-delay 20s "${IMAGE}:latest"
           echo "Pushed ${IMAGE}:${{ github.sha }} — install/update with:"
           echo "  cloudron install --image ${IMAGE}:${{ github.sha }}"
         env:
