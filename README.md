@@ -25,7 +25,7 @@ Write a gemlog once; readers reach it from Lagrange or lynx or Chrome.
 
 ## Status
 
-Phase C0 (scaffold) of the build plan — see `AGENTS.md` for the live phase
+Phase C6 (packaging) of the build plan — see `AGENTS.md` for the live phase
 state and `docs/BUILD-PLAN.md` for the road from here to v1.0.
 
 ## License

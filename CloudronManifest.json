@@ -1,0 +1,33 @@
+{
+  "id": "win.alba.usv",
+  "title": "Unseen Servant",
+  "author": "Wandering Monster",
+  "packagerName": "Wandering Monster",
+  "description": "file://DESCRIPTION.md",
+  "tagline": "A security-first Gemini capsule, with a web mirror for free",
+  "version": "0.1.0",
+  "healthCheckPath": "/",
+  "httpPort": 8000,
+  "addons": {
+    "localstorage": {},
+    "tls": {}
+  },
+  "tcpPorts": {
+    "GEMINI_PORT": {
+      "title": "Gemini Port",
+      "description": "Public TCP port for the Gemini protocol. Gemini clients assume 1965; only change this if you know every client will specify the port explicitly.",
+      "defaultValue": 1965,
+      "containerPort": 1965,
+      "readOnly": true
+    }
+  },
+  "manifestVersion": 2,
+  "minBoxVersion": "7.0.0",
+  "memoryLimit": 268435456,
+  "multiDomain": true,
+  "optionalSso": true,
+  "postInstallMessage": "file://POSTINSTALL.md",
+  "icon": "file://icon.png",
+  "website": "https://forgejo.wanderingmonster.dev/WanderingMonster/unseen-servant",
+  "repository": "https://forgejo.wanderingmonster.dev/WanderingMonster/unseen-servant.git"
+}
