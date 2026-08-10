@@ -67,6 +67,35 @@ gaps are:
 needs per-identity write-gating anyway, so the roster folds into C4's
 scope and lands with it.
 
+**Amendment, 2026-08-10 — what shipped, and what did not.** Items 1 and 2
+are implemented (`src/roster.rs`, wired into `handler::titan`):
+
+- **Rotation** landed with one refinement the design did not originally
+  specify: listing superseded keys **requires** a `superseded_until`
+  date. An overlap window that never expires is simply two permanent
+  credentials, which is the anti-pattern rotation exists to escape, and
+  the documented TOFU failure mode is a stale pin nobody remembers to
+  unwind. The window therefore closes itself, with no operator action
+  and no restart — forgetting fails closed.
+- **Capabilities** landed as a *server-wide* grant that composes with
+  zone membership; both are required. Enforcement is at **request time,
+  not startup**, deliberately: revoking `titan-write` from an identity
+  must disable it everywhere at once rather than refuse to boot, so a
+  zone may keep naming an identity that no longer holds the capability.
+- **Fingerprints must be exactly 64 hex characters.** A truncated
+  fingerprint matches nothing, so it would silently lock an identity out;
+  that is a startup error instead.
+- Zones may still name **raw fingerprints** with no roster entry at all.
+  Listing the key on the zone *is* the grant, so there is no capability
+  to hold. Two levels of ceremony for two levels of need.
+
+**Item 3, enrollment tokens, is deferred to C5** and this is a scope
+decision rather than an omission: minting a token is a *mutation*, and
+this ADR's own management-reach decision puts mutations on the host/CLI
+side. Enrollment therefore lands with the C5 tooling that mints the
+tokens. For the same reason read-gating `cert_zone`s still carry raw
+fingerprint lists and adopt the roster in C5.
+
 ### 2. Management reach: observe remote, control local (hybrid)
 
 *Director decision.* Management follows the same doctrine as the site map

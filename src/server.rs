@@ -541,7 +541,17 @@ fn respond_titan(uri: &[u8], state: &Shared, client_cert: Option<&ClientCertInfo
         );
     }
 
-    match upload::decide(&host.titan_zones, &request, client_cert) {
+    // "Today" for the roster's rotation window (ADR 0011). Read once per
+    // request from the system clock — the roster itself stays a pure
+    // function of the date so the window is testable without one.
+    let today = time::OffsetDateTime::now_utc().date();
+    match upload::decide(
+        &host.titan_zones,
+        &config.roster,
+        today,
+        &request,
+        client_cert,
+    ) {
         upload::Decision::Refuse { header, log } => {
             Outcome::refuse_upload(header, log, drain_for(request.size))
         }
