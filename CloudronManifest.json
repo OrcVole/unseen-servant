@@ -28,6 +28,5 @@
   "optionalSso": true,
   "postInstallMessage": "file://POSTINSTALL.md",
   "icon": "file://icon.png",
-  "website": "https://forgejo.wanderingmonster.dev/WanderingMonster/unseen-servant",
-  "repository": "https://forgejo.wanderingmonster.dev/WanderingMonster/unseen-servant.git"
+  "website": "https://forgejo.wanderingmonster.dev/WanderingMonster/unseen-servant"
 }

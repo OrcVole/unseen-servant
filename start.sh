@@ -11,7 +11,17 @@ echo "==> Fixing permissions"
 chown -R cloudron:cloudron /app/data
 
 export USV_STATE_DIR="/app/data"
-export USV_HOSTNAME="${CLOUDRON_APP_DOMAIN}"
+# USV_HOSTNAME overrides *every* [[host]] a usv.toml file might define down
+# to a single one named $CLOUDRON_APP_DOMAIN (config::Config::resolve's own
+# documented behavior) — right for the common single-domain install, wrong
+# the moment an operator adds a manifest multiDomain alias and writes a
+# usv.toml with a [[host]] entry per hostname for real per-domain SNI
+# vhosting. Found live, 2026-08-10: an alias domain got refused with 53
+# until this was made conditional. A usv.toml already at /app/data means
+# the operator has taken over host configuration explicitly; defer to it.
+if [[ ! -f /app/data/usv.toml ]]; then
+    export USV_HOSTNAME="${CLOUDRON_APP_DOMAIN}"
+fi
 # httpPort in CloudronManifest.json — keep the two in step if either changes.
 export USV_HTTP_LISTEN="0.0.0.0:8000"
 
