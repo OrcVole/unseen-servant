@@ -36,12 +36,13 @@ use tokio_rustls::TlsAcceptor;
 
 use crate::config::Config;
 use crate::handler::titan as upload;
-use crate::handler::{Body, ClientCertInfo, cert_zone, redirect, static_file};
+use crate::handler::{Body, ClientCertInfo, admin, cert_zone, redirect, static_file};
 use crate::protocol::request::{FramingError, MAX_REQUEST_BYTES, frame_request_line};
 use crate::protocol::response::{Header, Status, stock};
 use crate::protocol::titan;
 use crate::protocol::uri::validate_uri;
 use crate::protocol::{GEMINI_DEFAULT_PORT, authority_is_ours, check_authority};
+use crate::runtime_state::RuntimeState;
 
 /// Everything a connection needs, swapped atomically on SIGHUP reload.
 #[derive(Clone)]
@@ -100,6 +101,7 @@ pub async fn accept_loop(
     mut state_rx: watch::Receiver<Shared>,
     permits: Arc<Semaphore>,
     mut shutdown: watch::Receiver<bool>,
+    runtime: Arc<RuntimeState>,
 ) {
     loop {
         // A closed semaphore means shutdown was requested while we waited.
@@ -123,8 +125,9 @@ pub async fn accept_loop(
             _ = shutdown.changed() => return,
         };
         let state = state_rx.borrow_and_update().clone();
+        let runtime = runtime.clone();
         tokio::spawn(async move {
-            handle_connection(tcp, peer, state).await;
+            handle_connection(tcp, peer, state, runtime).await;
             drop(permit);
         });
     }
@@ -132,7 +135,12 @@ pub async fn accept_loop(
 
 /// Serve one connection start to finish. Never panics; never leaves a
 /// completed handshake without a close_notify attempt.
-async fn handle_connection(tcp: TcpStream, peer: SocketAddr, state: Shared) {
+async fn handle_connection(
+    tcp: TcpStream,
+    peer: SocketAddr,
+    state: Shared,
+    runtime: Arc<RuntimeState>,
+) {
     let request_deadline = Duration::from_secs(state.config.request_timeout_secs);
     let response_deadline = Duration::from_secs(state.config.response_timeout_secs);
 
@@ -178,7 +186,7 @@ async fn handle_connection(tcp: TcpStream, peer: SocketAddr, state: Shared) {
     }
 
     let outcome = match timeout(request_deadline, read_request(&mut stream)).await {
-        Ok(Ok(buf)) => match respond(&buf, &state, client_cert.as_ref()).await {
+        Ok(Ok(buf)) => match respond(&buf, &state, client_cert.as_ref(), &runtime).await {
             // An authorized upload reads its payload only now, after every
             // check that could have refused it has already passed.
             Outcome::Upload(plan) => {
@@ -218,6 +226,10 @@ async fn handle_connection(tcp: TcpStream, peer: SocketAddr, state: Shared) {
                 // input status 10/11 lands in queries, treated as
                 // sensitive by default).
                 tracing::info!(%peer, status = header.status() as u8, "{log}");
+                // Same redacted line, additionally kept in the in-memory
+                // ring `/admin/status.gmi` reads — one definition of
+                // "what's safe to show", two sinks.
+                runtime.record_request(time::OffsetDateTime::now_utc(), header.status() as u8, log);
                 if drain_bytes > 0 {
                     // Bounded in bytes *and* in time — see the constants.
                     // A drain that times out is not an error: the client
@@ -421,7 +433,12 @@ async fn read_request(
 }
 
 /// Layers 1–3 plus C2 host dispatch, mapped to a wire outcome.
-async fn respond(raw: &[u8], state: &Shared, client_cert: Option<&ClientCertInfo>) -> Outcome {
+async fn respond(
+    raw: &[u8],
+    state: &Shared,
+    client_cert: Option<&ClientCertInfo>,
+    runtime: &RuntimeState,
+) -> Outcome {
     let uri = match frame_request_line(raw) {
         Ok(uri) => uri,
         Err(FramingError::BareLf) => {
@@ -478,6 +495,37 @@ async fn respond(raw: &[u8], state: &Shared, client_cert: Option<&ClientCertInfo
             "internal: authority check passed but host lookup failed",
         );
     };
+
+    // ADR 0011 "observe over the wire": a fixed, built-in resource, not
+    // operator content, so it is checked before redirects/cert_zone/static
+    // serving — an operator's own file can never shadow it, and it can
+    // never be shadowed by one either. See handler::admin's module docs
+    // for why this is a direct roster-capability check, not a cert_zone.
+    if request.path == admin::ADMIN_STATUS_PATH {
+        let today = time::OffsetDateTime::now_utc().date();
+        return match admin::decide(config, today, client_cert) {
+            admin::Decision::Refuse(header) => {
+                let status = header.status() as u8;
+                Outcome::respond(header, Body::None, format!("admin status gate ({status})"))
+            }
+            admin::Decision::Allow => {
+                let now = time::OffsetDateTime::now_utc();
+                let activity = runtime.recent_activity();
+                let last_render = runtime.last_render();
+                let page = admin::render_status(
+                    config,
+                    &activity,
+                    last_render.as_ref(),
+                    runtime.started_at(),
+                    now,
+                )
+                .await;
+                let header = Header::new(Status::Success, Some("text/gemini; charset=utf-8"))
+                    .unwrap_or_else(|_| stock::unavailable());
+                Outcome::respond(header, Body::Bytes(page.into_bytes()), "admin status (20)")
+            }
+        };
+    }
 
     // Dispatch order (C2, this module's docs): redirects, then cert zones,
     // then static file serving.
