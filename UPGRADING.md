@@ -9,7 +9,12 @@ document is the promise, spelled out per operation.
 ## The survival table (Cloudron)
 
 Verified against Cloudron's own documentation, 2026-08-09
-(`docs/recon/cloudron-fit.md` §3):
+(`docs/recon/cloudron-fit.md` §3) — and, 2026-08-10, against a real running
+Cloudron install: every row below was actually exercised (a real package
+update, a real backup and restore, a real clone to a new domain), with the
+certificate fingerprint checked byte-for-byte before and after each one
+(`docs/BUILD-PLAN.md` C6's E1–E10 protocol). This table is a tested claim,
+not a read of the platform's own promises.
 
 | Operation | Your identity (keypair) | Your content |
 |---|---|---|
