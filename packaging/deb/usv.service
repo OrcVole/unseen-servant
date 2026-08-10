@@ -1,0 +1,38 @@
+## Installed by the .deb at /lib/systemd/system/usv.service. Same unit as
+## packaging/systemd/usv.service (the source-build/tarball reference unit)
+## except the binary path, which dpkg puts at /usr/bin — keep the two in
+## step if either changes.
+
+[Unit]
+Description=Unseen Servant (usv) — Gemini capsule server
+Documentation=https://forgejo.wanderingmonster.dev/WanderingMonster/unseen-servant
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/usv
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+RestartSec=5
+
+User=usv
+Group=usv
+Environment=USV_STATE_DIR=/var/lib/usv
+
+ProtectSystem=strict
+ReadWritePaths=/var/lib/usv
+NoNewPrivileges=true
+
+PrivateTmp=true
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+CapabilityBoundingSet=
+
+[Install]
+WantedBy=multi-user.target

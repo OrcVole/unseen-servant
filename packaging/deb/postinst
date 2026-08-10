@@ -1,0 +1,19 @@
+#!/bin/sh
+# Debian postinst. Creates the dedicated system user usv.service runs as
+# (never root — ADR 0002) and enables the service. usv is self-initializing
+# with zero configuration (ADR 0008), so starting it immediately is safe:
+# a fresh /var/lib/usv gets an auto-minted TOFU identity and a starter
+# capsule, not a half-configured daemon.
+set -e
+
+if ! getent passwd usv >/dev/null 2>&1; then
+    adduser --system --group --home /var/lib/usv --no-create-home \
+        --shell /usr/sbin/nologin usv
+fi
+mkdir -p /var/lib/usv
+chown usv:usv /var/lib/usv
+
+if [ -d /run/systemd/system ]; then
+    systemctl daemon-reload
+    systemctl enable --now usv.service
+fi
