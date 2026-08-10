@@ -61,6 +61,7 @@ head, which is rather the point.
 => gemini://geminiprotocol.net/ The Gemini protocol, gently explained
 => gemini://geminiprotocol.net/docs/cheatsheet.gmi The one-page gemtext cheatsheet
 => gemini://geminiprotocol.net/software/ A field of clients to wander with
+=> /usv What usv is, and what else this capsule answers on
 
 ## For a visitor who arrived early
 
