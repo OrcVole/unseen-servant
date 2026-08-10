@@ -128,8 +128,40 @@ fn zero_arg_usv_serves_and_drains_on_sigterm() {
 }
 
 #[test]
-fn titan_section_in_config_is_a_helpful_startup_error() {
+fn a_writable_titan_zone_without_fingerprints_refuses_to_start() {
+    // C4 (ADR 0006): the `[titan]` section is live now, but a writable
+    // zone with no fingerprint allowlist would let anyone who can mint a
+    // self-signed certificate write to the capsule. That is a startup
+    // error, not a warning — the server must not come up in that state.
     let dir = std::env::temp_dir().join(format!("usv-smoke-titan-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).expect("mkdir");
+    let cfg = dir.join("usv.toml");
+    std::fs::write(
+        &cfg,
+        "[[host]]\nname = \"localhost\"\n\
+         [[host.titan_zone]]\npath_prefix = \"/uploads/\"\n",
+    )
+    .expect("write config");
+    let out = usv()
+        .arg("--config")
+        .arg(&cfg)
+        .output()
+        .expect("binary runs");
+    assert!(!out.status.success(), "must refuse to start");
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        stderr.contains("fingerprint"),
+        "the error must say what is missing; stderr was: {stderr}"
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn an_unknown_key_in_the_titan_section_is_still_a_startup_error() {
+    // The section is live, but it is not a free-for-all: unknown keys are
+    // startup errors so a typo can never be silently ignored (ADR 0007).
+    let dir = std::env::temp_dir().join(format!("usv-smoke-titan-typo-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).expect("mkdir");
     let cfg = dir.join("usv.toml");
@@ -140,10 +172,5 @@ fn titan_section_in_config_is_a_helpful_startup_error() {
         .output()
         .expect("binary runs");
     assert!(!out.status.success());
-    let stderr = String::from_utf8_lossy(&out.stderr);
-    assert!(
-        stderr.contains("C4") && stderr.contains("ADR 0006"),
-        "error must say when Titan arrives; stderr was: {stderr}"
-    );
     let _ = std::fs::remove_dir_all(&dir);
 }

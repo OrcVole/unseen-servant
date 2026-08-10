@@ -35,9 +35,10 @@ use tokio::time::{Duration, timeout};
 use tokio_rustls::TlsAcceptor;
 
 use crate::config::Config;
+use crate::handler::titan as upload;
 use crate::handler::{Body, ClientCertInfo, cert_zone, redirect, static_file};
 use crate::protocol::request::{FramingError, MAX_REQUEST_BYTES, frame_request_line};
-use crate::protocol::response::{Header, stock};
+use crate::protocol::response::{Header, Status, stock};
 use crate::protocol::titan;
 use crate::protocol::uri::validate_uri;
 use crate::protocol::{GEMINI_DEFAULT_PORT, authority_is_ours, check_authority};
@@ -165,7 +166,15 @@ async fn handle_connection(tcp: TcpStream, peer: SocketAddr, state: Shared) {
     let client_cert = extract_client_cert(&stream);
 
     let outcome = match timeout(request_deadline, read_request(&mut stream)).await {
-        Ok(Ok(buf)) => respond(&buf, &state, client_cert.as_ref()).await,
+        Ok(Ok(buf)) => match respond(&buf, &state, client_cert.as_ref()).await {
+            // An authorized upload reads its payload only now, after every
+            // check that could have refused it has already passed.
+            Outcome::Upload(plan) => {
+                let already = payload_already_read(&buf);
+                complete_upload(&mut stream, plan, already, request_deadline).await
+            }
+            settled => settled,
+        },
         Ok(Err(e)) => {
             tracing::debug!(%peer, error = %e, "request read failed");
             Outcome::CloseSilently
@@ -206,6 +215,10 @@ async fn handle_connection(tcp: TcpStream, peer: SocketAddr, state: Shared) {
                 }
             }
             Outcome::CloseSilently => {}
+            // Converted into a Respond by `complete_upload` before this
+            // point; the match is exhaustive rather than relying on that
+            // invariant holding silently.
+            Outcome::Upload(_) => {}
         }
         // close_notify on every path that reached this point.
         stream.shutdown().await
@@ -238,6 +251,27 @@ enum Outcome {
     /// Close with close_notify but no response bytes (bare-LF policy,
     /// unreadable client).
     CloseSilently,
+    /// An authorized Titan upload: read exactly `size` bytes and apply
+    /// them. Every check that could refuse this request has already run
+    /// (`handler::titan::decide`), which is the point — the payload is
+    /// only ever read once the server has decided it wants it.
+    Upload(UploadPlan),
+}
+
+/// An upload that passed every pre-body check, in owned form so it can
+/// outlive the borrow of the configuration that authorized it.
+#[derive(Debug)]
+struct UploadPlan {
+    /// The content tree this host renders from — where the write lands.
+    docroot: std::path::PathBuf,
+    /// Request path, still percent-encoded (the sanitizer decodes it).
+    request_path: String,
+    /// Host, for the success redirect.
+    host: String,
+    /// Exact payload length to read. Already proven ≤ the zone's cap.
+    size: u64,
+    /// `size == 0`: remove the resource instead of writing it.
+    delete: bool,
 }
 
 impl Outcome {
@@ -456,7 +490,7 @@ async fn respond(raw: &[u8], state: &Shared, client_cert: Option<&ClientCertInfo
 ///
 /// Never logs the token: it is a shared secret riding in a URL (recon
 /// §5.2), and it must not reach the log the way a query never does.
-fn respond_titan(uri: &[u8], state: &Shared, _client_cert: Option<&ClientCertInfo>) -> Outcome {
+fn respond_titan(uri: &[u8], state: &Shared, client_cert: Option<&ClientCertInfo>) -> Outcome {
     let request = match titan::parse(uri) {
         Ok(r) => r,
         Err(e) => {
@@ -485,14 +519,155 @@ fn respond_titan(uri: &[u8], state: &Shared, _client_cert: Option<&ClientCertInf
         );
     }
 
-    Outcome::refuse_upload(
-        stock::uploads_not_accepted(),
-        format!(
-            "titan upload refused, no writable zone: {} bytes declared for {} (50)",
-            request.size, request.path
+    let Some(host) = config.find_host(&request.host) else {
+        return Outcome::refuse_upload(
+            stock::unavailable(),
+            "internal: titan authority passed but host lookup failed",
+            drain_for(request.size),
+        );
+    };
+
+    // A host with no writable zone at all cannot be uploaded to by anyone.
+    // Distinguished from "that path is not writable" so an operator who
+    // has simply not configured Titan gets a clear answer.
+    if host.titan_zones.is_empty() {
+        return Outcome::refuse_upload(
+            stock::uploads_not_accepted(),
+            format!(
+                "titan upload refused, host accepts no uploads: {} bytes declared (50)",
+                request.size
+            ),
+            drain_for(request.size),
+        );
+    }
+
+    match upload::decide(&host.titan_zones, &request, client_cert) {
+        upload::Decision::Refuse { header, log } => {
+            Outcome::refuse_upload(header, log, drain_for(request.size))
+        }
+        upload::Decision::Accept { delete, .. } => Outcome::Upload(UploadPlan {
+            docroot: host.docroot.clone(),
+            request_path: request.path.clone(),
+            host: request.host.clone(),
+            size: request.size,
+            delete,
+        }),
+    }
+}
+
+/// Everything after the request line for an authorized upload: read
+/// exactly the declared payload, apply it to the content tree, answer.
+///
+/// `already_read` matters more than it looks. [`read_request`] stops as
+/// soon as a CRLF is *inside* its buffer, and a client that writes its
+/// request line and payload together will commonly have both land in one
+/// read — so the first bytes of the payload are already in hand, and
+/// reading `size` more from the socket would hang forever waiting for
+/// bytes that were delivered before we asked.
+async fn complete_upload(
+    stream: &mut tokio_rustls::server::TlsStream<TcpStream>,
+    plan: UploadPlan,
+    already_read: &[u8],
+    deadline: Duration,
+) -> Outcome {
+    let size = usize::try_from(plan.size).unwrap_or(usize::MAX);
+    let mut body = Vec::new();
+    if !plan.delete {
+        // The declared size is already proven ≤ the zone's configured cap,
+        // so this allocation is bounded by operator policy, not by the
+        // client (recon §5.3 — the cap is checked before we get here).
+        body.reserve_exact(size);
+        let take = already_read.len().min(size);
+        body.extend_from_slice(&already_read[..take]);
+        if body.len() < size {
+            let start = body.len();
+            body.resize(size, 0);
+            match timeout(deadline, stream.read_exact(&mut body[start..])).await {
+                Ok(Ok(_)) => {}
+                Ok(Err(e)) => {
+                    return Outcome::respond(
+                        stock::bad_request(&format_args!(
+                            "payload ended before the declared {} bytes",
+                            plan.size
+                        )),
+                        Body::None,
+                        format!("titan: short payload ({e}) (59)"),
+                    );
+                }
+                Err(_) => {
+                    return Outcome::respond(
+                        stock::bad_request(&"payload did not arrive in time"),
+                        Body::None,
+                        "titan: payload read timed out (59)".to_string(),
+                    );
+                }
+            }
+        }
+        // Bytes beyond `size` are never read: a client that sends more than
+        // it declared is confused, and parsing trailing data would be the
+        // beginning of request smuggling. The connection closes after the
+        // response, which discards them.
+    }
+
+    match upload::apply(&plan.docroot, &plan.request_path, &body, plan.delete).await {
+        Ok(()) => {
+            if plan.delete {
+                let header = Header::new(Status::Success, Some("text/gemini; charset=utf-8"))
+                    .unwrap_or_else(|_| stock::unavailable());
+                Outcome::respond(
+                    header,
+                    Body::Bytes(b"# Deleted\n\nThe resource has been removed.\n".to_vec()),
+                    format!("titan: deleted {} (20)", plan.request_path),
+                )
+            } else {
+                // Redirect to the resource just written — the dominant
+                // ecosystem convention (recon §1.3), and what Lagrange's
+                // edit flow and titan(1) both treat as success.
+                let url = format!("gemini://{}{}", plan.host, plan.request_path);
+                let header = Header::new(Status::RedirectTemporary, Some(&url))
+                    .unwrap_or_else(|_| stock::unavailable());
+                Outcome::respond(
+                    header,
+                    Body::None,
+                    format!(
+                        "titan: wrote {} bytes to {} (30)",
+                        body.len(),
+                        plan.request_path
+                    ),
+                )
+            }
+        }
+        Err(upload::ApplyError::NotFound) => Outcome::respond(
+            stock::not_found(),
+            Body::None,
+            "titan: delete target does not exist (51)".to_string(),
         ),
-        drain_for(request.size),
-    )
+        Err(upload::ApplyError::UnusablePath) => Outcome::respond(
+            stock::bad_request(&"that path cannot be written"),
+            Body::None,
+            "titan: path refused by the write confinement check (59)".to_string(),
+        ),
+        Err(upload::ApplyError::Io(e)) => {
+            // The operator needs the detail; the client gets none of it —
+            // filesystem layout is not the caller's business.
+            tracing::error!(error = %e, path = %plan.request_path, "titan write failed");
+            let header = Header::new(
+                Status::TemporaryFailure,
+                Some("the upload could not be stored; try again"),
+            )
+            .unwrap_or_else(|_| stock::unavailable());
+            Outcome::respond(header, Body::None, "titan: write failed (40)".to_string())
+        }
+    }
+}
+
+/// The bytes that followed the request line's CRLF in the same read — the
+/// leading edge of a Titan payload, when there is one.
+fn payload_already_read(raw: &[u8]) -> &[u8] {
+    match raw.windows(2).position(|w| w == b"\r\n") {
+        Some(i) => &raw[i + 2..],
+        None => &[],
+    }
 }
 
 /// Advertised-port sanity warning at startup: a Gemini capsule off :1965 is

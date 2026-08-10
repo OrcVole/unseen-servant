@@ -107,7 +107,12 @@ pub async fn serve(docroot: &Path, request_path: &str, lang: &str) -> HandlerRes
 /// hostile-input logic can be exercised without creating files on disk for
 /// every case. Returns the sanitized *relative* path (possibly empty,
 /// meaning "the docroot itself") on success.
-fn sanitize_request_path(request_path: &str) -> Option<PathBuf> {
+///
+/// `pub(crate)` because the Titan upload path (`handler::titan`) must
+/// confine *writes* with exactly the same rules that confine reads — a
+/// second traversal defence with its own bugs is the last thing this
+/// codebase needs.
+pub(crate) fn sanitize_request_path(request_path: &str) -> Option<PathBuf> {
     let decoded = percent_decode(request_path)?;
     if decoded.contains(&0u8) {
         return None; // step 2: poison-null-byte rejection

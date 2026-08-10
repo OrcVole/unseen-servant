@@ -224,6 +224,82 @@ fn start_with_cert_zone(name: &str, allowed_fingerprints: &[&str]) -> TestServer
     TestServer { child, port, dir }
 }
 
+/// A server with one writable Titan zone at `/uploads/`, gated on the
+/// given fingerprints. Mirrors `start_with_cert_zone`; the extra knobs
+/// (token, delete) cover the policy paths the wire tests exercise.
+fn start_with_titan_zone(
+    name: &str,
+    allowed_fingerprints: &[&str],
+    token: Option<&str>,
+    allow_delete: bool,
+) -> TestServer {
+    let dir = std::env::temp_dir().join(format!(
+        "usv-wire-{name}-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("clock")
+            .subsec_nanos()
+    ));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("content")).expect("mkdir");
+    std::fs::write(dir.join("content/index.gmi"), b"# home\n").expect("write");
+
+    let fingerprints_toml = allowed_fingerprints
+        .iter()
+        .map(|f| format!("\"{f}\""))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let token_line = match token {
+        Some(t) => format!("token = \"{t}\"\n"),
+        None => String::new(),
+    };
+    let toml = format!(
+        "[server]\nlisten = [\"127.0.0.1:0\"]\n\n\
+         [[host]]\nname = \"localhost\"\n\n\
+         [[host.titan_zone]]\npath_prefix = \"/uploads/\"\n\
+         fingerprints = [{fingerprints_toml}]\n{token_line}\
+         allow_delete = {allow_delete}\n"
+    );
+    std::fs::write(dir.join("usv.toml"), toml).expect("write usv.toml");
+
+    let mut child = std::process::Command::new(env!("CARGO_BIN_EXE_usv"))
+        .env("USV_STATE_DIR", &dir)
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .expect("usv spawns");
+
+    let stderr = child.stderr.take().expect("piped stderr");
+    let mut reader = std::io::BufReader::new(stderr);
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(15);
+    let mut port = None;
+    let mut line = String::new();
+    use std::io::BufRead;
+    while std::time::Instant::now() < deadline {
+        line.clear();
+        if reader.read_line(&mut line).expect("read stderr") == 0 {
+            break;
+        }
+        if let Some(idx) = line.find("bound=127.0.0.1:") {
+            let digits: String = line[idx + "bound=127.0.0.1:".len()..]
+                .chars()
+                .take_while(char::is_ascii_digit)
+                .collect();
+            port = digits.parse().ok();
+        }
+        if port.is_some() && line.contains("serving") {
+            break;
+        }
+    }
+    let port = port.expect("server announced its bound port");
+    std::thread::spawn(move || {
+        let mut sink = String::new();
+        let _ = reader.read_to_string(&mut sink);
+    });
+    TestServer { child, port, dir }
+}
+
 /// A self-signed client certificate for the 6x flow tests, with its
 /// SHA-256 fingerprint precomputed (lowercase hex, matching what the
 /// server computes over the presented DER — see `server.rs`'s
@@ -1081,4 +1157,299 @@ fn a_titan_client_that_declares_a_payload_then_sends_nothing_still_gets_closed()
         elapsed < std::time::Duration::from_secs(10),
         "the drain must time out promptly, not hold the connection: {elapsed:?}"
     );
+}
+
+// ---------------------------------------------------------------------
+// C4: authorized uploads end to end. These are the tests that prove the
+// whole path — TLS with a client certificate, the pre-body decision, the
+// payload read, the atomic write into the content tree, and the 30
+// redirect the ecosystem expects (recon titan.md §1.3).
+// ---------------------------------------------------------------------
+
+#[test]
+fn an_authorized_upload_is_written_and_answered_with_30() {
+    let cert = generate_client_cert(-1, 30);
+    let server = start_with_titan_zone("titan-write", &[&cert.fingerprint_hex], None, false);
+
+    let payload = b"# Uploaded over Titan\n\nIt works.\n";
+    let request = format!(
+        "titan://localhost:{}/uploads/note.gmi;size={};mime=text/gemini\r\n",
+        server.port,
+        payload.len()
+    );
+    let mut raw = request.into_bytes();
+    raw.extend_from_slice(payload);
+
+    let response = exchange_with_client_cert(server.port, &raw, Some(&cert));
+    let status = status_line(&response);
+    assert!(
+        status.starts_with("30"),
+        "expected a redirect, got: {status}"
+    );
+    assert!(
+        status.contains("/uploads/note.gmi"),
+        "the redirect must point at the page just written: {status}"
+    );
+
+    // The bytes really landed in the content tree, unchanged.
+    let written = std::fs::read(server.dir.join("content/uploads/note.gmi"))
+        .expect("the uploaded file exists in the content tree");
+    assert_eq!(written, payload);
+}
+
+#[test]
+fn an_upload_becomes_readable_over_gemini_immediately() {
+    // The point of writing into the SOURCE tree (ADR 0004): the page is
+    // served natively on Gemini with no extra step.
+    let cert = generate_client_cert(-1, 30);
+    let server = start_with_titan_zone("titan-readback", &[&cert.fingerprint_hex], None, false);
+
+    let payload = b"# Readback\n\nHello from Titan.\n";
+    let upload = format!(
+        "titan://localhost:{}/uploads/readback.gmi;size={}\r\n",
+        server.port,
+        payload.len()
+    );
+    let mut raw = upload.into_bytes();
+    raw.extend_from_slice(payload);
+    let response = exchange_with_client_cert(server.port, &raw, Some(&cert));
+    assert!(status_line(&response).starts_with("30"));
+
+    let fetch = format!(
+        "gemini://localhost:{}/uploads/readback.gmi\r\n",
+        server.port
+    );
+    let read_back = exchange(server.port, fetch.as_bytes());
+    assert!(status_line(&read_back).starts_with("20 text/gemini"));
+    let text = String::from_utf8_lossy(&read_back);
+    assert!(
+        text.contains("Hello from Titan."),
+        "the uploaded content must be served back: {text}"
+    );
+}
+
+#[test]
+fn an_upload_without_a_certificate_is_60_and_writes_nothing() {
+    let cert = generate_client_cert(-1, 30);
+    let server = start_with_titan_zone("titan-nocert", &[&cert.fingerprint_hex], None, false);
+
+    let payload = b"should never land";
+    let request = format!(
+        "titan://localhost:{}/uploads/evil.gmi;size={}\r\n",
+        server.port,
+        payload.len()
+    );
+    let mut raw = request.into_bytes();
+    raw.extend_from_slice(payload);
+
+    let response = exchange(server.port, &raw);
+    assert!(status_line(&response).starts_with("60"));
+    assert!(
+        !server.dir.join("content/uploads/evil.gmi").exists(),
+        "an unauthenticated upload must never reach the content tree"
+    );
+}
+
+#[test]
+fn an_unlisted_certificate_is_61_and_writes_nothing() {
+    let allowed = generate_client_cert(-1, 30);
+    let stranger = generate_client_cert(-1, 30);
+    let server = start_with_titan_zone("titan-stranger", &[&allowed.fingerprint_hex], None, false);
+
+    let payload = b"not mine to write";
+    let request = format!(
+        "titan://localhost:{}/uploads/evil.gmi;size={}\r\n",
+        server.port,
+        payload.len()
+    );
+    let mut raw = request.into_bytes();
+    raw.extend_from_slice(payload);
+
+    let response = exchange_with_client_cert(server.port, &raw, Some(&stranger));
+    assert!(status_line(&response).starts_with("61"));
+    assert!(!server.dir.join("content/uploads/evil.gmi").exists());
+}
+
+#[test]
+fn an_upload_outside_the_writable_zone_is_refused() {
+    let cert = generate_client_cert(-1, 30);
+    let server = start_with_titan_zone("titan-outside", &[&cert.fingerprint_hex], None, false);
+
+    // Authorized identity, but a path the zone does not cover.
+    let payload = b"# overwrite the homepage\n";
+    let request = format!(
+        "titan://localhost:{}/index.gmi;size={}\r\n",
+        server.port,
+        payload.len()
+    );
+    let mut raw = request.into_bytes();
+    raw.extend_from_slice(payload);
+
+    let response = exchange_with_client_cert(server.port, &raw, Some(&cert));
+    assert!(
+        status_line(&response).starts_with("51"),
+        "outside every zone is answered as not-found, disclosing nothing"
+    );
+    let home = std::fs::read_to_string(server.dir.join("content/index.gmi")).expect("home intact");
+    assert_eq!(home, "# home\n", "the homepage must be untouched");
+}
+
+#[test]
+fn a_traversal_upload_cannot_escape_the_content_tree() {
+    let cert = generate_client_cert(-1, 30);
+    let server = start_with_titan_zone("titan-traversal", &[&cert.fingerprint_hex], None, false);
+
+    let payload = b"owned";
+    // The zone prefix matches, but the path then tries to climb out.
+    let request = format!(
+        "titan://localhost:{}/uploads/../../escaped.gmi;size={}\r\n",
+        server.port,
+        payload.len()
+    );
+    let mut raw = request.into_bytes();
+    raw.extend_from_slice(payload);
+
+    let response = exchange_with_client_cert(server.port, &raw, Some(&cert));
+    let status = status_line(&response);
+    assert!(
+        !status.starts_with("30"),
+        "a traversal upload must never report success: {status}"
+    );
+    assert!(!server.dir.join("escaped.gmi").exists());
+    assert!(!server.dir.join("content/../escaped.gmi").exists());
+}
+
+#[test]
+fn an_oversize_declaration_is_refused_before_the_body_is_read() {
+    let cert = generate_client_cert(-1, 30);
+    let server = start_with_titan_zone("titan-oversize", &[&cert.fingerprint_hex], None, false);
+
+    // Declare far beyond the 10 MiB default cap, and send nothing: the
+    // server must answer from the request line alone.
+    let request = format!(
+        "titan://localhost:{}/uploads/huge.gmi;size=99999999999\r\n",
+        server.port
+    );
+    let response = exchange_with_client_cert(server.port, request.as_bytes(), Some(&cert));
+    let status = status_line(&response);
+    assert!(status.starts_with("59"), "expected 59, got: {status}");
+    assert!(!server.dir.join("content/uploads/huge.gmi").exists());
+}
+
+#[test]
+fn a_disallowed_mime_is_refused() {
+    let cert = generate_client_cert(-1, 30);
+    let server = start_with_titan_zone("titan-mime", &[&cert.fingerprint_hex], None, false);
+
+    let payload = b"\x7fELF binary-ish";
+    let request = format!(
+        "titan://localhost:{}/uploads/x.bin;size={};mime=application/x-executable\r\n",
+        server.port,
+        payload.len()
+    );
+    let mut raw = request.into_bytes();
+    raw.extend_from_slice(payload);
+
+    let response = exchange_with_client_cert(server.port, &raw, Some(&cert));
+    assert!(status_line(&response).starts_with("59"));
+    assert!(!server.dir.join("content/uploads/x.bin").exists());
+}
+
+#[test]
+fn deletion_is_refused_unless_the_zone_opts_in() {
+    let cert = generate_client_cert(-1, 30);
+    let server = start_with_titan_zone("titan-nodelete", &[&cert.fingerprint_hex], None, false);
+
+    // Put a page there first.
+    let payload = b"# doomed\n";
+    let upload = format!(
+        "titan://localhost:{}/uploads/doomed.gmi;size={}\r\n",
+        server.port,
+        payload.len()
+    );
+    let mut raw = upload.into_bytes();
+    raw.extend_from_slice(payload);
+    assert!(
+        status_line(&exchange_with_client_cert(server.port, &raw, Some(&cert))).starts_with("30")
+    );
+
+    // size=0 is Titan's delete; the zone has not opted in.
+    let delete = format!(
+        "titan://localhost:{}/uploads/doomed.gmi;size=0\r\n",
+        server.port
+    );
+    let response = exchange_with_client_cert(server.port, delete.as_bytes(), Some(&cert));
+    assert!(status_line(&response).starts_with("50"));
+    assert!(
+        server.dir.join("content/uploads/doomed.gmi").exists(),
+        "the page must survive a refused deletion"
+    );
+}
+
+#[test]
+fn deletion_works_where_the_zone_opts_in() {
+    let cert = generate_client_cert(-1, 30);
+    let server = start_with_titan_zone("titan-delete", &[&cert.fingerprint_hex], None, true);
+
+    let payload = b"# temporary\n";
+    let upload = format!(
+        "titan://localhost:{}/uploads/temp.gmi;size={}\r\n",
+        server.port,
+        payload.len()
+    );
+    let mut raw = upload.into_bytes();
+    raw.extend_from_slice(payload);
+    assert!(
+        status_line(&exchange_with_client_cert(server.port, &raw, Some(&cert))).starts_with("30")
+    );
+    assert!(server.dir.join("content/uploads/temp.gmi").exists());
+
+    let delete = format!(
+        "titan://localhost:{}/uploads/temp.gmi;size=0\r\n",
+        server.port
+    );
+    let response = exchange_with_client_cert(server.port, delete.as_bytes(), Some(&cert));
+    assert!(status_line(&response).starts_with("20"));
+    assert!(
+        !server.dir.join("content/uploads/temp.gmi").exists(),
+        "an authorized deletion must actually remove the page"
+    );
+}
+
+#[test]
+fn a_token_zone_requires_both_the_certificate_and_the_token() {
+    let cert = generate_client_cert(-1, 30);
+    let server = start_with_titan_zone(
+        "titan-token-zone",
+        &[&cert.fingerprint_hex],
+        Some("hunter2"),
+        false,
+    );
+
+    let payload = b"# with token\n";
+
+    // Right certificate, no token: refused.
+    let no_token = format!(
+        "titan://localhost:{}/uploads/t.gmi;size={}\r\n",
+        server.port,
+        payload.len()
+    );
+    let mut raw = no_token.into_bytes();
+    raw.extend_from_slice(payload);
+    assert!(
+        status_line(&exchange_with_client_cert(server.port, &raw, Some(&cert))).starts_with("61")
+    );
+    assert!(!server.dir.join("content/uploads/t.gmi").exists());
+
+    // Right certificate and right token: written.
+    let with_token = format!(
+        "titan://localhost:{}/uploads/t.gmi;size={};token=hunter2\r\n",
+        server.port,
+        payload.len()
+    );
+    let mut raw2 = with_token.into_bytes();
+    raw2.extend_from_slice(payload);
+    let ok = exchange_with_client_cert(server.port, &raw2, Some(&cert));
+    assert!(status_line(&ok).starts_with("30"));
+    assert!(server.dir.join("content/uploads/t.gmi").exists());
 }
