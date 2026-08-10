@@ -15,16 +15,15 @@ recorded.
 ## OQ-3: Domain name and project capsule host
 
 - Raised: 2026-08-09
-- Status: narrowed (director, 2026-08-09) — final pick pending
-- Director's candidates: `unseen-servant.wanderingmonster.dev`
-  (subdomain of an owned domain, zero cost) or buying
-  `unseen-servant.dev`. Porkbun pricing verified 2026-08-09:
-  .dev renews at $12.87/yr (first year $8.75) — cheap and stable.
-  Recommendation: start on the wanderingmonster.dev subdomain now;
-  optionally buy unseen-servant.dev before the v1.1 announcement and
-  point both at the same capsule (SNI + multiDomain handle it).
-  Availability of unseen-servant.dev not yet checked — director to
-  search on Porkbun.
+- Status: **resolved (director, 2026-08-10): `unseen-servant.wanderingmonster.dev`.**
+  `unseen-servant.dev` confirmed available (RDAP query against the
+  authoritative Charleston Road Registry server, 2026-08-10 — not just
+  the Porkbun search UI, which is JS-driven and unreliable to scrape;
+  $8.75 first year / $12.87/yr per the 2026-08-09 Porkbun check) but
+  not purchased; may still be bought later before a v1.1 announcement
+  and pointed at the same capsule (SNI + multiDomain handle it) per
+  the original recommendation below — that option stays open, it's
+  just not the answer to *this* question.
 
 ## OQ-4: License
 
