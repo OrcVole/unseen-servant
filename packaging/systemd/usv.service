@@ -1,0 +1,57 @@
+## Reference systemd unit for standalone usv (ADR 0008, ADR 0002).
+##
+## Install: copy the `usv` binary (from the musl release tarball, or
+## `cargo build --release`) to /usr/local/bin/usv, create a dedicated
+## system user, drop this file at /etc/systemd/system/usv.service, then:
+##
+##   sudo useradd --system --home-dir /var/lib/usv --create-home usv
+##   sudo systemctl daemon-reload
+##   sudo systemctl enable --now usv
+##
+## Config: usv works with zero configuration (ADR 0008 — a fresh
+## /var/lib/usv gets an auto-minted TOFU identity and a starter capsule on
+## first start). Drop a usv.toml at /var/lib/usv/usv.toml to configure
+## further; `systemctl reload usv` re-reads it without dropping listeners
+## (ADR 0002's SIGHUP discipline — an invalid edit keeps the old config).
+
+[Unit]
+Description=Unseen Servant (usv) — Gemini capsule server
+Documentation=https://forgejo.wanderingmonster.dev/WanderingMonster/unseen-servant
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/usv
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+RestartSec=5
+
+User=usv
+Group=usv
+Environment=USV_STATE_DIR=/var/lib/usv
+
+## Hardening. The three directives ADR 0002 names explicitly as standing
+## in for the multi-process privsep this project deliberately doesn't do
+## (single process, memory-safe language, fuzzed parsers — see that ADR):
+ProtectSystem=strict
+ReadWritePaths=/var/lib/usv
+NoNewPrivileges=true
+
+## Standard additions beyond that baseline — safe defaults for a network
+## service with no legitimate need for any of what they deny:
+PrivateTmp=true
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+## Port 1965 (and the optional HTTP surface) are both >1024 — no
+## CAP_NET_BIND_SERVICE or other capability is needed, so the bounding set
+## can be emptied entirely rather than merely not-elevated.
+CapabilityBoundingSet=
+
+[Install]
+WantedBy=multi-user.target

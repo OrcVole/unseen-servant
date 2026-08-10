@@ -20,6 +20,14 @@ categories = ["network-programming"]
 # Not on crates.io until the v1.0 release gates pass (docs/ROADMAP.md M5/M6).
 publish = false
 
+# `publish = false` also hides the binary from `dist` (cargo-dist) by
+# default, since dist's usual signal for "this is a real release artifact"
+# is publishability; opt back in explicitly — pre-release binary tarballs
+# are exactly what docs/BUILD-PLAN.md C6 asks for, crates.io publication is
+# a separate, later gate.
+[package.metadata.dist]
+dist = true
+
 [lib]
 name = "unseen_servant"
 path = "src/lib.rs"
@@ -40,6 +48,11 @@ undocumented_unsafe_blocks = "deny"
 unwrap_used = "warn"
 
 [profile.release]
+lto = "thin"
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
 lto = "thin"
 
 [dependencies]

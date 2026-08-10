@@ -1,0 +1,63 @@
+# Maintainer: Wandering Monster <most+claude@alba.win>
+#
+# -git package (VCS PKGBUILD, per the AUR guidelines): usv has no tagged
+# release yet (docs/ROADMAP.md — pre-v1.0), so this tracks main rather
+# than pinning a version that doesn't exist. A plain `unseen-servant`
+# package sourced from a release tarball is the natural follow-up once
+# v1.0 ships; this file becomes that package's template with the VCS
+# bits (source=, pkgver(), _srcname) removed.
+
+pkgname=unseen-servant-git
+pkgver=0.1.0.r0.g0000000
+pkgrel=1
+pkgdesc="A security-first Gemini capsule server (pre-release)"
+arch=('x86_64')
+url="https://forgejo.wanderingmonster.dev/WanderingMonster/unseen-servant"
+license=('MIT')
+depends=('gcc-libs')
+makedepends=('cargo' 'git')
+provides=('unseen-servant')
+conflicts=('unseen-servant')
+backup=()
+source=("$pkgname::git+$url.git#branch=main")
+sha256sums=('SKIP')
+
+pkgver() {
+    cd "$pkgname"
+    # Falls back to the bare Cargo.toml version + rev count when there
+    # are no tags yet (true today); switches to a real `git describe`
+    # once the project's first tag lands, per the standard -git template.
+    printf '%s.r%s.g%s' \
+        "$(grep -m1 '^version' Cargo.toml | sed -E 's/version = "(.*)"/\1/')" \
+        "$(git rev-list --count HEAD)" \
+        "$(git rev-parse --short HEAD)"
+}
+
+build() {
+    cd "$pkgname"
+    export RUSTUP_TOOLCHAIN=stable
+    export CARGO_TARGET_DIR=target
+    cargo build --frozen --release --bin usv
+}
+
+check() {
+    cd "$pkgname"
+    export RUSTUP_TOOLCHAIN=stable
+    cargo test --frozen --release
+}
+
+package() {
+    cd "$pkgname"
+    install -Dm755 "target/release/usv" "$pkgdir/usr/bin/usv"
+    install -Dm644 "LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+    install -Dm644 "README.md" "$pkgdir/usr/share/doc/$pkgname/README.md"
+    install -Dm644 "packaging/systemd/usv.service" \
+        "$pkgdir/usr/lib/systemd/system/usv.service"
+    # Arch's systemd unit convention: /usr/bin, not /usr/local/bin —
+    # the reference unit under packaging/systemd/ targets the
+    # source-tarball path, so retarget it for this install layout.
+    sed -i 's#/usr/local/bin/usv#/usr/bin/usv#' \
+        "$pkgdir/usr/lib/systemd/system/usv.service"
+    install -Dm644 "packaging/aur/sysusers.conf" \
+        "$pkgdir/usr/lib/sysusers.d/usv.conf"
+}
