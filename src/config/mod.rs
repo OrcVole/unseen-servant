@@ -370,6 +370,16 @@ pub mod env_keys {
     /// this via `start.sh` — the dashboard tile depends on the HTTP
     /// surface being live.
     pub const HTTP_LISTEN: &str = "USV_HTTP_LISTEN";
+
+    /// Where the gopher listener binds. Setting it to a non-empty value
+    /// **enables gopher** — the platform equivalent of `[gopher]
+    /// enabled = true`, for deployments where the port is injected
+    /// rather than configured (Cloudron's `tcpPorts`). Empty or unset
+    /// leaves gopher off, which stays the default everywhere.
+    pub const GOPHER_LISTEN: &str = "USV_GOPHER_LISTEN";
+    /// The gopher port to advertise in menus, when the platform maps the
+    /// bound port to a different external one.
+    pub const GOPHER_ADVERTISED_PORT: &str = "USV_GOPHER_ADVERTISED_PORT";
 }
 
 /// A snapshot of the `USV_*` environment, taken once at load time so the
@@ -387,6 +397,10 @@ pub struct EnvOverrides {
     pub hostname: Option<String>,
     /// See [`env_keys::HTTP_LISTEN`].
     pub http_listen: Option<String>,
+    /// See [`env_keys::GOPHER_LISTEN`].
+    pub gopher_listen: Option<String>,
+    /// See [`env_keys::GOPHER_ADVERTISED_PORT`].
+    pub gopher_advertised_port: Option<String>,
 }
 
 impl EnvOverrides {
@@ -398,6 +412,8 @@ impl EnvOverrides {
             advertised_port: std::env::var(env_keys::ADVERTISED_PORT).ok(),
             hostname: std::env::var(env_keys::HOSTNAME).ok(),
             http_listen: std::env::var(env_keys::HTTP_LISTEN).ok(),
+            gopher_listen: std::env::var(env_keys::GOPHER_LISTEN).ok(),
+            gopher_advertised_port: std::env::var(env_keys::GOPHER_ADVERTISED_PORT).ok(),
         }
     }
 }
@@ -746,6 +762,21 @@ impl Config {
         // Built last: the wall (ADR 0012 §6) needs the resolved hosts,
         // because what may not be published in the clear is defined by
         // their certificate and Titan zones.
+        // A platform that injects the port (Cloudron's tcpPorts) has no
+        // file to edit, so a non-empty USV_GOPHER_LISTEN enables gopher
+        // on its own — the same shape as USV_LISTEN for Gemini, where
+        // empty means explicitly off and absent means "use the file".
+        let env_gopher_listen = env.gopher_listen.as_deref().map(str::trim);
+        let gopher_raw = match (gopher_raw, env_gopher_listen) {
+            (_, Some("")) => None,
+            (existing, Some(addr)) => {
+                let mut g = existing.unwrap_or_default();
+                g.enabled = Some(true);
+                g.listen = Some(addr.to_string());
+                Some(g)
+            }
+            (existing, None) => existing,
+        };
         let gopher = match gopher_raw {
             None => None,
             Some(g) if !g.enabled.unwrap_or(false) => None,
@@ -766,7 +797,14 @@ impl Config {
                     crate::render::cleartext::check_cleartext_root("gopher", &root, &gate)
                         .map_err(ConfigError::Rejected)?;
                 }
-                let advertised_port = g.advertised_port.unwrap_or_else(|| listen.port());
+                let advertised_port = env
+                    .gopher_advertised_port
+                    .as_deref()
+                    .map(str::trim)
+                    .filter(|v| !v.is_empty())
+                    .and_then(|v| v.parse::<u16>().ok())
+                    .or(g.advertised_port)
+                    .unwrap_or_else(|| listen.port());
                 Some(GopherConfig {
                     listen,
                     root,
@@ -1100,6 +1138,33 @@ mod tests {
     }
 
     #[test]
+    fn the_platform_can_enable_gopher_without_a_config_file() {
+        // Cloudron injects the port via tcpPorts; there is no file to
+        // edit, so a non-empty USV_GOPHER_LISTEN enables it on its own.
+        let env = EnvOverrides {
+            gopher_listen: Some("0.0.0.0:7070".into()),
+            gopher_advertised_port: Some("70".into()),
+            ..no_env()
+        };
+        let cfg = Config::from_toml_str("", &env).expect("valid");
+        let g = cfg.gopher.expect("env should have enabled gopher");
+        assert_eq!(g.listen.port(), 7070);
+        assert_eq!(g.advertised_port, 70, "menus advertise the external port");
+    }
+
+    #[test]
+    fn an_empty_gopher_listen_env_means_explicitly_off() {
+        // The disabled-service case: Cloudron drops the env var, or the
+        // admin turns the port off, and gopher must not come up.
+        let env = EnvOverrides {
+            gopher_listen: Some(String::new()),
+            ..no_env()
+        };
+        let cfg = Config::from_toml_str("[gopher]\nenabled = true", &env).expect("valid");
+        assert!(cfg.gopher.is_none(), "empty env must override the file");
+    }
+
+    #[test]
     fn gopher_is_off_unless_asked_for() {
         // ADR 0012 §2: a capsule that says nothing gets no cleartext
         // service. Absent section and enabled=false are the same answer.
@@ -1318,6 +1383,7 @@ mod tests {
             advertised_port: Some("1965".into()),
             hostname: Some("capsule.example".into()),
             http_listen: None,
+            ..no_env()
         };
         let cfg = Config::from_toml_str(
             "[server]\nstate_dir = \"/elsewhere\"\nlisten = [\"0.0.0.0:1965\"]\n\

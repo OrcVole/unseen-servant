@@ -19,6 +19,14 @@
       "defaultValue": 1965,
       "containerPort": 1965,
       "readOnly": true
+    },
+    "GOPHER_PORT": {
+      "title": "Gopher Port",
+      "description": "Public TCP port for the Gopher protocol (v1.1). Gopher clients assume 70. CLEARTEXT: gopher offers no encryption, no integrity and no way to authenticate a reader, so certificate-gated content is never served over it. Leave this service disabled unless you want a gopher hole.",
+      "defaultValue": 70,
+      "containerPort": 7070,
+      "readOnly": false,
+      "enabledByDefault": false
     }
   },
   "manifestVersion": 2,
