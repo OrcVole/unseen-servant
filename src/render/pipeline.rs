@@ -430,6 +430,24 @@ fn render_dir<'a>(
                 stats.pages_rendered += 1;
                 let relative = path.strip_prefix(root).unwrap_or(&path);
                 pages.push(page_entry(relative, title));
+            } else if file_type.is_file() {
+                // Non-gemtext assets. The Gemini surface serves these from
+                // the content directory directly, but a cleartext tree has
+                // no such fallback by design — its whole safety property is
+                // that it contains *only* what may be served (ADR 0012 §6),
+                // so anything reachable from a menu has to be copied in,
+                // subject to the same gate.
+                if let Some((target, gopher_root)) = gopher {
+                    let relative = path.strip_prefix(root).unwrap_or(&path);
+                    let selector = gopher_selector(relative);
+                    if !target.gate.excludes(&selector) {
+                        let dest = gopher_output_path(gopher_root, relative);
+                        if let Some(parent) = dest.parent() {
+                            tokio::fs::create_dir_all(parent).await?;
+                        }
+                        tokio::fs::copy(&path, &dest).await?;
+                    }
+                }
             }
         }
         Ok(())
@@ -804,6 +822,51 @@ mod tests {
         );
         // ...while still existing on the surfaces that can authenticate.
         assert!(base.join("html/private/s.html").exists());
+    }
+
+    #[tokio::test]
+    async fn assets_are_copied_into_the_gopher_tree_but_gated_ones_are_not() {
+        // A cleartext tree has no content-dir fallback by design, so a
+        // menu link to a non-gemtext file only works if it was copied in
+        // — and a gated asset must not be, for the same reason a gated
+        // page is not.
+        let base = tmp_dir("gopher-assets");
+        let content = base.join("content");
+        std::fs::create_dir_all(content.join("private")).unwrap();
+        std::fs::write(content.join("index.gmi"), "# Home\n").unwrap();
+        std::fs::write(content.join("readme.txt"), "plain\n.dotted\n").unwrap();
+        std::fs::write(content.join("private/secret.txt"), "no\n").unwrap();
+
+        let host = crate::config::HostConfig {
+            name: "example.org".into(),
+            docroot: content.clone(),
+            redirects: Vec::new(),
+            cert_zones: vec![crate::handler::cert_zone::Zone {
+                path_prefix: "/private/".into(),
+                allowed_fingerprints: Vec::new(),
+            }],
+            titan_zones: Vec::new(),
+        };
+        let ctx = RenderContext {
+            theme_css: "body{}".to_string(),
+            web_base_url: String::new(),
+            capsule_title: "example.org".to_string(),
+            lang: "en".to_string(),
+            gopher: Some(GopherRender {
+                ctx: super::super::gopher::Context {
+                    host: "example.org".into(),
+                    port: 70,
+                },
+                gate: super::super::cleartext::Gate::for_host(&host),
+            }),
+        };
+        render_tree(&content, &base, &ctx).await.unwrap();
+
+        assert!(base.join("gopher/readme.txt").exists(), "asset not copied");
+        assert!(
+            !base.join("gopher/private/secret.txt").exists(),
+            "a gated asset must not reach the cleartext tree"
+        );
     }
 
     #[tokio::test]
