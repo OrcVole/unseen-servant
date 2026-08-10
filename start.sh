@@ -44,4 +44,6 @@ else
 fi
 
 echo "==> Starting usv"
-exec gosu cloudron:cloudron /app/code/usv
+# su-exec, not gosu: the base image is alpine now (see Dockerfile), and
+# su-exec is its equivalent tiny setuid-drop tool — same CLI shape.
+exec su-exec cloudron:cloudron /app/code/usv
