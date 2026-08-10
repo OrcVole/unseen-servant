@@ -1,0 +1,72 @@
+# .forgejo/workflows/build-cloudron-image.yml — build the Cloudron package
+# image off-host and push it, so `cloudron install/update --image <ref>`
+# never has to compile ~130 crates from scratch inside the install itself.
+#
+# WHY THIS EXISTS (found live, 2026-08-10): installing usv on a busy,
+# shared Cloudron (example.com, ~50 other apps) via the normal
+# no-image `cloudron install` path took many minutes longer than a typical
+# community app — the repo-root Dockerfile pulls the full `rust:1.93.1`
+# dev image and compiles the entire dependency tree from scratch, on the
+# same host every other app is competing with for disk I/O, on every
+# single install. Building here instead and shipping a finished image is
+# the same pattern this estate already uses elsewhere (e.g. prosody-
+# cloudron's pinned `dockerImage` + `dockerImageSha256`) — usv doing a
+# server-side compile was the outlier, not the norm.
+#
+# REGISTRY: this repo's own Forgejo instance (forgejo.wanderingmonster.dev)
+# acting as an OCI registry, not an external one — one fewer credential to
+# provision. Forgejo Actions' automatic GITHUB_TOKEN (GitHub-compatible
+# name, Forgejo's own token under the hood) is scoped to this repository
+# and its package registry by `permissions: packages: write` below; no
+# separate secret needed.
+#
+# RUNNER FACTS: same `workstation` HOST-mode runner as pr-checks.yml —
+# steps run directly on a real machine, not an isolated container, so
+# whatever build tool is invoked here (podman) must already be installed
+# there. This workflow is new and its first real run is the actual proof
+# it works end to end; if the runner lacks podman or the registry login
+# fails, that first run's log is the place to look, not this comment.
+#
+# Path-filtered: only the inputs that actually change the image should
+# trigger a rebuild — a docs-only commit shouldn't burn a multi-minute
+# compile.
+
+name: Build and push Cloudron image
+on:
+  push:
+    branches: [main]
+    paths:
+      - Dockerfile
+      - start.sh
+      - CloudronManifest.json
+      - Cargo.toml
+      - Cargo.lock
+      - rust-toolchain.toml
+      - src/**
+      - .forgejo/workflows/build-cloudron-image.yml
+
+permissions:
+  packages: write
+
+jobs:
+  build-and-push:
+    runs-on: workstation
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: build
+        run: |
+          podman build -t "${IMAGE}:${{ github.sha }}" -t "${IMAGE}:latest" .
+        env:
+          IMAGE: forgejo.wanderingmonster.dev/wanderingmonster/unseen-servant
+
+      - name: push
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | podman login forgejo.wanderingmonster.dev \
+            --username "${{ github.actor }}" --password-stdin
+          podman push "${IMAGE}:${{ github.sha }}"
+          podman push "${IMAGE}:latest"
+          echo "Pushed ${IMAGE}:${{ github.sha }} — install/update with:"
+          echo "  cloudron install --image ${IMAGE}:${{ github.sha }}"
+        env:
+          IMAGE: forgejo.wanderingmonster.dev/wanderingmonster/unseen-servant
