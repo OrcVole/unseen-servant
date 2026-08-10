@@ -1,0 +1,19 @@
+localhost
+---------
+
+A capsule served by Unseen Servant (UnSeen serVant -> usv).
+
+Read it at:
+
+  gemini://localhost/
+  gopher://localhost:7070/
+  spartan://localhost:3000/
+  nex://localhost:1900/
+  https://localhost/
+
+Same words on every one of them — one folder, rendered to each.
+
+About finger: the internet's oldest status update — one command,
+a few lines back. Specified by RFC 1288 (1991):
+  https://datatracker.ietf.org/doc/html/rfc1288
+Clients: Lagrange, Bombadillo, BFG, or the finger(1) command.

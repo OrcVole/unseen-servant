@@ -1,0 +1,40 @@
+# This is a Nex page
+
+You are reading this at nex://localhost:1900/ — served to you by the Unseen Servant (usv) Nex server.
+
+## Unseen Servant, and why "usv"
+
+Unseen Servant is a small server that publishes one folder of writing to several internet protocols at once. The short name takes the letters from the long one:
+
+```
+UnSeen serVant  ->  u  s  v
+```
+
+It is abbreviated rather than spelled out because it is also a command you type.
+
+## About Nex
+
+Nex is the smallest thing that still works: send a path, get bytes, the connection closes. No status codes, no content types, no headers. It is explicitly telnet-compatible, so you can speak it by hand, and the whole protocol fits in your head — which is the reason people like it.
+
+=> https://nightfall.city/nex/info/specification.txt The Nex specification
+
+## Reading Nex natively
+
+If this page arrived looking strange, you may be reading it through a gateway. These clients speak Nex directly:
+
+=> https://git.sr.ht/~hedy/gelim gelim (terminal)
+=> https://codeberg.org/luxferre/BFG BFG (terminal)
+
+Client support changes; this list was checked in August 2026.
+
+## The same capsule, other protocols
+
+This capsule is one folder of writing, rendered to each of these. The hostname never changes — the scheme at the front picks the protocol and the port:
+
+* Gemini: gemini://localhost/
+* Gopher: gopher://localhost:7070/
+* Spartan: spartan://localhost:3000/
+* Finger: finger://localhost:7979
+* Web: https://localhost/
+
+=> / Back to the capsule
