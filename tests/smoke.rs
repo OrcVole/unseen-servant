@@ -174,3 +174,110 @@ fn an_unknown_key_in_the_titan_section_is_still_a_startup_error() {
     assert!(!out.status.success());
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn sighup_reload_reaches_the_watcher_not_just_the_next_restart() {
+    // Regression test for a real bug: the file watcher used to be spawned
+    // once with a RenderContext frozen at startup, so a SIGHUP reload that
+    // changed server.advertised_host (or the primary hostname, http_listen,
+    // theme, lang) never reached the *next edit-triggered* render — only a
+    // full restart would pick it up. watcher::watch now reads a live
+    // tokio::sync::watch::Receiver instead, and signal_loop pushes a fresh
+    // context on every successful reload; this proves it end to end against
+    // the real binary, not just the unit-level watcher tests.
+    let dir = std::env::temp_dir().join(format!("usv-smoke-sighup-reload-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("content")).expect("mkdir");
+    let cfg = dir.join("usv.toml");
+    std::fs::write(
+        &cfg,
+        "[server]\nlisten = [\"127.0.0.1:0\"]\nhttp_listen = \"127.0.0.1:0\"\n\
+         [[host]]\nname = \"before.example\"\n",
+    )
+    .expect("write config");
+
+    let mut child = usv()
+        .arg("--config")
+        .arg(&cfg)
+        .env("USV_STATE_DIR", &dir)
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("binary spawns");
+
+    let stderr = child.stderr.take().expect("piped stderr");
+    let mut reader = std::io::BufReader::new(stderr);
+    let mut line = String::new();
+    let wait_for = |reader: &mut std::io::BufReader<std::process::ChildStderr>,
+                    line: &mut String,
+                    needle: &str,
+                    secs: u64| {
+        let deadline = Instant::now() + Duration::from_secs(secs);
+        while Instant::now() < deadline {
+            line.clear();
+            if reader.read_line(line).expect("read stderr") == 0 {
+                return false; // EOF: process died
+            }
+            if line.contains(needle) {
+                return true;
+            }
+        }
+        false
+    };
+
+    assert!(
+        wait_for(&mut reader, &mut line, "serving", 15),
+        "server never reported serving state"
+    );
+
+    // sitemap.xml, not atom.xml: the Atom feed only exists when the
+    // content has dated gemsub entries (the auto-generated skeleton page
+    // has none), but sitemap.xml unconditionally lists every page
+    // prefixed with the advertised base URL, so it always exists.
+    let sitemap_path = dir.join("html/sitemap.xml");
+    let initial = std::fs::read_to_string(&sitemap_path).expect("initial sitemap.xml exists");
+    assert!(
+        initial.contains("before.example"),
+        "initial sitemap should advertise the original hostname: {initial:?}"
+    );
+
+    // Change the advertised hostname and reload — a live config edit an
+    // operator would make with the server already running.
+    std::fs::write(
+        &cfg,
+        "[server]\nlisten = [\"127.0.0.1:0\"]\nhttp_listen = \"127.0.0.1:0\"\n\
+         advertised_host = \"after.example\"\n\
+         [[host]]\nname = \"before.example\"\n",
+    )
+    .expect("rewrite config");
+    let pid = child.id().to_string();
+    assert!(
+        Command::new("kill")
+            .args(["-HUP", &pid])
+            .status()
+            .expect("kill runs")
+            .success()
+    );
+    assert!(
+        wait_for(&mut reader, &mut line, "reload complete", 15),
+        "reload never completed"
+    );
+
+    // The watcher's *next* edit-triggered render — not a restart — must
+    // already use the new context.
+    std::fs::write(dir.join("content/new.gmi"), "# New page\n").expect("write new content");
+    assert!(
+        wait_for(&mut reader, &mut line, "content re-rendered", 15),
+        "edit-triggered re-render never happened after reload"
+    );
+
+    let after = std::fs::read_to_string(&sitemap_path).expect("sitemap.xml exists after re-render");
+    assert!(
+        after.contains("after.example") && !after.contains("before.example"),
+        "post-reload re-render must advertise the new hostname, not the frozen one: {after:?}"
+    );
+
+    let _ = child.kill();
+    let _ = child.wait();
+    let _ = std::fs::remove_dir_all(&dir);
+}

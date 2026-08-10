@@ -16,7 +16,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use notify::{RecursiveMode, Watcher};
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, watch};
 
 use super::pipeline::{RenderContext, RenderStats, render_tree};
 
@@ -54,6 +54,14 @@ impl From<notify::Error> for WatchError {
 /// `on_rendered` (typically just a `tracing::info!` call) so the caller
 /// controls logging rather than this module owning a policy on it.
 ///
+/// `ctx` is a `watch::Receiver`, not an owned value: a SIGHUP reload can
+/// change `server.advertised_host`, the primary hostname, `http_listen`,
+/// the theme, or the language, and every edit-triggered re-render after
+/// that must use the new context — never a value frozen at watch-startup
+/// time. The sender lives with whoever owns the reload path (main.rs);
+/// this function only reads the latest value, once, right before each
+/// render fires.
+///
 /// This function does not return under normal operation — it's meant to
 /// be spawned as its own tokio task. It returns `Err` only if the
 /// initial watch setup fails; a render error mid-loop is logged via
@@ -63,7 +71,7 @@ impl From<notify::Error> for WatchError {
 pub async fn watch(
     content_dir: PathBuf,
     state_dir: PathBuf,
-    ctx: RenderContext,
+    ctx: watch::Receiver<RenderContext>,
     debounce: Duration,
     on_rendered: impl Fn(std::io::Result<RenderStats>),
 ) -> Result<(), WatchError> {
@@ -128,7 +136,11 @@ pub async fn watch(
                 Err(_elapsed) => break, // quiet period reached
             }
         }
-        on_rendered(render_tree(&content_dir, &state_dir, &ctx).await);
+        // Read the latest context right before rendering, not once at
+        // watch-startup — a SIGHUP reload in between must be picked up by
+        // the very next edit-triggered render, not the next restart.
+        let ctx_now = ctx.borrow().clone();
+        on_rendered(render_tree(&content_dir, &state_dir, &ctx_now).await);
     }
 }
 
@@ -141,6 +153,16 @@ mod tests {
     use super::*;
     use std::sync::Arc;
     use std::sync::atomic::{AtomicUsize, Ordering};
+
+    /// A fixed context wrapped in a receiver whose sender is immediately
+    /// dropped — fine for `.borrow()`, which every test here only needs
+    /// once per render; none of these tests exercise a live context
+    /// update (that's `tests/smoke.rs`'s
+    /// `sighup_reload_reaches_the_watcher_not_just_the_next_restart`,
+    /// which needs a real running process to prove end to end).
+    fn ctx_channel() -> watch::Receiver<RenderContext> {
+        watch::channel(RenderContext::plain("body{}")).1
+    }
 
     fn tmp_dir(name: &str) -> PathBuf {
         let dir =
@@ -164,7 +186,7 @@ mod tests {
             watch(
                 watch_content,
                 watch_state,
-                RenderContext::plain("body{}"),
+                ctx_channel(),
                 Duration::from_millis(300),
                 move |result| {
                     result.expect("render should succeed");
@@ -201,7 +223,7 @@ mod tests {
             watch(
                 watch_content,
                 watch_state,
-                RenderContext::plain("body{}"),
+                ctx_channel(),
                 Duration::from_millis(200),
                 move |result| {
                     result.expect("render should succeed");
@@ -253,7 +275,7 @@ mod tests {
             watch(
                 watch_content,
                 watch_state,
-                RenderContext::plain("body{}"),
+                ctx_channel(),
                 Duration::from_millis(150),
                 move |result| {
                     result.expect("render should succeed");

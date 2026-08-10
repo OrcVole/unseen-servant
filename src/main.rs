@@ -876,13 +876,22 @@ async fn serve(args: Args) -> Result<(), ()> {
     }
     let watcher_content_dir = content_dir.clone();
     let watcher_state_dir = state.config.state_dir.clone();
-    let watcher_ctx = render_ctx.clone();
+    // A `watch` channel, not a plain clone: SIGHUP can change
+    // server.advertised_host, the primary hostname, http_listen, the
+    // theme, or the language, and the watcher's *next* edit-triggered
+    // render must see that — not the value frozen at this moment, which
+    // would otherwise persist until the next full restart (found as a
+    // real bug tracing through this exact path — see watcher::watch's
+    // docs on why it takes a receiver, not an owned RenderContext).
+    // `render_ctx_tx` is threaded into `signal_loop`, the only place a
+    // reload ever produces a new one.
+    let (render_ctx_tx, render_ctx_rx) = watch::channel(render_ctx.clone());
     let watcher_runtime = runtime.clone();
     let watcher_task = tokio::spawn(async move {
         let result = watcher::watch(
             watcher_content_dir,
             watcher_state_dir,
-            watcher_ctx,
+            render_ctx_rx,
             watcher::DEFAULT_DEBOUNCE,
             |result| match result {
                 Ok(stats) => {
@@ -953,7 +962,7 @@ async fn serve(args: Args) -> Result<(), ()> {
         env!("CARGO_PKG_VERSION")
     );
 
-    signal_loop(&args, bound_port, &state_tx, &shutdown_tx).await;
+    signal_loop(&args, bound_port, &state_tx, &shutdown_tx, &render_ctx_tx).await;
 
     // Stop accepting, then drain: wait for every permit to come home, up to
     // a grace period, so in-flight responses finish with close_notify.
@@ -989,6 +998,7 @@ async fn signal_loop(
     bound_port: Option<u16>,
     state_tx: &watch::Sender<Shared>,
     shutdown_tx: &watch::Sender<bool>,
+    render_ctx_tx: &watch::Sender<pipeline::RenderContext>,
 ) {
     use tokio::signal::unix::{SignalKind, signal};
     let mut sighup = match signal(SignalKind::hangup()) {
@@ -1018,6 +1028,13 @@ async fn signal_loop(
                                  for that change (reload never drops live listeners)"
                             );
                         }
+                        // Every edit-triggered render after this point must
+                        // see the new config (advertised_host, hostname,
+                        // http_listen, theme, lang) — not the value the
+                        // watcher was started with (see watcher::watch's
+                        // docs on why it reads a receiver, not an owned
+                        // context).
+                        let _ = render_ctx_tx.send(render_context(&new_state.config));
                         let _ = state_tx.send(new_state);
                         tracing::info!("reload complete");
                     }
