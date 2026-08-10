@@ -65,13 +65,17 @@ Design decisions I would most like argued with:
    pinned the old one. Hostname changes get a fresh identity rather
    than reusing the old one under a new name.
 
-4. Per-request logging currently records the client IP. The query
-   string is redacted by construction, since status 10 input lands
-   there. The address is not, and I am aware that runs against the way
-   many operators here keep logs. It is recorded as an open question
-   with four options (redact by default, an opt-in setting, a
-   per-boot-salted hash, or leave and document) and I would value
-   opinions before I pick one.
+4. Per-request logging records no client address by default. The peer
+   field renders as "-"; query strings are redacted by construction,
+   since status 10 input lands there. An operator can opt into
+   verbatim addresses, or into a digest under a salt generated at each
+   start and never persisted, which correlates repeat visits within one
+   run of the process and nothing beyond it. This default was
+   originally the other way round; it was changed on the grounds that
+   retaining visitor addresses is not the norm in this community and
+   should not be what you get without choosing it. I would still
+   welcome argument about whether the hashed mode is worth having at
+   all, or whether it is a false comfort.
 
 Two things stated plainly rather than buried: usv is written by an AI
 under human direction and review, with the reasoning for each decision

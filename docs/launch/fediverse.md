@@ -45,10 +45,10 @@ Only if the first post gets traction. Keeps the disclosures visible to
 anyone who boosts the top post.
 
 ```
-Two things I'd rather you heard from me:
+Two things worth saying plainly:
 
-It logs visitor IPs at the moment (queries are redacted, addresses
-aren't) — an open question in the repo, and I'd like views on it.
+It logs no visitor addresses by default — the peer field is a dash,
+queries are redacted by construction. Opt in if you want them.
 
 And no Gopher yet. It's designed and scheduled, not written. Saying
 so rather than letting the feature table imply otherwise.

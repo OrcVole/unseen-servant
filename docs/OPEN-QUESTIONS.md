@@ -85,30 +85,35 @@ recorded.
 
 ## OQ-9: Per-request logging records the visitor's IP address
 
-- Raised: 2026-08-10 (found while writing `docs/security.md`; not
-  previously surfaced as a question)
-- Status: **open — decision wanted before v1.0 / before announcing**
-- What happens today: `src/server.rs` emits one `info`-level line per
-  request carrying `%peer` (the client IP), the status, and the path.
-  The **query string is redacted by construction** — deliberate, and
-  correct, since Gemini's status 10/11 input flow puts user-typed text
-  (including passwords) in the query. The IP is not redacted.
-- Why it's a question rather than a bug: an operator debugging abuse
-  genuinely wants the address, and `usv` writes only to stdout/stderr
-  and keeps no files, so nothing is *retained* by usv itself — but the
-  platform's journal usually retains it for weeks.
-- Why it matters more here than for a web server: this project's own
-  `docs/recon/community-wisdom.md` §3 records that aggressive log
-  minimalism is a *stated norm* in Geminispace — "operators boast of
-  *not* keeping IPs", some map them to ephemeral IDs discarded within
-  the hour — and that privacy-preserving aggregate counters fit the
-  culture better than access logs. An announcement thread is a likely
-  place for this to be raised by someone who checks.
-- Options: (a) leave as-is and document (today's state); (b) redact or
-  truncate the IP by default with an opt-in to full addresses;
-  (c) a `server.log_peer` setting, defaulting to off; (d) hash the IP
-  with a per-boot salt so repeat visits correlate within a session but
-  nothing durable is written.
-- Recommendation: (c) or (d). Both keep the abuse-debugging story while
-  matching the community's stated expectation; (d) also preserves the
-  aggregate-counter use case the recon says operators actually want.
+- Raised: 2026-08-10 (found while writing `docs/security.md`)
+- Status: **resolved (director, 2026-08-10): "do the not surveillance
+  state thing" — implemented same day.**
+- **Resolution:** a `server.log_peer` setting with three values, and the
+  privacy-preserving one is the default:
+  - `"off"` — **the default.** No visitor address in the logs at all;
+    the field renders as `-` so the line keeps one shape and stays
+    greppable.
+  - `"hashed"` — a 48-bit digest of the *address only* (never the
+    ephemeral source port, which changes per connection and would
+    defeat the point) under a salt generated fresh at every start and
+    never persisted. Repeat visits correlate within one run of the
+    process — enough to see one client hammering a path — and nothing
+    survives a restart, because the salt does not.
+  - `"full"` — the address verbatim, for an operator who has decided
+    they want a conventional access log. Deliberately the value you
+    have to type out.
+- The abuse-investigation need that made this a question rather than a
+  bug is met by the two opt-in modes; what changed is which way the
+  default falls, and that the operator now makes the choice
+  deliberately instead of discovering they had already made it.
+- Implementation note: the address is wrapped in a `PeerLabel` type at
+  the top of the connection handler and the raw `SocketAddr` is shadowed,
+  so logging the real address is not something that can happen by
+  reaching for the wrong variable. A mistyped `log_peer` is a startup
+  error listing the valid values, because failing open here would
+  silently keep addresses an operator believed they had turned off.
+- Verified live, not just unit-tested: all three modes run against a
+  real server, confirming `off` emits `peer=-`, `full` emits the
+  address, and `hashed` produces the *same* digest for two requests
+  whose source ports differed — the port-exclusion behaviour the mode
+  depends on.

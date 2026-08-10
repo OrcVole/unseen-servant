@@ -47,10 +47,12 @@ container image.
 - **It's not a web server.** The HTML side has no auth and no
   request-time logic. It exists so someone with a browser can read your
   capsule, nothing more.
-- **It logs visitor IPs right now.** Query strings are redacted (Gemini's
-  input flow puts typed text there), addresses aren't. I know that cuts
-  against how a lot of capsule operators run logs; it's an open question
-  in the repo with options written down and I'd take opinions on it.
+- **On logs, since someone always asks:** no visitor addresses by
+  default — the peer field is a dash, and query strings are redacted by
+  construction. You can opt into verbatim addresses, or into a
+  per-boot-salted digest that correlates repeat visits within one run
+  and survives no restart. The default used to be the other way round
+  and was changed deliberately.
 - **It's written by an AI**, directed and reviewed by a human, with every
   design decision recorded as a written note before the code. I'm saying
   so up front because you're entitled to decide about that before running

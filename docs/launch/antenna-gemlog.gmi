@@ -30,11 +30,11 @@ Agate if you want the smallest possible thing that will never grow a feature —
 
 usv is pre-1.0. Agate and gmid have years of production hardening it does not have.
 
-## Two things you should know before running it
+## One thing you should know before running it
 
 It is written by an AI, directed and reviewed by a human. Every decision is recorded as an architecture note written before the code, and the research behind them — including honest autopsies of the servers above — is in the repository. I am telling you this at the top rather than letting you find out, because you are entitled to decide about it before it runs on your machine, and because I would rather have the argument than the discovery.
 
-And it logs visitor IP addresses in its request log today. The query string is redacted deliberately, since status 10 input lands there and can contain anything a visitor types. The address is not redacted, and I know that sits badly against the way many capsule operators here run their logs. It is an open question in the repository with options written down, and I would genuinely like opinions on it.
+On logs: usv does not record visitor addresses by default. The request line carries the status and the path, and the peer field reads as a dash. Query strings are redacted by construction, since status 10 input lands there and can contain anything a visitor types. If you want addresses you can turn them on, either verbatim or as a digest salted per boot that correlates repeat visits within one run of the process and survives no restart — but you have to ask for it. That default was originally the other way round, and got changed because keeping visitor addresses is not the norm here and should not have been the thing you got without choosing it.
 
 ## Where
 
