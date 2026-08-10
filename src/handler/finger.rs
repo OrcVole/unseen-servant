@@ -61,6 +61,18 @@ fn default_profile(addr: &Addresses) -> String {
 
     s.push('\n');
     s.push_str("Same words on every one of them — one folder, rendered to each.\n");
+
+    // Finger is the one protocol whose page is a *profile*, so the
+    // colophon proper is never served over it. Without these lines a
+    // reader who arrived here has no way to learn what finger is or
+    // what else speaks it -- the same cold-arrival problem the colophon
+    // exists to solve. Kept to four lines: finger answers are short by
+    // long convention, and a wall of text here would be wrong.
+    s.push('\n');
+    s.push_str("About finger: the internet's oldest status update — one command,\n");
+    s.push_str("a few lines back. Specified by RFC 1288 (1991):\n");
+    s.push_str("  https://datatracker.ietf.org/doc/html/rfc1288\n");
+    s.push_str("Clients: Lagrange, Bombadillo, BFG, or the finger(1) command.\n");
     s
 }
 
@@ -141,7 +153,10 @@ mod tests {
         let out = String::from_utf8(respond(&d, &a).await).unwrap();
         assert!(out.contains("gemini://"));
         assert!(!out.contains("gopher://"), "{out}");
-        assert!(!out.contains("https://"), "{out}");
+        // The web MIRROR specifically -- not "no https anywhere", which
+        // also caught the RFC reference the profile now carries and made
+        // the test fail for a reason it never meant to test.
+        assert!(!out.contains("https://example.org"), "{out}");
     }
 
     #[tokio::test]
@@ -171,5 +186,18 @@ mod tests {
         a.finger_port = Some(79);
         let out = String::from_utf8(respond(&tmp("selfref"), &a).await).unwrap();
         assert!(!out.contains("finger://"), "{out}");
+    }
+
+    #[tokio::test]
+    async fn the_profile_says_what_finger_is_and_links_the_rfc() {
+        // Finger never serves the colophon (its page is a profile), so
+        // this is the only place a cold arrival can learn any of it.
+        let out = String::from_utf8(respond(&tmp("about"), &addr()).await).unwrap();
+        assert!(out.contains("RFC 1288"), "{out}");
+        assert!(
+            out.contains("datatracker.ietf.org/doc/html/rfc1288"),
+            "{out}"
+        );
+        assert!(out.contains("Lagrange"), "no client named: {out}");
     }
 }

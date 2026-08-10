@@ -615,7 +615,9 @@ async fn respond(
         let status = resp.header.status() as u8;
         return Outcome::respond(resp.header, resp.body, format!("cert zone gate ({status})"));
     }
-    let resp = static_file::serve(&host.docroot, &request.path, &config.lang).await;
+    let colophon_addrs = crate::render::colophon::Addresses::from_config(config);
+    let resp =
+        static_file::serve(&host.docroot, &request.path, &config.lang, &colophon_addrs).await;
     let status = resp.header.status() as u8;
     Outcome::respond(
         resp.header,

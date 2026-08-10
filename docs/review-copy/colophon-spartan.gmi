@@ -1,0 +1,42 @@
+# This is a Spartan page
+
+You are reading this at spartan://localhost:3000/ — served to you by the Unseen Servant (usv) Spartan server.
+
+## Unseen Servant, and why "usv"
+
+Unseen Servant is a small server that publishes one folder of writing to several internet protocols at once. The short name takes the letters from the long one:
+
+```
+UnSeen serVant  ->  u  s  v
+```
+
+It is abbreviated rather than spelled out because it is also a command you type.
+
+## About Spartan
+
+Spartan is Gemini's document model with the cryptography removed. Its argument is that mandatory TLS is ceremony for public documents — clocks that must be right, libraries that must be maintained, hardware that must do the maths — and that a plain document deserves a plain protocol. It reads the same gemtext.
+
+=> http://portal.mozz.us/spartan/spartan.mozz.us/specification.gmi The Spartan specification
+
+## Reading Spartan natively
+
+If this page arrived looking strange, you may be reading it through a gateway. These clients speak Spartan directly:
+
+=> https://gmi.skyjake.fi/lagrange/ Lagrange (graphical)
+=> https://offpunk.net/ Offpunk (terminal)
+=> https://git.sr.ht/~hedy/gelim gelim (terminal)
+=> https://codeberg.org/luxferre/BFG BFG (terminal)
+
+Client support changes; this list was checked in August 2026.
+
+## The same capsule, other protocols
+
+This capsule is one folder of writing, rendered to each of these. The hostname never changes — the scheme at the front picks the protocol and the port:
+
+* Gemini: gemini://localhost/
+* Gopher: gopher://localhost:7070/
+* Nex: nex://localhost:1900/
+* Finger: finger://localhost:7979
+* Web: https://localhost/
+
+=> / Back to the capsule
