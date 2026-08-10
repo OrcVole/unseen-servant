@@ -63,6 +63,10 @@ pub struct Config {
     /// The finger listener, if enabled. Off by default like every other
     /// cleartext service.
     pub finger: Option<FingerConfig>,
+    /// The Spartan listener, if enabled.
+    pub spartan: Option<CleartextListener>,
+    /// The Nex listener, if enabled.
+    pub nex: Option<CleartextListener>,
     /// Hostnames this server answers for (authority check layer 3; SNI cert
     /// selection). Requests naming any other host get status 53.
     pub hosts: Vec<HostConfig>,
@@ -146,6 +150,36 @@ pub struct GopherConfig {
 pub struct FingerConfig {
     /// Where to bind. Defaults to `0.0.0.0:7979` — port 79 is
     /// privileged, and the same reasoning as gopher applies.
+    pub listen: SocketAddr,
+}
+
+/// Resolve one address-only cleartext listener, off unless enabled.
+fn resolve_cleartext(
+    name: &str,
+    raw: Option<RawCleartext>,
+    default_addr: &str,
+) -> Result<Option<CleartextListener>, ConfigError> {
+    match raw {
+        None => Ok(None),
+        Some(c) if !c.enabled.unwrap_or(false) => Ok(None),
+        Some(c) => {
+            let s = c.listen.as_deref().unwrap_or(default_addr);
+            let listen: SocketAddr = s.parse().map_err(|_| {
+                ConfigError::Rejected(format!(
+                    "{name}.listen {s:?} is not a valid socket address (e.g. {default_addr:?})"
+                ))
+            })?;
+            Ok(Some(CleartextListener { listen }))
+        }
+    }
+}
+
+/// A cleartext listener that only needs an address (Spartan, Nex).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CleartextListener {
+    /// Where to bind. Spartan defaults to 3000 and Nex to 1900 — Nex's
+    /// canonical port is already unprivileged, so it is the one protocol
+    /// here that can sit where its community expects it.
     pub listen: SocketAddr,
 }
 
@@ -260,6 +294,10 @@ struct RawConfig {
     gopher: Option<RawGopher>,
     /// `[finger]` — a person's status, not the content tree (ADR 0012).
     finger: Option<RawFinger>,
+    /// `[spartan]` — the no-TLS mirror of the gemtext tree (ADR 0012).
+    spartan: Option<RawCleartext>,
+    /// `[nex]` — the smallest listener (ADR 0012).
+    nex: Option<RawCleartext>,
     /// Reserved (ADR 0009); presence is a startup error.
     responses: Option<toml::Table>,
 }
@@ -349,6 +387,16 @@ struct RawGopher {
     listen: Option<String>,
     root: Option<String>,
     advertised_port: Option<u16>,
+}
+
+/// A cleartext listener with nothing to configure but its address —
+/// Spartan and Nex both serve the existing tree, so neither needs a
+/// root, a gate of its own, or an advertised port.
+#[derive(Debug, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawCleartext {
+    enabled: Option<bool>,
+    listen: Option<String>,
 }
 
 /// `[finger]` — the cleartext finger listener (ADR 0012).
@@ -534,6 +582,8 @@ impl Config {
         // Server-wide Titan default, applied to zones that name no cap.
         let gopher_raw = raw.gopher;
         let finger_raw = raw.finger;
+        let spartan_raw = raw.spartan;
+        let nex_raw = raw.nex;
         let titan_default_max_upload = raw.titan.unwrap_or_default().max_upload_bytes;
 
         let state_dir = env
@@ -854,6 +904,9 @@ impl Config {
             }
         };
 
+        let spartan = resolve_cleartext("spartan", spartan_raw, "0.0.0.0:3000")?;
+        let nex = resolve_cleartext("nex", nex_raw, "0.0.0.0:1900")?;
+
         Ok(Config {
             state_dir,
             listen,
@@ -862,6 +915,8 @@ impl Config {
             log_peer,
             gopher,
             finger,
+            spartan,
+            nex,
             hosts,
             advertised_host,
             max_connections,

@@ -24,6 +24,7 @@ pub mod finger;
 pub mod gopher;
 pub mod request;
 pub mod response;
+pub mod spartan;
 pub mod titan;
 pub mod uri;
 

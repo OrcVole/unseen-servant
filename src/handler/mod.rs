@@ -16,7 +16,9 @@ pub mod cert_zone;
 pub mod finger;
 pub mod gopher;
 pub mod mime;
+pub mod nex;
 pub mod redirect;
+pub mod spartan;
 pub mod static_file;
 pub mod titan;
 
