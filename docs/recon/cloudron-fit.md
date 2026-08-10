@@ -146,13 +146,77 @@ dual surface, and where usv deliberately differs:
 - [ ] start.sh chowns `/app/data` to cloudron:cloudron on every start and ends with `exec gosu cloudron:cloudron`.
 - [ ] usv logs exclusively to stdout/stderr.
 - [ ] The manifest declares `httpPort` and `healthCheckPath`, and the HTTP surface serves a live HTML page at `/` returning 2xx independent of Gemini-listener state.
-- [ ] The final Docker stage uses `cloudron/base:5.1.0` (pinned by digest) with the compiled binary copied into `/app/code`.
+- [ ] The final Docker stage provides a `cloudron` user at uid:gid 1000:1000, a gosu-equivalent privilege-drop tool, and `bash`, with the compiled binary copied into `/app/code` — not necessarily `cloudron/base` itself (see 2026-08-10 addendum: `alpine:3.22` + `su-exec` satisfies this at 20.1MB vs. 2.46GB, with no loss of platform contract or admin-terminal conformance).
 - [ ] The design assumes at most one usv install per Cloudron host can own external port 1965; multi-capsule needs are met by `multiDomain: true` plus SNI virtual hosting inside the single instance, never by a second install.
 - [ ] usv detects a primary-hostname change (move/clone) against its stored identity and surfaces a regenerate-or-keep choice rather than silently reusing the keypair.
 - [ ] If the CA-cert option is enabled, usv reads `/etc/certs/tls_cert.pem` and `/etc/certs/tls_key.pem` (read-only, `tls` addon) and tolerates restarts on renewal; TOFU self-signed remains the default because LE rotation breaks client cert pinning.
 - [ ] The manifest declares `localstorage` (and `tls` if Option B ships), `manifestVersion: 2`, `memoryLimit` explicitly, and `optionalSso: true`.
 
-## Sources (all accessed 2026-08-09)
+## Addendum: base image revised to alpine (2026-08-10)
+
+Found live, deploying to a real Cloudron host (`example.com`): even a
+**prebuilt** image (compiled in CI, installed via `cloudron install
+--image`, so no server-side compile at all) still installed slowly,
+because the image itself — final stage `cloudron/base:5.1.0` — is
+**2.46GB**. Broken down via `podman history`: a 1.7GB `apt-get` layer
+plus ~650MB of bundled Node.js/yq tooling, neither of which usv uses at
+all. The actual payload, the usv binary, is 8.85MB. That's the real
+bottleneck this addendum fixes: not compile time (solved by C6's CI
+image-build pipeline) but transfer time, on both the CI→registry push
+and the registry→Cloudron-host pull.
+
+**§6's "final stage must be `cloudron/base:5.1.0`" bullet was wrong to
+call a hard constraint.** Re-checked directly against the live docs
+(docs.cloudron.io/packaging/cheat-sheet/, fetched 2026-08-10): there is
+**no statement anywhere that apps must use `cloudron/base`**. It's a
+convenience image with common language runtimes preinstalled for apps
+that need them; the actual platform contract — read-only rootfs with
+`/app/data`/`/run`/`/tmp` writable, `CLOUDRON_*` env vars, HTTP health
+checks, stdout/stderr logging, addon file injection — is enforced by
+the Cloudron *runtime*, not baked into that specific base image. The
+house skill and this doc's original §6 both inherited an unverified
+assumption from the Agate+ prior art without checking whether it was
+actually required.
+
+**What a base image needs to provide, empirically (verified by running
+the resulting container, not just building it):** inspected
+`cloudron/base:5.1.0` directly (`podman run cloudron/base:5.1.0 ...`)
+to find what usv's own `start.sh` actually depends on: a `cloudron`
+user at uid:gid 1000:1000, `gosu` for the root→cloudron privilege drop,
+and `bash` to run the script. `/usr/local/cloudron_addons` exists but
+is empty — nothing there usv's manifest (`localstorage`+`tls` addons
+only) touches.
+
+**Fix:** final stage is now `alpine:3.22` with `su-exec` (gosu's tiny
+musl-friendly equivalent), `bash` (kept explicitly, not just alpine's
+default `ash`, so the dashboard's web terminal / file manager — which
+`exec bash` into the container — keep working; conformance with the
+platform's admin conveniences was a deliberate call, not an oversight,
+per director instruction 2026-08-10: "we want the application to be
+cloudron conformant"), and `ca-certificates`. The build stage also
+switched to the `x86_64-unknown-linux-musl` target (already proven in
+`packaging/oci/Dockerfile`) so the binary itself needs no glibc.
+`start.sh`'s only change is `gosu` → `su-exec` (identical CLI shape).
+**Resulting final image: 20.1MB — a 122x reduction from 2.46GB.**
+
+Verified empirically before touching the live production deployment again
+(not just "it builds"): built locally, ran as a container with
+`CLOUDRON_APP_DOMAIN`/`GEMINI_PORT` env vars set the way Cloudron sets
+them, confirmed the HTTP surface returns 200, confirmed the Gemini
+surface completes a TLS handshake and serves gemtext, confirmed the
+process runs as `cloudron` (not root) after `start.sh`'s privilege
+drop, confirmed `bash` is present and functional inside the running
+container, and — specifically because §3's backup/restore table
+documents that restores can reset `/app/data` ownership — manually
+`chown -R root:root /app/data` then restarted the container and
+confirmed `start.sh`'s unconditional `chown` on every start recovered
+correct ownership and the app kept serving.
+
+**Nothing about the platform contract changed**: same manifest, same
+addons, same tcpPorts/httpPort/healthCheckPath, same filesystem rules,
+same non-root execution, same logging. Only the base image did.
+
+## Sources (all accessed 2026-08-09, addendum sources accessed 2026-08-10)
 
 - https://docs.cloudron.io/packaging/manifest/ — manifest fields; tcpPorts semantics, env var = external port, bridge to containerPort, disabled-port behavior, readOnly, portCount; httpPort/healthCheckPath/memoryLimit/multiDomain.
 - https://docs.cloudron.io/packaging/addons/ — tls addon cert paths and renewal restart; localstorage semantics.
@@ -168,3 +232,5 @@ dual surface, and where usv deliberately differs:
 - https://forum.cloudron.io/topic/8166/windmark-on-cloudron-gemini-protocol-server — Windmark.
 - https://forum.cloudron.io/topic/5827/molly-brown-gemini-project-on-cloudron — molly-brown.
 - House skill `cloudron-app-packaging` (local, /home/boat/.claude/skills/cloudron-app-packaging/) — packaging conventions; its base-image pin (5.0.0) is superseded by the live docs' 5.1.0.
+- https://docs.cloudron.io/packaging/cheat-sheet/ — re-fetched 2026-08-10 specifically to check for a `cloudron/base` mandate: confirmed there isn't one; it's a recommended convenience image, not a requirement.
+- https://docs.cloudron.io/packaging/ — re-fetched 2026-08-10: no formal "conformance"/quality/validation checklist page exists; the manifest + cheat-sheet technical contract is the whole of it.
