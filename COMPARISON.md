@@ -61,9 +61,42 @@ extension module rather than a separate daemon — proof that
 
 ## Choose usv when
 
-Six situations where `usv` is the right answer and the others are not.
+Situations where `usv` is the right answer and the others are not.
 Each is a real reason someone would pick it; if none of them describe
 you, the next section probably does.
+
+**You want to publish across the smolnet, not just Geminispace.** `usv`
+serves Gemini, Titan, Gopher, Spartan, Nex, Finger and a web mirror from
+one content tree — the only server here that does. Adding a protocol is
+a config line, not a second site: the same folder is rendered to each,
+so nothing has to be written twice or kept in sync. Every protocol has
+been driven by a real client before being called supported
+([`docs/protocols.md`](docs/protocols.md) names which one).
+
+**You want AI agents to be first-class readers, not an afterthought.**
+Most servers treat agents as a crawling nuisance to be managed. `usv`
+treats legibility for agents and for assistive technology as the same
+problem (ADR 0010) and serves the affordances by default: `/llms.txt`
+lists every page for one fetch instead of a crawl, every page is
+available as Markdown by suffix, there are machine-readable maps on both
+surfaces, and the AI posture in `robots.txt` is permissive by doctrine
+rather than hostile by reflex. Agents can also *write*: Titan uploads
+and a cert-gated `/admin/status.gmi` are scoped by capability against a
+managed identity roster (ADR 0011), so an agent gets exactly the reach
+you granted it and no more.
+
+**You want it written in Rust, and you want to check.** `usv` is pure
+Rust with `unsafe_code = "forbid"` set crate-wide — not a convention,
+a compiler error. Dependencies are pinned, `cargo-deny` runs in CI
+alongside fuzz targets on every parser that touches the wire. The two
+mature alternatives here are Rust too, so this is table stakes rather
+than a differentiator; what is worth checking is the `forbid` and the
+fuzzing, which are not universal.
+
+**You want setup to be a conversation, not a config file.** `usv init`
+walks through hostname, ports and protocols and writes a working
+`usv.toml`; `--defaults` skips the questions entirely. A fresh capsule
+serves a real page immediately rather than an empty directory.
 
 **You want one piece of writing read by two audiences.** You like
 gemtext and Geminispace, but you also want to put your address on a CV,
