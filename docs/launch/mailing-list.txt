@@ -1,0 +1,86 @@
+DRAFT — not sent. Gemini mailing list (lists.geminiprotocol.net).
+Plain text, hard-wrapped, no markup, no images, no badges. This list has
+a low tolerance for marketing register; state facts, invite critique,
+stop. Re-verify list address and posting policy before sending.
+
+Subject: Unseen Servant — a Gemini + Titan server with a static HTML mirror
+
+--8<----------------------------------------------------------------
+
+Hello,
+
+I've written a Gemini server and would appreciate critique from this
+list, particularly on the design choices below rather than on the
+polish.
+
+Unseen Servant (usv) serves one gemtext tree over two surfaces: Gemini
+on 1965 with its own TLS, and a statically rendered HTML mirror of the
+same content. The rendering happens at write time — a file changes, a
+debounced watcher re-renders the tree into a staging directory, and the
+result is swapped in atomically — rather than converting per request.
+Consequences: no request-time conversion path, nothing to invalidate,
+and the rendered tree is self-contained, so `usv export` produces a
+folder that works with no server behind it.
+
+Current state, precisely:
+
+  Supported   Gemini, Titan, HTTP mirror
+  Planned     Gopher, Spartan, Nex, Finger (v1.1; designed, not written)
+  Refused     everything else, answered 53
+
+  Version     0.1.0, pre-1.0, no tagged release
+  Testing     gemini-diagnostics 25/27 against a live deployment; the
+              two non-passes are the tool's removed ssl.match_hostname
+              under Python >= 3.13, and an IPv6 check that failed from a
+              test host with no IPv6 egress. Both are written up.
+  Fuzzing     seven cargo-fuzz targets over the request line, URI
+              validation, config, path sanitisation, gemtext, HTML
+              emission and Titan framing; extended campaigns to ~3.3e8
+              executions on the hottest targets, minimised corpora
+              committed.
+
+Design decisions I would most like argued with:
+
+1. No dynamic content of any kind — no CGI, FastCGI, SCGI, or plugin
+   API. Content is data, never code. I took the view that the escape
+   hatch is where the defect load concentrates, and that a server which
+   refuses it can make stronger guarantees. The obvious counterargument
+   is that this makes usv useless for the interactive things people
+   actually build (Astrobotany, Bubble), and I think that is correct
+   and acceptable — those want GmCapsule or Jetforce.
+
+2. Single process, no privilege separation. gmid separates main,
+   logger, server and crypto over imsg, which is the security
+   high-water mark for a C server. usv is one memory-safe process
+   (unsafe_code = forbid, project-wide) with the key material held
+   inside rustls and never handled by request code, plus systemd
+   hardening with an empty capability bounding set. I believe the
+   process boundary buys less here than it does in C. I would like to
+   be told if that is complacent.
+
+3. TOFU certificates minted once per hostname, expiry 4096-01-01,
+   following Agate, and never silently regenerated — corrupt key
+   material is a loud failure rather than a quiet new key, because a
+   new key is indistinguishable from an impersonation to a client that
+   pinned the old one. Hostname changes get a fresh identity rather
+   than reusing the old one under a new name.
+
+4. Per-request logging currently records the client IP. The query
+   string is redacted by construction, since status 10 input lands
+   there. The address is not, and I am aware that runs against the way
+   many operators here keep logs. It is recorded as an open question
+   with four options (redact by default, an opt-in setting, a
+   per-boot-salted hash, or leave and document) and I would value
+   opinions before I pick one.
+
+Two things stated plainly rather than buried: usv is written by an AI
+under human direction and review, with the reasoning for each decision
+recorded before the code; and it is pre-1.0, so Agate and gmid both
+have production hardening it does not.
+
+Capsule (served by usv itself):
+  gemini://unseen-servant.wanderingmonster.dev/
+
+Thanks for reading.
+
+--8<----------------------------------------------------------------

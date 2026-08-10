@@ -1,0 +1,35 @@
+DRAFT — not posted. Station (gemini://station.martinrue.com) and Bubble (gemini://bbs.geminispace.org).
+
+Both are community boards inside Geminispace, read by people already here. Short, conversational, first person. Post the gemlog entry first and link it — these are places to start a conversation, not to reproduce the whole announcement.
+
+Bubble has moderated subspaces; pick the right one and read its rules first rather than posting to the general feed. Bubble also runs as a GmCapsule module, so its author knows this field well — expect informed questions.
+
+--8<----------------------------------------------------------------
+
+STATION (short — Station posts are brief by convention)
+
+Been building a Gemini server: usv. It serves one gemtext folder both as gemtext on 1965 and as static HTML for browsers, rendered when files change rather than per request. Titan uploads with fingerprint-gated zones, cert zones, feeds, and packages for Cloudron/Debian/Fedora/Arch/Nix.
+
+Pre-1.0, and written by an AI under human direction — saying so up front rather than letting you find out. Would like it kicked at.
+
+=> gemini://unseen-servant.wanderingmonster.dev/ usv
+
+--8<----------------------------------------------------------------
+
+BUBBLE (a little longer; threads here sustain discussion)
+
+# A Gemini server that publishes to the web from the same files
+
+I have been writing a server called Unseen Servant, and it is far enough along that I would like it looked at properly.
+
+The idea it is built around: one folder of gemtext, rendered at write time into both surfaces. Gemini clients get the files as written; browsers get plain classless HTML of the same content. Not a per-request gateway — the tree is rendered when a file changes and swapped atomically, so the HTML side is just static files, and the rendered folder works on its own if you copy it somewhere else.
+
+Titan is on the same listener, gated per zone on client-certificate fingerprints, and a writable zone with an empty allowlist refuses to start rather than defaulting open. Certificate zones follow Molly Brown's model. There are Atom and gemsub feeds, a site map on both surfaces, and packaging for Cloudron, Debian, Fedora, Arch, Nix and OCI.
+
+What it deliberately will not do: CGI, FastCGI, scripting, proxying, or any plugin API. If what you are building is a program rather than a capsule — the way this board is — GmCapsule is the right foundation and usv is not.
+
+Two disclosures rather than footnotes. It is written by an AI under human direction, with the reasoning recorded before the code. And it currently logs visitor IPs (queries are redacted; addresses are not), which I know sits badly with how a lot of people here run their capsules — it is an open question in the repo and I would like views on it.
+
+=> gemini://unseen-servant.wanderingmonster.dev/ The capsule, served by usv
+
+--8<----------------------------------------------------------------

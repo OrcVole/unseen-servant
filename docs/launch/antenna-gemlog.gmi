@@ -1,0 +1,46 @@
+# Unseen Servant: one content tree, two worlds
+
+DRAFT — not posted. Publish on the project capsule; Antenna picks it up from the feed, so there is no submission form to fill in, only a correctly dated entry linked from the capsule index. Check the date-link convention in docs/recon/ecosystem.md before posting.
+
+I have been writing a Gemini server, and it is far enough along to talk about.
+
+Unseen Servant — usv — serves one folder of gemtext two ways. Gemini clients get the files as written, on 1965, over its own TLS. Browsers get the same content rendered to plain, classless HTML. Not a gateway, and not converted per request: the whole tree is rendered when a file changes, and both surfaces read the result. You save a page; a few seconds later it is live in Lagrange and in Firefox, from one source, with no build step and no second copy to keep in step.
+
+That is the whole idea. Most of what follows is consequences of it.
+
+## What it does
+
+Certificates are minted once per hostname and never quietly replaced — not on restart, not on update, not on restore, not when you migrate the capsule to another machine. If usv finds broken key material it stops and says so rather than generating a new key, because silently minting a new key looks exactly like an impersonation to a client that pinned the old one.
+
+Titan uploads run on the same listener, gated on client-certificate fingerprints per zone. A writable zone with an empty allowlist is a startup error, not a permissive default.
+
+Certificate zones do the Molly Brown thing: path-scoped fingerprint allowlists, 60 and 61 where they belong.
+
+Feeds — Atom and gemsub — a site map on both surfaces, four themes, and an export command that hands you a self-contained folder you can put behind OnionShare or on any static host.
+
+## What it does not do
+
+No CGI. No FastCGI. No SCGI. No scripting, no proxying, no plugin API, and no web admin panel. Content is data, never code. This is a deliberate refusal rather than a gap: the escape hatch is where most of the defect load lives in servers that offer one, and I would rather not have the class of bug at all.
+
+It is also not a web server. The HTML mirror exists so someone with only a browser can read your capsule. It does not do authentication, access control, or anything at request time.
+
+## When to use something else
+
+Agate if you want the smallest possible thing that will never grow a feature — its scope freeze is a feature, and it has already made every future decision for you. gmid if you need FastCGI, proxying, or many virtual hosts with a real configuration language; it is the most actively maintained server in the field and nothing else matches its config expressiveness. Molly Brown for a pubnix, where per-user capsules and the world-readable-bit convention are exactly right. GmCapsule if what you are building is a program rather than a capsule — Bubble runs as a GmCapsule module, and usv has no extension API and is not growing one.
+
+usv is pre-1.0. Agate and gmid have years of production hardening it does not have.
+
+## Two things you should know before running it
+
+It is written by an AI, directed and reviewed by a human. Every decision is recorded as an architecture note written before the code, and the research behind them — including honest autopsies of the servers above — is in the repository. I am telling you this at the top rather than letting you find out, because you are entitled to decide about it before it runs on your machine, and because I would rather have the argument than the discovery.
+
+And it logs visitor IP addresses in its request log today. The query string is redacted deliberately, since status 10 input lands there and can contain anything a visitor types. The address is not redacted, and I know that sits badly against the way many capsule operators here run their logs. It is an open question in the repository with options written down, and I would genuinely like opinions on it.
+
+## Where
+
+=> gemini://unseen-servant.wanderingmonster.dev/ The capsule, served by usv
+=> https://unseen-servant.wanderingmonster.dev/ The same thing, in a browser
+
+Packaged for Cloudron, Debian, Fedora, Arch, Nix, and as a small container image, because a capsule should not require picking a Linux distribution first.
+
+If you try it and it breaks, I would like to hear about it.
