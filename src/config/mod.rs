@@ -34,7 +34,14 @@ pub struct Config {
     pub state_dir: PathBuf,
     /// Socket addresses the Gemini listener binds. IPv6 addresses are bound
     /// with `IPV6_V6ONLY` set, so the default pair covers both families
-    /// without double-bind conflicts.
+    /// without double-bind conflicts. **Empty is valid** and means no
+    /// Gemini listener at all — the explicit `USV_LISTEN=""` (or
+    /// `server.listen = []`) opt-out, not the *absence* of any listen
+    /// configuration, which still means the ADR 0008 zero-config default.
+    /// Exists for docs/recon/cloudron-fit.md's hard constraint: usv must
+    /// start and pass the HTTP health check when a Cloudron admin disables
+    /// the `GEMINI_PORT` tcpPorts service (`GEMINI_PORT` then absent from
+    /// the environment; `start.sh` maps that to `USV_LISTEN=""`).
     pub listen: Vec<SocketAddr>,
     /// The port clients are expected to name in request URLs (the authority
     /// check accepts it explicitly or, when it is 1965, omitted). On port-
@@ -135,8 +142,10 @@ pub enum ConfigError {
     /// A `[responses]` section is present but the responses feature has no
     /// release assignment yet (ADR 0009).
     ResponsesReserved,
-    /// A value parsed but fails validation (bad hostname, empty listen list,
-    /// zero connection cap…).
+    /// A value parsed but fails validation (bad hostname, an unparseable
+    /// listen address, zero connection cap…). An *empty* listen list is not
+    /// one of these — it is the explicit "no Gemini listener" state, see
+    /// [`Config::listen`]'s own docs.
     Rejected(String),
 }
 
@@ -421,17 +430,22 @@ impl Config {
             .or(server.state_dir)
             .unwrap_or_else(|| default_state_dir(&EnvOverrides::default()));
 
+        // An explicitly empty list — `USV_LISTEN=""`, or `server.listen = []`
+        // in the file — means "no Gemini listener", not "use the default":
+        // the platform-injected-facts case (ADR 0007) a Cloudron admin
+        // disabling the tcpPorts service maps onto (docs/recon/cloudron-fit.md
+        // hard constraint: usv must still start and pass the health check,
+        // HTTP-only, when the Gemini port is off). *Absence* of any listen
+        // configuration anywhere still means the zero-config ADR 0008
+        // default (1965 on both families) — the two must stay distinct, or
+        // a bare `usv` with no config would silently stop serving Gemini.
         let listen_strings: Vec<String> = match &env.listen {
+            Some(s) if s.trim().is_empty() => Vec::new(),
             Some(s) => s.split(',').map(|a| a.trim().to_string()).collect(),
             None => server
                 .listen
                 .unwrap_or_else(|| vec!["0.0.0.0:1965".into(), "[::]:1965".into()]),
         };
-        if listen_strings.is_empty() {
-            return Err(ConfigError::Rejected(
-                "server.listen is empty; at least one listen address is required".into(),
-            ));
-        }
         let mut listen = Vec::with_capacity(listen_strings.len());
         for s in &listen_strings {
             let addr: SocketAddr = s.parse().map_err(|_| {
@@ -450,7 +464,16 @@ impl Config {
                     env_keys::ADVERTISED_PORT
                 ))
             })?,
-            None => server.advertised_port.unwrap_or_else(|| listen[0].port()),
+            // With no listener at all (Gemini disabled), there is no "first
+            // listen port" to fall back to; the value is moot for routing
+            // in that state, but must still be a sane, non-panicking
+            // default in case Gemini is re-enabled without ever setting
+            // this explicitly.
+            None => server.advertised_port.unwrap_or_else(|| {
+                listen
+                    .first()
+                    .map_or(crate::protocol::GEMINI_DEFAULT_PORT, |a| a.port())
+            }),
         };
 
         let tls_min = match server.tls_min.as_deref() {
@@ -1070,6 +1093,53 @@ mod tests {
         assert_eq!(cfg.advertised_port, 1965);
         assert!(cfg.serves_host("capsule.example"));
         assert!(!cfg.serves_host("file.example"));
+    }
+
+    #[test]
+    fn empty_listen_via_env_disables_gemini_without_error() {
+        let mut env = no_env();
+        env.listen = Some(String::new());
+        let cfg = Config::from_toml_str("", &env).expect("empty listen must not be rejected");
+        assert!(cfg.listen.is_empty());
+    }
+
+    #[test]
+    fn whitespace_only_listen_via_env_also_disables_gemini() {
+        let mut env = no_env();
+        env.listen = Some("   ".to_string());
+        let cfg = Config::from_toml_str("", &env).expect("valid");
+        assert!(cfg.listen.is_empty());
+    }
+
+    #[test]
+    fn empty_listen_array_in_the_file_disables_gemini() {
+        let cfg = Config::from_toml_str("[server]\nlisten = []", &no_env()).expect("valid");
+        assert!(cfg.listen.is_empty());
+    }
+
+    #[test]
+    fn absent_listen_configuration_still_uses_the_zero_config_default() {
+        // The critical distinction empty-means-disabled must not blur: no
+        // listen setting anywhere (file or env) is the ADR 0008 default,
+        // not "disabled".
+        let cfg = Config::from_toml_str("", &no_env()).expect("valid");
+        assert_eq!(
+            cfg.listen.len(),
+            2,
+            "the default 0.0.0.0:1965 + [::]:1965 pair"
+        );
+    }
+
+    #[test]
+    fn advertised_port_defaults_to_1965_when_gemini_is_disabled() {
+        let mut env = no_env();
+        env.listen = Some(String::new());
+        let cfg = Config::from_toml_str("", &env).expect("valid");
+        assert!(cfg.listen.is_empty());
+        assert_eq!(
+            cfg.advertised_port, 1965,
+            "must not panic and must stay sane for a later re-enable"
+        );
     }
 
     #[test]

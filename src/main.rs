@@ -844,27 +844,11 @@ async fn serve(args: Args) -> Result<(), ()> {
     {
         tracing::warn!(error = %e, "could not write the first-run skeleton");
     }
-    // The primary host's name is the capsule identity for feeds. The
-    // web base URL is only knowable if the HTTP surface is on — Atom
-    // needs absolute links, so a Gemini-only deployment gets the gemsub
-    // feed but no atom.xml (RenderContext handles the empty-base case).
-    let primary_host = state
-        .config
-        .hosts
-        .first()
-        .map(|h| h.name.clone())
-        .unwrap_or_default();
-    let web_base_url = state
-        .config
-        .http_listen
-        .map(|_| format!("https://{primary_host}"))
-        .unwrap_or_default();
-    let render_ctx = pipeline::RenderContext {
-        theme_css: state.config.theme.css.to_string(),
-        web_base_url,
-        capsule_title: primary_host.clone(),
-        lang: state.config.lang.clone(),
-    };
+    // Built by the same function `usv render`/`usv check` use, so the live
+    // server's initial render, its watcher, and the CLI tools can never
+    // construct this differently (e.g. server.advertised_host silently
+    // applying to one but not the other).
+    let render_ctx = render_context(&state.config);
     // Created once, before any listener accepts a connection, and never
     // touched by SIGHUP reload (runtime_state's whole reason to exist —
     // see its module docs): an operator reloading config mid-incident
