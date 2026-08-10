@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Choosing: which protocol, and which server</title>
+<style>
+  :root{
+    --paper:#FBF9F5;
+    --card:#FFFFFF;
+    --ink:#1B1A17;
+    --soft:#4A4642;
+    --rail:#C9C0B2;
+    --usv:#0B6E63;
+    --agate:#2F5C93;
+    --gmid:#8A3E63;
+    --molly:#9A5B1C;
+    --gmcap:#4B4A66;
+    --warn-bg:#FDF2DC;
+    --warn-ink:#5A3F0C;
+    --warn-rule:#DCC08A;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --paper:#14130F; --card:#1D1C18; --ink:#F2EEE6; --soft:#BDB6AA; --rail:#4A463E;
+      --usv:#5FD3C4; --agate:#8DB6EC; --gmid:#E79BC0; --molly:#EAAF6A; --gmcap:#AFADD6;
+      --warn-bg:#2A2110; --warn-ink:#F0D69C; --warn-rule:#5C4820;
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#14130F; --card:#1D1C18; --ink:#F2EEE6; --soft:#BDB6AA; --rail:#4A463E;
+    --usv:#5FD3C4; --agate:#8DB6EC; --gmid:#E79BC0; --molly:#EAAF6A; --gmcap:#AFADD6;
+    --warn-bg:#2A2110; --warn-ink:#F0D69C; --warn-rule:#5C4820;
+  }
+
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    font-size:21px; line-height:1.65;
+  }
+  .wrap{max-width:1040px; margin:0 auto; padding:clamp(2rem,5vw,4rem) clamp(1.1rem,4vw,2.5rem) 6rem}
+  code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:.92em}
+
+  header{margin-bottom:3.5rem}
+  .eyebrow{font-size:1rem; letter-spacing:.08em; text-transform:uppercase; color:var(--soft); font-weight:700; margin:0 0 1rem}
+  h1{font-size:clamp(2.4rem,6vw,3.6rem); line-height:1.06; margin:0 0 1.2rem; letter-spacing:-.02em; font-weight:750; text-wrap:balance}
+  .standfirst{font-size:clamp(1.15rem,2.4vw,1.4rem); color:var(--soft); margin:0; max-width:60ch}
+
+  h2{font-size:clamp(1.7rem,3.6vw,2.2rem); margin:4.5rem 0 .6rem; font-weight:720; letter-spacing:-.015em; text-wrap:balance}
+  .lede{color:var(--soft); margin:0 0 2rem; max-width:62ch; font-size:1.08rem}
+
+  /* ================= decision tree =================
+     Hand-built from HTML and CSS — no diagram library, no scripts, so it
+     renders from a file, offline, and from usv's own web mirror.
+     Every label sits in its own solid-background pill: nothing is ever
+     drawn on top of a connector, which is what made the first draft
+     unreadable. */
+  .tree{
+    background:var(--card); border:2px solid var(--rail); border-radius:18px;
+    padding:clamp(1.4rem,3.5vw,2.6rem); overflow-x:auto;
+  }
+  .tree ul{list-style:none; margin:0; padding:0}
+  .tree > ul{padding:0}
+  /* nested branches hang off a thick, rounded, coloured rail */
+  .tree ul ul{
+    margin:.9rem 0 .5rem 1.4rem; padding-left:2.2rem;
+    border-left:6px solid var(--rail); border-radius:3px;
+  }
+  .tree li{position:relative; padding:.55rem 0}
+  .tree ul ul > li::before{
+    content:""; position:absolute; left:-2.2rem; top:2.1rem;
+    width:1.7rem; height:6px; background:var(--rail); border-radius:3px;
+  }
+
+  .ask{
+    display:inline-block; background:var(--paper); border:3px solid var(--ink);
+    border-radius:14px; padding:.85rem 1.25rem; font-weight:700; font-size:1.12rem;
+    max-width:44ch; line-height:1.4;
+  }
+  .pick{
+    display:inline-block; background:var(--card); color:var(--ink);
+    border:3px solid var(--rail); border-radius:999px;
+    padding:.5rem 1.15rem; margin:.15rem 0 .55rem; font-size:1rem; font-weight:650;
+    line-height:1.35; max-width:44ch;
+  }
+  .go{
+    display:inline-flex; align-items:center; gap:.75rem; flex-wrap:wrap;
+    background:var(--card); border:3px solid var(--c); border-left-width:12px;
+    border-radius:14px; padding:.8rem 1.3rem; font-size:1.18rem; font-weight:720;
+    color:var(--c); max-width:46ch;
+  }
+  .go em{font-style:normal; color:var(--soft); font-weight:500; font-size:.9rem}
+
+  .u{--c:var(--usv)} .a{--c:var(--agate)} .g{--c:var(--gmid)}
+  .m{--c:var(--molly)} .p{--c:var(--gmcap)}
+  /* colour the rail of a branch that leads somewhere definite */
+  li.u > ul, li.a > ul, li.g > ul, li.m > ul, li.p > ul{border-left-color:var(--c)}
+
+  /* ================= cards ================= */
+  .cards{display:grid; gap:1.4rem; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); margin-top:1.5rem}
+  .card{
+    background:var(--card); border:2px solid var(--rail); border-top:10px solid var(--c);
+    border-radius:16px; padding:1.6rem 1.7rem;
+  }
+  .card h3{margin:0 0 .2rem; font-size:1.4rem; font-weight:730; color:var(--c); letter-spacing:-.01em}
+  .card .role{font-size:.95rem; color:var(--soft); font-weight:650; margin:0 0 .8rem}
+  .card p{margin:0 0 .9rem; font-size:1.02rem}
+  .card dl{margin:0; display:grid; grid-template-columns:auto 1fr; gap:.4rem 1rem; font-size:.98rem}
+  .card dt{color:var(--soft); font-weight:700}
+  .card dd{margin:0}
+
+  .warn{
+    background:var(--warn-bg); border:2px solid var(--warn-rule); border-radius:16px;
+    padding:1.6rem 1.8rem; margin-top:3rem; color:var(--warn-ink); font-size:1.05rem;
+  }
+  .warn p{margin:0 0 .9rem} .warn p:last-child{margin:0}
+
+  footer{margin-top:5rem; padding-top:1.8rem; border-top:2px solid var(--rail); color:var(--soft); font-size:1rem}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <p class="eyebrow">A decision guide · August 2026</p>
+  <h1>What should you publish on, and what should serve it?</h1>
+  <p class="standfirst">Two questions people ask in the wrong order. Start with the protocol your
+  readers will use — the server follows from it, and not the other way round.</p>
+</header>
+
+<h2>One · Which protocol should carry your writing?</h2>
+<p class="lede">You do not have to pick only one. But start with the one that matches who you want
+to reach, and add others later when you have a reason.</p>
+
+<div class="tree">
+<ul>
+  <li>
+    <span class="ask">Who do you want to be able to read this, without installing anything first?</span>
+    <ul>
+      <li class="u">
+        <span class="pick">Anyone at all — I will put this address on a CV or in an email</span>
+        <span class="go u">The web, mirrored <em>and keep a Gemini copy from the same folder</em></span>
+      </li>
+      <li>
+        <span class="pick">People who chose to be in a quieter place</span>
+        <ul>
+          <li>
+            <span class="ask">Is it a site or blog — several pages, updated over time?</span>
+            <ul>
+              <li class="u">
+                <span class="pick">Yes, and I want feeds, replies and an audience that is growing</span>
+                <span class="go u">Gemini <em>the living smolnet, and the best clients</em></span>
+              </li>
+              <li class="a">
+                <span class="pick">Yes, but I want it readable in thirty years by software nobody maintains</span>
+                <span class="go a">Gopher <em>unchanged since 1991, a separate community</em></span>
+              </li>
+              <li class="g">
+                <span class="pick">Yes, but I object to mandatory encryption for public documents</span>
+                <span class="go g">Spartan <em>gemtext, no TLS ceremony</em></span>
+              </li>
+            </ul>
+          </li>
+          <li>
+            <span class="ask">Or is it one short thing — a status, a note, what you are up to?</span>
+            <ul>
+              <li class="m">
+                <span class="pick">A status about me, answerable in one command</span>
+                <span class="go m">Finger <em>a “now” page with no page</em></span>
+              </li>
+              <li class="p">
+                <span class="pick">A single message, and I like the smallest possible thing</span>
+                <span class="go p">Nex <em>send a path, get bytes, done</em></span>
+              </li>
+            </ul>
+          </li>
+        </ul>
+      </li>
+    </ul>
+  </li>
+</ul>
+</div>
+
+<h2>Two · Which server should run it?</h2>
+<p class="lede">Five good servers, all different. What separates them is not how they serve
+files — it is everything else they will or will not do.</p>
+
+<div class="tree">
+<ul>
+  <li>
+    <span class="ask">Do you need the server to run code — CGI, FastCGI, scripts, dynamic pages?</span>
+    <ul>
+      <li>
+        <span class="pick">Yes — I want to program my capsule</span>
+        <ul>
+          <li class="p"><span class="pick">In Python, with an extension ecosystem</span>
+            <span class="go p">GmCapsule</span></li>
+          <li class="m"><span class="pick">With CGI or SCGI, plus certificate zones</span>
+            <span class="go m">Molly Brown</span></li>
+          <li class="g"><span class="pick">With FastCGI or a reverse proxy, many hostnames, ACME</span>
+            <span class="go g">gmid</span></li>
+        </ul>
+      </li>
+      <li>
+        <span class="pick">No — static documents are the point</span>
+        <ul>
+          <li class="u">
+            <span class="pick">I want more than Gemini: the web, or Gopher, Spartan, Nex, Finger</span>
+            <span class="go u">usv <em>the only one that does</em></span>
+          </li>
+          <li>
+            <span class="ask">Gemini only, then. Do readers or agents need to write to it, over Titan?</span>
+            <ul>
+              <li class="u"><span class="pick">Yes, with certificate-gated zones and a config file I can read</span>
+                <span class="go u">usv</span></li>
+              <li class="p"><span class="pick">Yes, and I want the reference implementation</span>
+                <span class="go p">GmCapsule</span></li>
+              <li class="a"><span class="pick">No — I want the smallest, most settled thing that works</span>
+                <span class="go a">Agate <em>static by policy, and proud of it</em></span>
+              </li>
+            </ul>
+          </li>
+        </ul>
+      </li>
+    </ul>
+  </li>
+</ul>
+</div>
+
+<h2>Where each line ends</h2>
+<p class="lede">What you are choosing, and what it costs you.</p>
+
+<div class="cards">
+  <div class="card u">
+    <h3>usv — Unseen Servant</h3>
+    <p class="role">The generalist</p>
+    <p>One folder, served to Gemini, Titan, the web, Gopher, Spartan, Nex and Finger. The only one
+    here that reaches past Geminispace without a second site.</p>
+    <dl>
+      <dt>Written in</dt><dd>Rust, <code>unsafe</code> forbidden crate-wide</dd>
+      <dt>Config</dt><dd>TOML — or none at all</dd>
+      <dt>Costs you</dt><dd>Pre-1.0, and the newest here</dd>
+    </dl>
+  </div>
+  <div class="card a">
+    <h3>Agate</h3>
+    <p class="role">The minimalist</p>
+    <p>Static files and nothing else, as a stated policy rather than a missing feature.
+    Feature-frozen and actively maintained — a mature combination, not a stalled one.</p>
+    <dl>
+      <dt>Written in</dt><dd>Rust</dd>
+      <dt>Config</dt><dd>Command-line flags</dd>
+      <dt>Costs you</dt><dd>No Titan, no web mirror</dd>
+    </dl>
+  </div>
+  <div class="card g">
+    <h3>gmid</h3>
+    <p class="role">The sysadmin’s server</p>
+    <p>Virtual hosts, ACME, FastCGI and reverse proxying, in a multi-process privilege-separated
+    design. The most operationally serious of the five.</p>
+    <dl>
+      <dt>Written in</dt><dd>C</dd>
+      <dt>Config</dt><dd>httpd-inspired blocks</dd>
+      <dt>Costs you</dt><dd>More moving parts to learn</dd>
+    </dl>
+  </div>
+  <div class="card m">
+    <h3>Molly Brown</h3>
+    <p class="role">The classic</p>
+    <p>CGI and SCGI with certificate zones — the long-standing choice for dynamic Geminispace.
+    Alive and steady rather than fast-moving.</p>
+    <dl>
+      <dt>Written in</dt><dd>Go</dd>
+      <dt>Config</dt><dd>TOML</dd>
+      <dt>Costs you</dt><dd>No multi-hostname support</dd>
+    </dl>
+  </div>
+  <div class="card p">
+    <h3>GmCapsule</h3>
+    <p class="role">The extensible one</p>
+    <p>The reference Titan implementation, with CGI and a native Python module API. If you want to
+    program your capsule, this is built for it.</p>
+    <dl>
+      <dt>Written in</dt><dd>Python</dd>
+      <dt>Config</dt><dd>TOML</dd>
+      <dt>Costs you</dt><dd>A Python runtime to maintain</dd>
+    </dl>
+  </div>
+</div>
+
+<h2>What usv took from the others</h2>
+<p class="lede">Arriving last is only an advantage if you read the others first. Each of these is a
+decision usv did not have to make for itself, and the project that made it.</p>
+
+<div class="cards">
+  <div class="card a">
+    <h3>From Agate</h3>
+    <p class="role">Certificates that never regenerate</p>
+    <p>Auto-minted per hostname, expiring far enough out to be irrelevant, and never silently
+    reissued — because under trust-on-first-use a new key looks exactly like an attacker. usv
+    adopted this design almost wholesale.</p>
+  </div>
+  <div class="card g">
+    <h3>From gmid</h3>
+    <p class="role">Take privilege seriously</p>
+    <p>gmid separates privileges across processes. usv stayed single-process but moved the lesson
+    into its systemd unit: an empty capability set, no new privileges, a read-only root — and so no
+    privileged ports, which is why Gopher defaults to 7070 rather than 70.</p>
+  </div>
+  <div class="card m">
+    <h3>From Molly Brown</h3>
+    <p class="role">Authorisation belongs to a path</p>
+    <p>Certificate zones scoped by path prefix, with the 6x status family doing the talking. usv’s
+    zones — and its rule that a gated path never reaches a cleartext protocol — grow from this.</p>
+  </div>
+  <div class="card p">
+    <h3>From GmCapsule</h3>
+    <p class="role">The reference is the spec in practice</p>
+    <p>usv checked its Titan behaviour against the reference implementation rather than the prose
+    alone — the fastest way to discover your reading of a specification is not the one everyone
+    else implemented.</p>
+  </div>
+  <div class="card u">
+    <h3>From the wider smolnet</h3>
+    <p class="role">Match what is served, not what is written</p>
+    <p>Gopher’s conventions came from Floodgap’s living gopherspace. Spartan taught a smaller
+    lesson with teeth: its server answers a bare content type, so usv stopped sending a redundant
+    charset that gave strict clients something to disagree with.</p>
+  </div>
+</div>
+
+<div class="warn">
+  <p><strong>Being the newest is not a feature.</strong> usv arrived in August 2026, after the other
+  four — which is why it could learn from them, and equally why it has had the least time to be
+  proven wrong. Agate, gmid, Molly Brown and GmCapsule have each run real capsules for years.</p>
+  <p>If you need a static Gemini server and nothing more, the settled choice is the better
+  engineering decision. Choose usv for what it reaches — several protocols and two audiences from
+  one folder — not because it is recent.</p>
+</div>
+
+<footer>
+  Compiled from each project’s own documentation, August 2026. Capabilities change; check the
+  source before committing. Nothing here endorses a project — all five are worth running.
+</footer>
+
+</div>
+</body>
+</html>
