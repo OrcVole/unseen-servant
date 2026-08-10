@@ -280,6 +280,15 @@ struct UploadPlan {
     request_path: String,
     /// Host, for the success redirect.
     host: String,
+    /// The port to name in the success redirect when it is non-default.
+    /// Found live, 2026-08-10: a redirect built from just the hostname
+    /// (`gemini://host/path`, no port) tells the client "reconnect on the
+    /// default port 1965" per Gemini URL semantics — silently wrong on
+    /// any capsule bound to a non-standard port, since the *upload* just
+    /// succeeded on `advertised_port` and the redirect must send the
+    /// client back to that same place, not to whatever (possibly
+    /// nothing) is listening on 1965.
+    advertised_port: u16,
     /// Exact payload length to read. Already proven ≤ the zone's cap.
     size: u64,
     /// `size == 0`: remove the resource instead of writing it.
@@ -571,6 +580,7 @@ fn respond_titan(uri: &[u8], state: &Shared, client_cert: Option<&ClientCertInfo
             docroot: host.docroot.clone(),
             request_path: request.path.clone(),
             host: request.host.clone(),
+            advertised_port: config.advertised_port,
             size: request.size,
             delete,
         }),
@@ -644,8 +654,18 @@ async fn complete_upload(
             } else {
                 // Redirect to the resource just written — the dominant
                 // ecosystem convention (recon §1.3), and what Lagrange's
-                // edit flow and titan(1) both treat as success.
-                let url = format!("gemini://{}{}", plan.host, plan.request_path);
+                // edit flow and titan(1) both treat as success. The port
+                // is included whenever it isn't Gemini's default: an
+                // omitted port means "1965" to the client, which is wrong
+                // for any capsule bound elsewhere (see UploadPlan docs).
+                let url = if plan.advertised_port == GEMINI_DEFAULT_PORT {
+                    format!("gemini://{}{}", plan.host, plan.request_path)
+                } else {
+                    format!(
+                        "gemini://{}:{}{}",
+                        plan.host, plan.advertised_port, plan.request_path
+                    )
+                };
                 let header = Header::new(Status::RedirectTemporary, Some(&url))
                     .unwrap_or_else(|_| stock::unavailable());
                 Outcome::respond(
