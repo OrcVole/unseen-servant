@@ -160,15 +160,15 @@ Posture, and what it deliberately doesn't protect you from:
 [`SECURITY.md`](SECURITY.md) — please don't open public issues for
 vulnerabilities.
 
-In short: `unsafe_code = "forbid"` project-wide, seven fuzzed parsers
+In short: `unsafe_code = "forbid"` project-wide, eight fuzzed parsers
 with committed regression corpora, `cargo deny check` on every push, no
 dynamic execution anywhere by design, one unprivileged process with an
 empty capability bounding set. Not independently audited.
 
 ## Project
 
-Written in Rust: ~10.9k lines of code plus ~2.9k of comments across 38
-files, with 415 test functions ([`docs/architecture.md`](docs/architecture.md)
+Written in Rust: ~11.2k lines of code plus ~3.1k of comments across 39
+files, with 438 test functions ([`docs/architecture.md`](docs/architecture.md)
 explains the measurement and why the comment ratio is deliberate).
 
 Every real decision is recorded as an ADR in [`docs/adr/`](docs/adr/)
