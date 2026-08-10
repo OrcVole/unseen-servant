@@ -1,26 +1,55 @@
 # Getting it running
 
-usv is pre-release. None of what follows is published to a public package repository, store, or download page yet — everything here means building from the source tree, following the instructions each packaging format ships with. That will change at v1.0; this page is accurate to today, not a promise about tomorrow.
+Unseen Servant is one static binary. It is packaged for seven targets, so putting a capsule on a machine does not start with choosing a Linux distribution.
 
-## What's in the repository
+## First, the honest part
 
-The source tree carries a build script for each of these, each one actually built and tested against a real install/run/remove cycle before being considered done:
+This is pre-release software. Nothing is published to any package repository, app store, or download page yet, and no release has been tagged. Every method below builds from the source tree. That will change at v1.0; this page describes today rather than an intention.
 
-* A static, self-contained musl binary tarball with a systemd unit (`packaging/systemd/`).
-* A Debian/Ubuntu .deb (`packaging/deb/build.sh`).
-* An Arch AUR-style PKGBUILD (`packaging/aur/`).
-* An RPM spec for Fedora, RHEL, and openSUSE (`packaging/rpm/build.sh`).
-* A Nix flake (`flake.nix`) — `nix build .#default`.
-* A plain OCI container image, no platform assumptions (`packaging/oci/Dockerfile`).
-* A Cloudron app package (the repository root `Dockerfile` and `CloudronManifest.json`) — install with `cloudron install --image <built-image-ref>`.
+## The fastest way to see it work
 
-## The fastest way to try it
+Clone the repository, then:
 
-If you have a Rust toolchain: clone the repository, `cargo build --release`, then run the binary with no arguments and no configuration. A fresh, empty state directory gets a self-signed identity and a starter capsule automatically — that's the whole setup. `usv init` walks you through the interactive wizard instead, if you'd rather answer a few questions than edit a TOML file by hand.
+```
+cargo build --release
+./target/release/usv
+```
 
-## Configuration
+That is the entire setup. With no configuration file and an empty state directory, usv mints its own certificate, writes a starter capsule, and serves it — on Gemini, and on the web if you point it at an HTTP address. Zero configuration is a supported configuration here, not a degraded one.
 
-One file, `usv.toml`, read from the server's state directory. Zero configuration is a valid, working configuration — every setting has a sensible default, and the file only needs to exist for the things you want to change from that default.
+If you would rather be asked questions than write a config file, run "usv init" for a terminal wizard.
+
+## Debian and Ubuntu
+
+A .deb is built from the tree with a single script. It installs the binary to /usr/bin/usv, a hardened systemd unit, and a dedicated unprivileged system user, then starts the service.
+
+Removing the package keeps your capsule and its identity. Purging deletes them. That distinction is deliberate: reinstalling after a remove recovers the same capsule, so readers who pinned your certificate are undisturbed.
+
+## Fedora, RHEL and openSUSE
+
+An RPM, built the same way from the same binary. There is no purge equivalent in RPM, so the state directory is simply never owned by the package — uninstalling cannot take your content or your identity with it.
+
+## Arch
+
+A PKGBUILD, currently tracking the main branch since there is no tagged release yet. The system user is declared through sysusers.d, which is the idiomatic Arch mechanism and means the package needs no install script at all.
+
+## Nix
+
+A flake. "nix build" produces the binary; "nix develop" gives you a shell with the full toolchain, including the fuzzing setup.
+
+## Containers
+
+Two images, for two different jobs. The Cloudron package is a complete platform app. The plain OCI image is a distroless build from scratch — 8.77 MB, no shell, no package manager, no libc, running as an unprivileged numeric user. There is nothing in it to exploit that is not usv itself.
+
+## Cloudron
+
+A full app package: the Gemini port is exposed and pinned to 1965, the web mirror becomes the dashboard tile, and the state directory is included in the platform's backups — so the capsule's identity survives updates, restores, and moves between domains.
+
+## Configuration, when you want some
+
+One file. Every setting has a working default, and the file does not need to exist. Unknown keys are a startup error rather than a warning, because a typo in a security-relevant setting must never fail open by being quietly ignored.
+
+Reloading re-reads the configuration and certificates without dropping connections. An invalid edit is refused and the previous configuration keeps running, so a mistake cannot take your capsule down.
 
 => index.gmi Back to the front page
-=> https://forgejo.wanderingmonster.dev/WanderingMonster/unseen-servant Source repository
+=> compare.gmi How it compares to other Gemini servers
