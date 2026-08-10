@@ -49,34 +49,40 @@ impl Protocol {
         }
     }
 
-    /// Where the protocol itself is documented, as a bare URL.
+    /// Where the protocol itself is documented.
     ///
-    /// A URL and nothing else, because this goes on the right-hand side
-    /// of a gemtext link line: prose here emits `=> RFC 1288 ...`, a
-    /// link whose target is not a URL. Finger has no canonical home page
-    /// at all, hence the `Option`; see [`Protocol::home_note`].
+    /// Every entry is a real, fetchable URL, because these become
+    /// gemtext link lines: prose here emits `=> RFC 1288 ...`, a link
+    /// whose target is not a URL. The RFC-defined protocols therefore
+    /// point at the RFC's canonical web copy rather than naming it in
+    /// passing — a reader who has just learned Finger exists should be
+    /// one activation away from its specification, not left to search.
     ///
     /// Spartan's own spec is published only over `spartan://`, which is
     /// circular for someone who has no client yet, so the web proxy is
     /// given instead.
-    pub fn home(self) -> Option<&'static str> {
+    pub fn references(self) -> &'static [(&'static str, &'static str)] {
         match self {
-            Protocol::Gemini => Some("https://geminiprotocol.net/"),
-            Protocol::Gopher => Some("https://gopher.floodgap.com/"),
-            Protocol::Spartan => {
-                Some("http://portal.mozz.us/spartan/spartan.mozz.us/specification.gmi")
-            }
-            Protocol::Nex => Some("https://nightfall.city/nex/info/specification.txt"),
-            Protocol::Finger => None,
-        }
-    }
-
-    /// The standards reference, where one exists. Prose, not a link.
-    pub fn home_note(self) -> Option<&'static str> {
-        match self {
-            Protocol::Gopher => Some("Specified by RFC 1436 (1993)."),
-            Protocol::Finger => Some("Specified by RFC 1288 (1991)."),
-            _ => None,
+            Protocol::Gemini => &[("https://geminiprotocol.net/", "The Gemini protocol")],
+            Protocol::Gopher => &[
+                ("https://gopher.floodgap.com/", "Gopherspace, over the web"),
+                (
+                    "https://datatracker.ietf.org/doc/html/rfc1436",
+                    "RFC 1436 — the Gopher specification (1993)",
+                ),
+            ],
+            Protocol::Spartan => &[(
+                "http://portal.mozz.us/spartan/spartan.mozz.us/specification.gmi",
+                "The Spartan specification",
+            )],
+            Protocol::Nex => &[(
+                "https://nightfall.city/nex/info/specification.txt",
+                "The Nex specification",
+            )],
+            Protocol::Finger => &[(
+                "https://datatracker.ietf.org/doc/html/rfc1288",
+                "RFC 1288 — the Finger specification (1991)",
+            )],
         }
     }
 
@@ -308,12 +314,10 @@ pub fn gemtext(protocol: Protocol, addrs: &Addresses) -> String {
 
     // What this protocol is.
     s.push_str(&format!("## About {name}\n\n{}\n\n", protocol.about()));
-    if let Some(note) = protocol.home_note() {
-        s.push_str(&format!("{note}\n\n"));
+    for (url, label) in protocol.references() {
+        s.push_str(&format!("=> {url} {label}\n"));
     }
-    if let Some(home) = protocol.home() {
-        s.push_str(&format!("=> {home} The {name} protocol\n\n"));
-    }
+    s.push('\n');
 
     // How to read it natively.
     s.push_str(&format!("## Reading {name} natively\n\n"));
@@ -523,5 +527,26 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn every_protocol_links_to_its_own_specification() {
+        // Finger in particular: it has no home page, and an earlier
+        // version of this simply omitted the link rather than reaching
+        // for the RFC's canonical copy.
+        for p in [
+            Protocol::Gemini,
+            Protocol::Gopher,
+            Protocol::Spartan,
+            Protocol::Nex,
+            Protocol::Finger,
+        ] {
+            assert!(!p.references().is_empty(), "{p:?} links to nothing");
+            let out = gemtext(p, &addrs());
+            for (url, _) in p.references() {
+                assert!(out.contains(url), "{p:?} dropped {url}");
+            }
+        }
+        assert!(gemtext(Protocol::Finger, &addrs()).contains("rfc1288"));
     }
 }

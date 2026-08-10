@@ -24,30 +24,28 @@ this page is the bug.
 | **Gopher** | Supported | **gelim, against a live public deployment** |
 | **Finger** | Supported | **bombadillo** |
 | **Nex** | Supported | **gelim** |
-| **Spartan** | Supported *(wire-verified)* | Raw wire only — see the note below |
+| **Spartan** | Supported | **Lagrange** (rendered live, 2026-08-10) |
 | Anything else (`http://` to *other* hosts, arbitrary schemes) | Rejected | Answered `53`; `usv` is not a proxy |
 
-### What "verified by" means here, and why Spartan is hedged
+### What "verified by" means here
 
 A protocol is called Supported when it has been exercised against a
-real client, not merely unit-tested. Gopher, Finger and Nex each have
-one; Spartan does not yet, and saying so is the point of the column.
+real client, not merely unit-tested. All five now have one.
 
-`gelim`'s Spartan mode returned nothing in non-interactive use — and
-returned nothing against **spartan.mozz.us**, the reference server,
-too. So it is a client-side limitation rather than a defect here. What
-*is* confirmed is the wire: byte-for-byte request and response
-exchanges, compared against what the reference server sends for the
-same request.
+**Spartan was hedged until 2026-08-10** and is recorded here because
+the hedge did its job. `gelim`'s Spartan mode returned nothing in
+non-interactive use — and returned nothing against **spartan.mozz.us**,
+the reference server, either, so it was a client limitation rather than
+a defect here. Rather than round that up, this page said *wire-verified*
+and named the gap. Lagrange has since rendered `spartan://` live,
+including the generated colophon, and the hedge is lifted.
 
-That comparison also produced a fix. The reference server answers with
-bare `text/gemini`; `usv` had been sending
-`text/gemini;charset=utf-8`. UTF-8 is already the spec's default for
-`text/*`, so the parameter added nothing and gave a client doing exact
-string comparison something extra to disagree with. Now matched.
-
-Spartan moves to unhedged Supported when it has been driven from
-Lagrange or another client with working Spartan support.
+The wire comparison that stood in for it also produced a fix worth
+keeping on record. The reference server answers with bare `text/gemini`;
+`usv` had been sending `text/gemini;charset=utf-8`. UTF-8 is already the
+spec's default for `text/*`, so the parameter added nothing and gave a
+client doing exact string comparison something extra to disagree with.
+Now matched.
 
 ### The web mirror is not a web server
 
