@@ -3,27 +3,32 @@
 - **Gemini**: `gemini://$CLOUDRON-APP-FQDN/`
 - **Web mirror**: $CLOUDRON-APP-ORIGIN/
 
-The first connection to the Gemini address will show a certificate warning
-in most clients — that's normal, and it's the point. Unseen Servant uses
-TOFU (trust-on-first-use) identity, the same way SSH does: the client
-remembers the certificate it saw the first time, and only warns again if it
-ever changes. There is no certificate authority to trust in advance.
+Both addresses serve the same content. There is nothing else to set up —
+a starter page is already written, and the identity your readers will
+trust has already been generated.
+
+### The first visit will show a warning
+
+That is expected. Gemini uses TOFU (trust-on-first-use), like SSH: your
+reader's client remembers the certificate it saw the first time and only
+warns again if it *changes*. No certificate authority is involved.
+
+To confirm readers are seeing the right one, run `usv fingerprint` (see
+below) and compare it with what your client shows.
 
 ### Adding content
 
-Use the file manager (the Files icon on this app's dashboard tile) to edit
-the capsule under `content/` — gemtext (`.gmi`) files, one per page. Every
-save re-renders both surfaces within a couple of seconds.
-
-### If you ever move this capsule to a new domain
-
-Unseen Servant detects the hostname change and will mint a fresh identity
-for the new name rather than silently reusing the old one — readers who
-pinned the old certificate would otherwise see it as a possible
-impersonation. The old keypair is kept, untouched, alongside the new one.
+Open the **Files** icon on this app's tile and edit `content/` — one
+gemtext (`.gmi`) file per page. Saving re-renders both surfaces within
+seconds. No build step, no deploy.
 
 ### The command line
 
-`cloudron exec` drops you into the container, where the `usv` binary itself
-has a full CLI: `usv status`, `usv fingerprint`, `usv check`. None of them
-touch your content — they only report on it.
+`cloudron exec` gives you a shell. `usv status`, `usv fingerprint`, and
+`usv check` report on the capsule; none of them modify your content.
+
+### Moving to another domain
+
+Unseen Servant notices the new hostname and mints a fresh identity for it
+rather than silently reusing the old one — reusing it would look like
+impersonation to anyone who had pinned it. The old keypair is kept.
