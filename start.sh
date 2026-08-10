@@ -43,6 +43,23 @@ else
     export USV_LISTEN=""
 fi
 
+if [[ -n "${GOPHER_PORT:-}" ]]; then
+    # The admin enabled the gopher tcpPorts service. Same shape as
+    # GEMINI_PORT: bind the fixed containerPort, advertise the external
+    # one, since menus carry an absolute host:port and the platform may
+    # map them differently.
+    echo "==> Gopher enabled (CLEARTEXT), external port ${GOPHER_PORT}"
+    export USV_GOPHER_LISTEN="0.0.0.0:7070"
+    export USV_GOPHER_ADVERTISED_PORT="${GOPHER_PORT}"
+else
+    # Absent means the service is disabled (or was never enabled — it is
+    # off by default). Explicitly empty, not merely unset, so it also
+    # overrides a usv.toml that turns gopher on: the platform's switch
+    # wins over the file, matching USV_LISTEN's semantics.
+    echo "==> Gopher disabled by platform config"
+    export USV_GOPHER_LISTEN=""
+fi
+
 echo "==> Starting usv"
 # su-exec, not gosu: the base image is alpine now (see Dockerfile), and
 # su-exec is its equivalent tiny setuid-drop tool — same CLI shape.
