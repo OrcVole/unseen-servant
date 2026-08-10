@@ -25,6 +25,14 @@
 #   * nightly + cargo-fuzz: `rustup toolchain install nightly` and
 #     `cargo install cargo-fuzz --locked` on the runner.
 #
+# 2026-08-10: this drift actually happened — cargo-fuzz was never installed on the
+# `workstation` runner, so every run since this step landed (#16 through #52, checked via the
+# Forgejo Actions API, not assumed) failed in ~44s at "no such command: `fuzz`", well before
+# reaching a real test result. Nobody had been checking remote CI status against local `cargo
+# test` passing, so it went unnoticed for over a day. Fixed by actually running the two setup
+# commands above on the runner and confirming `cargo fuzz run frame_request_line -- -max_total_time=10`
+# succeeds standalone before trusting the next CI run. The lesson, not just the fix: a
+# green local gate is not a green CI gate — check the remote run, don't infer it.
 # Triggers include push-to-main because the project currently works by direct push (solo
 # AI-authored, director-reviewed); when the Update-as-PR culture arrives here, the push
 # trigger can go.
