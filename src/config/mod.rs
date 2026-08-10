@@ -57,6 +57,9 @@ pub struct Config {
     /// How much of a visitor's address the request log may carry.
     /// Defaults to [`PeerLogging::Off`] (OQ-9).
     pub log_peer: PeerLogging,
+    /// The gopher listener, if the operator enabled it. `None` — the
+    /// default — means no cleartext service at all (ADR 0012 §2).
+    pub gopher: Option<GopherConfig>,
     /// Hostnames this server answers for (authority check layer 3; SNI cert
     /// selection). Requests naming any other host get status 53.
     pub hosts: Vec<HostConfig>,
@@ -110,6 +113,25 @@ pub enum TlsMinVersion {
     /// TLS 1.3 — the default. Client certificates over 1.2 travel in
     /// cleartext, which is the contested-issue #12 concern.
     V1_3,
+}
+
+/// The gopher listener's configuration (ADR 0012).
+///
+/// Cleartext, and therefore off unless the operator says otherwise.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GopherConfig {
+    /// Where to bind. Defaults to `0.0.0.0:7070` — deliberately *not*
+    /// the canonical port 70, which is privileged and would cost ADR
+    /// 0002's empty `CapabilityBoundingSet`. Reaching port 70 is
+    /// documented (socket activation, a NAT redirect, Cloudron's
+    /// `tcpPorts`) rather than defaulted.
+    pub listen: SocketAddr,
+    /// The selector prefix this listener serves from. A root inside a
+    /// gated prefix is a startup error (ADR 0012 §6 as amended).
+    pub root: String,
+    /// The port menus advertise, which on a port-remapping platform is
+    /// not the bound one. Defaults to the bound port.
+    pub advertised_port: u16,
 }
 
 /// How much of a visitor's address the request log may carry (OQ-9).
@@ -217,6 +239,10 @@ struct RawConfig {
     /// are per-host (`[[host.titan_zone]]`) because writable paths belong
     /// to a host's content tree.
     titan: Option<RawTitan>,
+    /// `[gopher]` — the first cleartext listener (ADR 0012). Absent
+    /// means off, which is also what `enabled = false` means: a capsule
+    /// that says nothing gets no cleartext service.
+    gopher: Option<RawGopher>,
     /// Reserved (ADR 0009); presence is a startup error.
     responses: Option<toml::Table>,
 }
@@ -296,6 +322,16 @@ struct RawTitanZone {
     token: Option<String>,
     #[serde(default)]
     allow_delete: bool,
+}
+
+/// `[gopher]` — the cleartext gopher listener (ADR 0012).
+#[derive(Debug, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawGopher {
+    enabled: Option<bool>,
+    listen: Option<String>,
+    root: Option<String>,
+    advertised_port: Option<u16>,
 }
 
 /// `[[identity]]` — one named client identity (ADR 0011).
@@ -455,6 +491,7 @@ impl Config {
         }
         let server = raw.server.unwrap_or_default();
         // Server-wide Titan default, applied to zones that name no cap.
+        let gopher_raw = raw.gopher;
         let titan_default_max_upload = raw.titan.unwrap_or_default().max_upload_bytes;
 
         let state_dir = env
@@ -706,12 +743,45 @@ impl Config {
             .map(validate_hostname)
             .transpose()?;
 
+        // Built last: the wall (ADR 0012 §6) needs the resolved hosts,
+        // because what may not be published in the clear is defined by
+        // their certificate and Titan zones.
+        let gopher = match gopher_raw {
+            None => None,
+            Some(g) if !g.enabled.unwrap_or(false) => None,
+            Some(g) => {
+                let listen_str = g.listen.as_deref().unwrap_or("0.0.0.0:7070");
+                let listen: SocketAddr = listen_str.parse().map_err(|_| {
+                    ConfigError::Rejected(format!(
+                        "gopher.listen {listen_str:?} is not a valid socket address \
+                         (e.g. \"0.0.0.0:7070\")"
+                    ))
+                })?;
+                let root = g.root.as_deref().unwrap_or("/").to_string();
+                // A cleartext root pointing into a gated prefix is an
+                // instruction to publish gated content in the clear, so it
+                // is refused here rather than silently emptied later.
+                for host in &hosts {
+                    let gate = crate::render::cleartext::Gate::for_host(host);
+                    crate::render::cleartext::check_cleartext_root("gopher", &root, &gate)
+                        .map_err(ConfigError::Rejected)?;
+                }
+                let advertised_port = g.advertised_port.unwrap_or_else(|| listen.port());
+                Some(GopherConfig {
+                    listen,
+                    root,
+                    advertised_port,
+                })
+            }
+        };
+
         Ok(Config {
             state_dir,
             listen,
             advertised_port,
             tls_min,
             log_peer,
+            gopher,
             hosts,
             advertised_host,
             max_connections,
@@ -1027,6 +1097,89 @@ mod tests {
         assert_eq!(cfg.tls_min, TlsMinVersion::V1_2);
         let err = Config::from_toml_str("[server]\ntls_min = \"1.1\"", &no_env()).unwrap_err();
         assert!(err.to_string().contains("1.2"));
+    }
+
+    #[test]
+    fn gopher_is_off_unless_asked_for() {
+        // ADR 0012 §2: a capsule that says nothing gets no cleartext
+        // service. Absent section and enabled=false are the same answer.
+        assert!(
+            Config::from_toml_str("", &no_env())
+                .expect("valid")
+                .gopher
+                .is_none()
+        );
+        assert!(
+            Config::from_toml_str("[gopher]\nenabled = false", &no_env())
+                .expect("valid")
+                .gopher
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn enabling_gopher_defaults_to_a_non_privileged_port() {
+        // Port 70 is privileged and would cost ADR 0002's empty
+        // CapabilityBoundingSet; reaching it is documented, not defaulted.
+        let cfg = Config::from_toml_str("[gopher]\nenabled = true", &no_env()).expect("valid");
+        let g = cfg.gopher.expect("enabled");
+        assert_eq!(g.listen.port(), 7070);
+        assert_eq!(g.advertised_port, 7070);
+        assert_eq!(g.root, "/");
+    }
+
+    #[test]
+    fn gopher_can_advertise_a_port_it_is_not_bound_to() {
+        // The port-remapping platform case, same as the Gemini side.
+        let cfg = Config::from_toml_str(
+            "[gopher]\nenabled = true\nlisten = \"0.0.0.0:7070\"\nadvertised_port = 70",
+            &no_env(),
+        )
+        .expect("valid");
+        let g = cfg.gopher.expect("enabled");
+        assert_eq!(g.listen.port(), 7070);
+        assert_eq!(g.advertised_port, 70);
+    }
+
+    #[test]
+    fn a_gopher_root_inside_a_cert_zone_is_refused_at_startup() {
+        // ADR 0012 §6 as amended: exclusion handles the ordinary case,
+        // but pointing the cleartext root AT gated content can only mean
+        // "publish this in the clear", so it is refused.
+        let err = Config::from_toml_str(
+            "[gopher]\nenabled = true\nroot = \"/private/\"\n\
+             [[host]]\nname = \"example.org\"\n\
+             [[host.cert_zone]]\npath_prefix = \"/private/\"\n",
+            &no_env(),
+        )
+        .unwrap_err();
+        let msg = err.to_string();
+        assert!(msg.contains("/private/"), "{msg}");
+        assert!(msg.contains("cannot authenticate a client"), "{msg}");
+    }
+
+    #[test]
+    fn an_ordinary_gopher_root_is_fine_alongside_a_cert_zone() {
+        // The case the blanket-error version of the ADR would have
+        // broken: one private area must not make gopher unusable.
+        let cfg = Config::from_toml_str(
+            "[gopher]\nenabled = true\n\
+             [[host]]\nname = \"example.org\"\n\
+             [[host.cert_zone]]\npath_prefix = \"/private/\"\n",
+            &no_env(),
+        )
+        .expect("a private area must not make gopher unusable");
+        assert!(cfg.gopher.is_some());
+    }
+
+    #[test]
+    fn a_bad_gopher_listen_address_is_refused() {
+        let err = Config::from_toml_str(
+            "[gopher]\nenabled = true\nlisten = \"not-an-address\"",
+            &no_env(),
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("7070"), "must show the shape");
     }
 
     #[test]
