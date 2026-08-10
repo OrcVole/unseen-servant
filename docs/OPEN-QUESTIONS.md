@@ -82,3 +82,33 @@ recorded.
   director subsequently suggested `usv` for the binary. Convention
   adopted: prose name **Unseen Servant**, crate / package / repo name
   **unseen-servant**, binary name **`usv`**.
+
+## OQ-9: Per-request logging records the visitor's IP address
+
+- Raised: 2026-08-10 (found while writing `docs/security.md`; not
+  previously surfaced as a question)
+- Status: **open — decision wanted before v1.0 / before announcing**
+- What happens today: `src/server.rs` emits one `info`-level line per
+  request carrying `%peer` (the client IP), the status, and the path.
+  The **query string is redacted by construction** — deliberate, and
+  correct, since Gemini's status 10/11 input flow puts user-typed text
+  (including passwords) in the query. The IP is not redacted.
+- Why it's a question rather than a bug: an operator debugging abuse
+  genuinely wants the address, and `usv` writes only to stdout/stderr
+  and keeps no files, so nothing is *retained* by usv itself — but the
+  platform's journal usually retains it for weeks.
+- Why it matters more here than for a web server: this project's own
+  `docs/recon/community-wisdom.md` §3 records that aggressive log
+  minimalism is a *stated norm* in Geminispace — "operators boast of
+  *not* keeping IPs", some map them to ephemeral IDs discarded within
+  the hour — and that privacy-preserving aggregate counters fit the
+  culture better than access logs. An announcement thread is a likely
+  place for this to be raised by someone who checks.
+- Options: (a) leave as-is and document (today's state); (b) redact or
+  truncate the IP by default with an opt-in to full addresses;
+  (c) a `server.log_peer` setting, defaulting to off; (d) hash the IP
+  with a per-boot salt so repeat visits correlate within a session but
+  nothing durable is written.
+- Recommendation: (c) or (d). Both keep the abuse-debugging story while
+  matching the community's stated expectation; (d) also preserves the
+  aggregate-counter use case the recon says operators actually want.
