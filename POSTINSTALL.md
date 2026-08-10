@@ -1,7 +1,7 @@
 ## Your capsule is live
 
-- **Gemini**: `gemini://$CLOUDRON-APP-DOMAIN/`
-- **Web mirror**: https://$CLOUDRON-APP-DOMAIN/
+- **Gemini**: `gemini://$CLOUDRON-APP-FQDN/`
+- **Web mirror**: $CLOUDRON-APP-ORIGIN/
 
 The first connection to the Gemini address will show a certificate warning
 in most clients — that's normal, and it's the point. Unseen Servant uses
