@@ -43,7 +43,9 @@ unwrap_used = "warn"
 lto = "thin"
 
 [dependencies]
+crossterm = "0.29"
 notify = "8.2.0"
+ratatui = "0.30.2"
 rcgen = { version = "0.14.8", default-features = false, features = ["ring", "pem"] }
 regex = "1.13.1"
 rustls = { version = "0.23.43", default-features = false, features = ["ring", "logging", "std", "tls12"] }
