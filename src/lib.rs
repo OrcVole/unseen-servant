@@ -38,5 +38,6 @@ pub mod http;
 pub mod identity;
 pub mod protocol;
 pub mod render;
+pub mod roster;
 pub mod server;
 pub mod tls;
