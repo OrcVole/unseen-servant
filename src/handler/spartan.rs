@@ -13,7 +13,11 @@ use std::path::{Path, PathBuf};
 use crate::protocol::spartan::{self, Request};
 
 /// Serve one parsed request from `root`.
-pub async fn serve(req: &Request, root: &Path) -> Vec<u8> {
+pub async fn serve(
+    req: &Request,
+    root: &Path,
+    addrs: &crate::render::colophon::Addresses,
+) -> Vec<u8> {
     // Uploads first, before anything touches the filesystem: a write
     // attempt is refused on its declared length alone (ADR 0012 §5).
     if req.content_length > 0 {
@@ -32,6 +36,15 @@ pub async fn serve(req: &Request, root: &Path) -> Vec<u8> {
         Ok(bytes) => {
             let mut out = spartan::success(&mime_for(&path)).into_bytes();
             out.extend_from_slice(&bytes);
+            out
+        }
+        Err(_) if crate::render::colophon::matches(&req.path) => {
+            // Operator content at this path was read above and won.
+            let mut out = spartan::success("text/gemini").into_bytes();
+            out.extend_from_slice(
+                crate::render::colophon::gemtext(crate::render::colophon::Protocol::Spartan, addrs)
+                    .as_bytes(),
+            );
             out
         }
         Err(_) => spartan::client_error("not found").into_bytes(),
@@ -73,6 +86,15 @@ fn resolve(request_path: &str, root: &Path) -> Option<PathBuf> {
 #[cfg(test)]
 #[allow(clippy::unwrap_used, reason = "unwrap is idiomatic in tests")]
 mod tests {
+
+    fn addrs() -> crate::render::colophon::Addresses {
+        crate::render::colophon::Addresses {
+            host: "example.org".into(),
+            spartan_port: Some(300),
+            ..Default::default()
+        }
+    }
+
     use super::*;
 
     fn tmp(tag: &str) -> PathBuf {
@@ -102,7 +124,7 @@ mod tests {
     #[tokio::test]
     async fn a_page_is_served_as_bare_gemtext_matching_the_reference_server() {
         let d = tmp("ok");
-        let out = String::from_utf8(serve(&req("/index.gmi", 0), &d).await).unwrap();
+        let out = String::from_utf8(serve(&req("/index.gmi", 0), &d, &addrs()).await).unwrap();
         assert!(out.starts_with("2 text/gemini\r\n"), "{out}");
         assert!(out.contains("# Home"));
     }
@@ -110,14 +132,14 @@ mod tests {
     #[tokio::test]
     async fn a_directory_serves_its_index() {
         let d = tmp("dir");
-        let out = String::from_utf8(serve(&req("/sub/", 0), &d).await).unwrap();
+        let out = String::from_utf8(serve(&req("/sub/", 0), &d, &addrs()).await).unwrap();
         assert!(out.contains("# Sub"), "{out}");
     }
 
     #[tokio::test]
     async fn a_non_gemtext_file_keeps_its_own_type() {
         let d = tmp("mime");
-        let out = String::from_utf8(serve(&req("/note.txt", 0), &d).await).unwrap();
+        let out = String::from_utf8(serve(&req("/note.txt", 0), &d, &addrs()).await).unwrap();
         assert!(out.starts_with("2 text/plain"), "{out}");
     }
 
@@ -127,7 +149,8 @@ mod tests {
         // gigabytes gets a refusal rather than a server making room.
         let d = tmp("upload");
         for len in [1u64, 1024, u64::MAX] {
-            let out = String::from_utf8(serve(&req("/index.gmi", len), &d).await).unwrap();
+            let out =
+                String::from_utf8(serve(&req("/index.gmi", len), &d, &addrs()).await).unwrap();
             assert!(out.starts_with('4'), "len {len} was not refused: {out}");
             assert!(
                 out.contains("Titan"),
@@ -140,7 +163,7 @@ mod tests {
     #[tokio::test]
     async fn a_missing_page_is_a_client_error() {
         let d = tmp("404");
-        let out = String::from_utf8(serve(&req("/nope.gmi", 0), &d).await).unwrap();
+        let out = String::from_utf8(serve(&req("/nope.gmi", 0), &d, &addrs()).await).unwrap();
         assert!(out.starts_with("4 not found"), "{out}");
     }
 
@@ -148,7 +171,7 @@ mod tests {
     async fn traversal_is_refused_by_the_shared_sanitiser() {
         let d = tmp("trav");
         for attempt in ["/../../etc/passwd", "/..%2f..%2fetc/passwd", "/a\0b"] {
-            let out = String::from_utf8(serve(&req(attempt, 0), &d).await).unwrap();
+            let out = String::from_utf8(serve(&req(attempt, 0), &d, &addrs()).await).unwrap();
             assert!(out.starts_with('4'), "{attempt}: {out}");
             assert!(!out.contains("root:"), "{attempt} leaked passwd");
         }

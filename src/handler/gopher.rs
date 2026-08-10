@@ -15,7 +15,12 @@ use crate::protocol::gopher::{self, ItemType};
 use crate::render::gopher::{Context, caps_txt};
 
 /// Serve one selector from `root`.
-pub async fn serve(selector: &str, root: &Path, ctx: &Context) -> Vec<u8> {
+pub async fn serve(
+    selector: &str,
+    root: &Path,
+    ctx: &Context,
+    addrs: &crate::render::colophon::Addresses,
+) -> Vec<u8> {
     let sel = selector.trim();
 
     // The conventional capability file, generated rather than stored so
@@ -47,6 +52,18 @@ pub async fn serve(selector: &str, root: &Path, ctx: &Context) -> Vec<u8> {
                 },
                 Served::Binary => bytes,
             }
+        }
+        // Generated, like caps.txt above, and for the same reason: an
+        // operator file at this selector was read above and won.
+        Err(_)
+            if crate::render::colophon::matches(sel)
+                || crate::render::colophon::matches(&format!("/{sel}")) =>
+        {
+            gopher::text_body(&crate::render::colophon::plain(
+                crate::render::colophon::Protocol::Gopher,
+                addrs,
+            ))
+            .into_bytes()
         }
         Err(_) => gopher::error_menu("not found").into_bytes(),
     }
@@ -93,6 +110,15 @@ fn resolve(selector: &str, root: &Path) -> Option<PathBuf> {
 #[cfg(test)]
 #[allow(clippy::unwrap_used, reason = "unwrap is idiomatic in tests")]
 mod tests {
+
+    fn addrs() -> crate::render::colophon::Addresses {
+        crate::render::colophon::Addresses {
+            host: "example.org".into(),
+            gopher_port: Some(70),
+            ..Default::default()
+        }
+    }
+
     use super::*;
 
     fn ctx() -> Context {
@@ -150,21 +176,21 @@ mod tests {
     #[tokio::test]
     async fn an_empty_selector_serves_the_root_menu() {
         let d = tree();
-        let out = serve("", d.path(), &ctx()).await;
+        let out = serve("", d.path(), &ctx(), &addrs()).await;
         assert!(String::from_utf8_lossy(&out).contains("iHome"));
     }
 
     #[tokio::test]
     async fn a_directory_selector_serves_its_index() {
         let d = tree();
-        let out = serve("/notes/", d.path(), &ctx()).await;
+        let out = serve("/notes/", d.path(), &ctx(), &addrs()).await;
         assert!(String::from_utf8_lossy(&out).contains("iNotes"));
     }
 
     #[tokio::test]
     async fn a_menu_is_served_already_framed() {
         let d = tree();
-        let out = serve("/index.gmi", d.path(), &ctx()).await;
+        let out = serve("/index.gmi", d.path(), &ctx(), &addrs()).await;
         let s = String::from_utf8_lossy(&out);
         assert!(s.ends_with(".\r\n"));
         // Not double-terminated: the file already carried its lastline.
@@ -174,7 +200,7 @@ mod tests {
     #[tokio::test]
     async fn a_text_file_is_dot_stuffed_so_it_cannot_truncate() {
         let d = tree();
-        let out = serve("/readme.txt", d.path(), &ctx()).await;
+        let out = serve("/readme.txt", d.path(), &ctx(), &addrs()).await;
         let s = String::from_utf8_lossy(&out);
         assert!(s.contains("..hidden\r\n"), "leading dot not stuffed: {s:?}");
         assert!(s.ends_with(".\r\n"));
@@ -183,7 +209,7 @@ mod tests {
     #[tokio::test]
     async fn a_missing_selector_is_a_type_3_menu_not_a_hang() {
         let d = tree();
-        let out = serve("/nope.gmi", d.path(), &ctx()).await;
+        let out = serve("/nope.gmi", d.path(), &ctx(), &addrs()).await;
         let s = String::from_utf8_lossy(&out);
         assert!(s.starts_with('3'), "{s:?}");
         assert!(s.ends_with(".\r\n"));
@@ -193,7 +219,7 @@ mod tests {
     async fn traversal_is_refused_by_the_shared_sanitiser() {
         let d = tree();
         for attempt in ["/../../etc/passwd", "/..%2f..%2fetc/passwd", "/a\0b"] {
-            let out = serve(attempt, d.path(), &ctx()).await;
+            let out = serve(attempt, d.path(), &ctx(), &addrs()).await;
             let s = String::from_utf8_lossy(&out);
             assert!(s.starts_with('3'), "{attempt} leaked: {s:?}");
             assert!(!s.contains("root:"), "{attempt} leaked passwd");
@@ -203,10 +229,25 @@ mod tests {
     #[tokio::test]
     async fn caps_txt_is_generated_from_the_live_context() {
         let d = tree();
-        let out = serve("/caps.txt", d.path(), &ctx()).await;
+        let out = serve("/caps.txt", d.path(), &ctx(), &addrs()).await;
         let s = String::from_utf8_lossy(&out);
         assert!(s.contains("ServerSoftware=unseen-servant"));
         assert!(s.contains("ServerHost=example.org"));
         assert!(s.ends_with(".\r\n"));
+    }
+
+    #[tokio::test]
+    async fn the_colophon_is_served_as_plain_text_with_no_markup() {
+        let d = tree();
+        let out = String::from_utf8(serve("/usv", d.path(), &ctx(), &addrs()).await).unwrap();
+        assert!(out.contains("UnSeen serVant"), "{out}");
+        assert!(out.contains("This is a Gopher page"), "{out}");
+        // Gopher readers see gemtext markup as literal characters.
+        assert!(
+            !out.contains("=> "),
+            "link markup reached a gopher client: {out}"
+        );
+        // Dot-stuffed and terminated like any other text item.
+        assert!(out.ends_with(".\r\n"), "not framed as a text item: {out:?}");
     }
 }

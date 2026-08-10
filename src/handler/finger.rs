@@ -15,17 +15,11 @@ use std::path::Path;
 
 /// Addresses the profile advertises, so a reader who fingered the host
 /// knows where to go next.
-#[derive(Debug, Clone)]
-pub struct Addresses {
-    /// The capsule's hostname.
-    pub host: String,
-    /// The Gemini port, for the `gemini://` line.
-    pub gemini_port: u16,
-    /// The web mirror's base URL, if the HTTP surface is on.
-    pub web_base_url: Option<String>,
-    /// The gopher port, if that listener is enabled.
-    pub gopher_port: Option<u16>,
-}
+///
+/// Shared with the colophon rather than kept separately: both answer
+/// "where else does this capsule live?", and two lists drift apart the
+/// first time a listener is added to one and not the other.
+pub use crate::render::colophon::Addresses;
 
 /// Build the finger response.
 ///
@@ -46,18 +40,20 @@ fn default_profile(addr: &Addresses) -> String {
     s.push_str(&"-".repeat(addr.host.chars().count().max(1)));
     s.push('\n');
     s.push('\n');
-    s.push_str("A capsule served by Unseen Servant.\n\n");
+    // Spell the name out. Finger is often the first thing a curious
+    // visitor tries, and "usv" is not guessable from the long name.
+    s.push_str("A capsule served by Unseen Servant (UnSeen serVant -> usv).\n\n");
 
     s.push_str("Read it at:\n\n");
-    if addr.gemini_port == crate::protocol::GEMINI_DEFAULT_PORT {
-        s.push_str(&format!("  gemini://{}/\n", addr.host));
-    } else {
-        s.push_str(&format!("  gemini://{}:{}/\n", addr.host, addr.gemini_port));
-    }
-    if let Some(port) = addr.gopher_port {
-        // Always with the port: gopher clients assume 70, and a capsule
-        // on any other port is unreachable without it being written out.
-        s.push_str(&format!("  gopher://{}:{}/\n", addr.host, port));
+    // Ports come from the shared address list, so a listener switched on
+    // in config appears here without anyone remembering to add it.
+    for (protocol, url) in addr.all() {
+        // Not finger itself: the reader is already here, and telling
+        // them to finger the host they just fingered is noise.
+        if protocol == crate::render::colophon::Protocol::Finger {
+            continue;
+        }
+        s.push_str(&format!("  {url}\n"));
     }
     if let Some(web) = &addr.web_base_url {
         s.push_str(&format!("  {web}/\n"));
@@ -92,9 +88,10 @@ mod tests {
     fn addr() -> Addresses {
         Addresses {
             host: "example.org".into(),
-            gemini_port: 1965,
+            gemini_port: Some(1965),
             web_base_url: Some("https://example.org".into()),
             gopher_port: Some(7070),
+            ..Default::default()
         }
     }
 
@@ -126,7 +123,7 @@ mod tests {
     async fn a_non_default_gemini_port_is_written_out() {
         let d = tmp("port");
         let mut a = addr();
-        a.gemini_port = 11965;
+        a.gemini_port = Some(11965);
         let out = String::from_utf8(respond(&d, &a).await).unwrap();
         assert!(out.contains("gemini://example.org:11965/"), "{out}");
     }
@@ -136,9 +133,10 @@ mod tests {
         let d = tmp("off");
         let a = Addresses {
             host: "example.org".into(),
-            gemini_port: 1965,
+            gemini_port: Some(1965),
             web_base_url: None,
             gopher_port: None,
+            ..Default::default()
         };
         let out = String::from_utf8(respond(&d, &a).await).unwrap();
         assert!(out.contains("gemini://"));
@@ -165,5 +163,13 @@ mod tests {
         let out = String::from_utf8(respond(&d, &addr()).await).unwrap();
         assert!(out.ends_with("\r\n"), "{out:?}");
         assert!(!out.contains('\n') || out.contains("\r\n"));
+    }
+
+    #[tokio::test]
+    async fn the_profile_does_not_send_the_reader_back_to_finger() {
+        let mut a = addr();
+        a.finger_port = Some(79);
+        let out = String::from_utf8(respond(&tmp("selfref"), &a).await).unwrap();
+        assert!(!out.contains("finger://"), "{out}");
     }
 }
