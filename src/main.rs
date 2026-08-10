@@ -14,7 +14,9 @@
 //! ratatui rendering has no meaningful unit test, so everything it could
 //! get wrong (what a bad hostname looks like, what the file ends up
 //! containing) is pushed into `init::validate`/`init::write_config`
-//! instead, where it can be. Tor/I2P affordances are still reserved.
+//! instead, where it can be. Tor/I2P affordances (`server.advertised_host`,
+//! onion-hostname cert slots, no-SNI tolerance) are implemented in
+//! `config`/`identity`/`tls`, not here — see `INTEGRATIONS.md`.
 //!
 //! Signal discipline (ADR 0002): SIGHUP reloads config + certificates
 //! without dropping listeners (an invalid file keeps the old config);
@@ -92,9 +94,10 @@ const HELP: &str = concat!(
     "the same defaults an absent config already resolves to, written down\n",
     "explicitly as a starting point to edit.\n",
     "\n",
-    "Tor/I2P affordances arrive per docs/BUILD-PLAN.md C5. Nothing is\n",
-    "announced or exposed publicly before the v1.0 gates pass\n",
-    "(docs/ROADMAP.md).\n",
+    "Tor/I2P onion capsules: set server.advertised_host and add a [[host]]\n",
+    "for the onion address (see INTEGRATIONS.md for the verified recipe and\n",
+    "a real gotcha around advertised_port). Nothing is announced or exposed\n",
+    "publicly before the v1.0 gates pass (docs/ROADMAP.md).\n",
 );
 
 /// A subcommand not yet implemented — recognised and named rather than
@@ -397,15 +400,68 @@ fn render_context(config: &Config) -> pipeline::RenderContext {
         .first()
         .map(|h| h.name.clone())
         .unwrap_or_default();
+    // `server.advertised_host` overrides only what generated absolute URLs
+    // (feed self-link, sitemap.xml, /llms.txt, robots.txt) name — not
+    // routing or SNI cert selection, which still key off `config.hosts`
+    // (see the field's own docs). Unset: unchanged behavior, first host.
+    let advertised_host = config.advertised_host.clone().unwrap_or(primary_host);
     let web_base_url = config
         .http_listen
-        .map(|_| format!("https://{primary_host}"))
+        .map(|_| format!("https://{advertised_host}"))
         .unwrap_or_default();
     pipeline::RenderContext {
         theme_css: config.theme.css.to_string(),
         web_base_url,
-        capsule_title: primary_host,
+        capsule_title: advertised_host,
         lang: config.lang.clone(),
+    }
+}
+
+#[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    reason = "unwrap/unwrap_err are idiomatic in tests"
+)]
+mod render_context_tests {
+    use super::*;
+    use unseen_servant::config::EnvOverrides;
+
+    fn cfg(toml: &str) -> Config {
+        Config::from_toml_str(toml, &EnvOverrides::default()).unwrap()
+    }
+
+    #[test]
+    fn without_an_override_the_first_host_is_advertised() {
+        let ctx = render_context(&cfg("[server]\nhttp_listen = \"127.0.0.1:8080\"\n\
+             [[host]]\nname = \"real.example\"\n"));
+        assert_eq!(ctx.web_base_url, "https://real.example");
+        assert_eq!(ctx.capsule_title, "real.example");
+    }
+
+    #[test]
+    fn advertised_host_overrides_the_render_time_base_url_and_title() {
+        // The Tor case: the capsule answers Gemini for its real hostname
+        // (routing/SNI still key off [[host]]) but wants its rendered
+        // feeds/sitemap/llms.txt to name the onion mirror instead.
+        let onion = "a".repeat(56) + ".onion";
+        let ctx = render_context(&cfg(&format!(
+            "[server]\nhttp_listen = \"127.0.0.1:8080\"\nadvertised_host = {onion:?}\n\
+             [[host]]\nname = \"real.example\"\n"
+        )));
+        assert_eq!(ctx.web_base_url, format!("https://{onion}"));
+        assert_eq!(ctx.capsule_title, onion);
+    }
+
+    #[test]
+    fn advertised_host_is_moot_without_an_http_surface() {
+        // web_base_url must stay empty (which disables the Atom feed) —
+        // advertised_host names *how* to advertise the web surface, not
+        // *whether* one exists.
+        let onion = "a".repeat(56) + ".onion";
+        let ctx = render_context(&cfg(&format!(
+            "[server]\nadvertised_host = {onion:?}\n[[host]]\nname = \"real.example\"\n"
+        )));
+        assert_eq!(ctx.web_base_url, "");
     }
 }
 

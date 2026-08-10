@@ -1,6 +1,9 @@
 //! C5 CLI subcommands (`docs/BUILD-PLAN.md` C5): `status`, `fingerprint`,
 //! `check`, `zones`, `stats`, `render`, `export`. `usv init` (the ratatui
-//! wizard) and Tor/I2P affordances arrive separately.
+//! wizard) lives in `main.rs`; Tor/I2P affordances (`server.advertised_host`,
+//! onion-hostname cert slots, no-SNI tolerance) needed no CLI surface —
+//! they're `config`/`identity`/`tls` behavior, documented in
+//! `INTEGRATIONS.md`.
 //!
 //! Kept in the library, not `main.rs`, on the same principle every other
 //! phase has followed: business logic goes where it can be unit-tested
@@ -692,6 +695,13 @@ pub fn format_status(config: &Config, store: &IdentityStore, published: &Publish
             .map(|a| a.to_string())
             .unwrap_or_else(|| "off".to_string())
     ));
+    out.push_str(&format!(
+        "advertised host: {}\n",
+        config
+            .advertised_host
+            .as_deref()
+            .unwrap_or("(default: first configured host)")
+    ));
     out.push_str("\n== server fingerprints ==\n");
     out.push_str(&format_fingerprints(store));
     out.push_str("\n== identity roster ==\n");
@@ -1072,6 +1082,22 @@ mod tests {
         assert!(out.contains("== zones =="));
         assert!(out.contains("== published =="));
         assert!(out.contains("a.example"));
+        assert!(out.contains("advertised host: (default: first configured host)"));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn format_status_shows_an_explicit_advertised_host() {
+        let dir = tmpdir("status-advertised-host");
+        let cfg = Config::from_toml_str(
+            "[server]\nadvertised_host = \"mirror.example\"\n[[host]]\nname = \"a.example\"\n",
+            &crate::config::EnvOverrides::default(),
+        )
+        .unwrap();
+        let store = IdentityStore::open(&dir, &["a.example".to_string()]).unwrap();
+        let published = PublishedStats::default();
+        let out = format_status(&cfg, &store, &published);
+        assert!(out.contains("advertised host: mirror.example"));
         let _ = std::fs::remove_dir_all(&dir);
     }
 

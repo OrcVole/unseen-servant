@@ -488,6 +488,57 @@ fn exchange_sni(port: u16, sni: &str, raw: &[u8]) -> Vec<u8> {
     response
 }
 
+/// Like [`exchange`], but the ClientHello carries no SNI extension at all
+/// — connecting by literal IP address rather than a `ServerName::DnsName`
+/// is the one way rustls's own client omits SNI (RFC 6066 §3: SNI is not
+/// sent for literal IP addresses; rustls's `client_hello_payload` only
+/// populates the extension for `ServerName::DnsName`, see
+/// `rustls::client::hs`). This is the real "Tor client with no SNI"
+/// shape, not a simulation of it.
+fn exchange_no_sni(port: u16, raw: &[u8]) -> Vec<u8> {
+    let provider = rustls::crypto::ring::default_provider();
+    let config = rustls::ClientConfig::builder_with_provider(Arc::new(provider.clone()))
+        .with_safe_default_protocol_versions()
+        .expect("client config versions")
+        .dangerous()
+        .with_custom_certificate_verifier(Arc::new(TrustAnything(provider)))
+        .with_no_client_auth();
+    let server_name = rustls_pki_types::ServerName::from(std::net::IpAddr::from([127, 0, 0, 1]));
+    let conn = rustls::ClientConnection::new(Arc::new(config), server_name).expect("client conn");
+    let tcp = TcpStream::connect(("127.0.0.1", port)).expect("tcp connect");
+    tcp.set_read_timeout(Some(std::time::Duration::from_secs(15)))
+        .expect("timeout");
+    let mut tls = rustls::StreamOwned::new(conn, tcp);
+    tls.write_all(raw).expect("request written");
+    tls.flush().expect("flushed");
+    let mut response = Vec::new();
+    let _ = tls.read_to_end(&mut response);
+    response
+}
+
+/// The certificate served over a no-SNI connection (see
+/// [`exchange_no_sni`]) — proves *which* identity answered when the
+/// ClientHello named none.
+fn served_cert_der_no_sni(port: u16) -> Vec<u8> {
+    let provider = rustls::crypto::ring::default_provider();
+    let config = rustls::ClientConfig::builder_with_provider(Arc::new(provider.clone()))
+        .with_safe_default_protocol_versions()
+        .expect("versions")
+        .dangerous()
+        .with_custom_certificate_verifier(Arc::new(TrustAnything(provider)))
+        .with_no_client_auth();
+    let server_name = rustls_pki_types::ServerName::from(std::net::IpAddr::from([127, 0, 0, 1]));
+    let conn = rustls::ClientConnection::new(Arc::new(config), server_name).expect("conn");
+    let tcp = TcpStream::connect(("127.0.0.1", port)).expect("connect");
+    let mut tls = rustls::StreamOwned::new(conn, tcp);
+    let _ = tls.write_all(b"gemini://127.0.0.1/\r\n");
+    let mut buf = [0u8; 1];
+    let _ = tls.read(&mut buf);
+    tls.conn.peer_certificates().expect("server sent a cert")[0]
+        .as_ref()
+        .to_vec()
+}
+
 /// The certificate rustls actually selected for this connection's SNI —
 /// lets a test prove *which* host's identity answered, not just that
 /// *some* response came back.
@@ -800,6 +851,43 @@ fn sni_selects_the_matching_host_cert_and_content() {
             .windows(b"beta.example".len())
             .any(|w| w == b"beta.example"),
         "beta's own content must be served under its own SNI"
+    );
+}
+
+/// A ClientHello with no SNI at all (the shape a Tor/I2P client commonly
+/// sends — docs/notes/integration-ideas.md "Tor / I2P") must be served,
+/// not refused: the resolver falls back to the first configured host's
+/// certificate (`identity::IdentityStore`'s documented no-SNI default),
+/// and the request's own authority check still governs which content
+/// comes back, exactly as it does when SNI picks the "wrong" host's cert
+/// (see `authority_check_is_independent_of_which_sni_cert_answered`).
+#[test]
+fn a_connection_with_no_sni_is_served_by_the_default_host() {
+    let server = start_multi_host("no-sni", &["alpha.example", "beta.example"]);
+
+    let cert_alpha = served_cert_der(server.port, "alpha.example");
+    let cert_no_sni = served_cert_der_no_sni(server.port);
+    assert_eq!(
+        cert_alpha, cert_no_sni,
+        "no SNI must fall back to the first configured host's certificate"
+    );
+
+    // Content routing is untouched by the missing SNI: a no-SNI connection
+    // can still fetch beta's content, because Gemini authority is a
+    // per-request URI check, not a per-connection SNI binding.
+    let request = format!("gemini://beta.example:{}/\r\n", server.port);
+    let response = exchange_no_sni(server.port, request.as_bytes());
+    assert!(
+        status_line(&response).starts_with("20 "),
+        "a no-SNI connection must still be able to reach a configured host, \
+         got {:?}",
+        status_line(&response)
+    );
+    assert!(
+        response
+            .windows(b"beta.example".len())
+            .any(|w| w == b"beta.example"),
+        "must serve beta's own content over the no-SNI connection"
     );
 }
 
