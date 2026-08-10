@@ -24,6 +24,10 @@ pub enum Protocol {
     Nex,
     /// Finger, a person rather than a document.
     Finger,
+    /// The web mirror. Not a smolnet protocol, but the surface most
+    /// first-time readers arrive on, and the one place the others can
+    /// be introduced to someone who has never heard of any of them.
+    Web,
 }
 
 impl Protocol {
@@ -35,6 +39,7 @@ impl Protocol {
             Protocol::Spartan => "Spartan",
             Protocol::Nex => "Nex",
             Protocol::Finger => "Finger",
+            Protocol::Web => "web",
         }
     }
 
@@ -46,6 +51,7 @@ impl Protocol {
             Protocol::Spartan => "spartan",
             Protocol::Nex => "nex",
             Protocol::Finger => "finger",
+            Protocol::Web => "https",
         }
     }
 
@@ -83,6 +89,9 @@ impl Protocol {
                 "https://datatracker.ietf.org/doc/html/rfc1288",
                 "RFC 1288 — the Finger specification (1991)",
             )],
+            // The web needs no introduction; the interesting links are
+            // the protocols this page exists to introduce.
+            Protocol::Web => &[("https://geminiprotocol.net/", "The Gemini protocol")],
         }
     }
 
@@ -122,6 +131,12 @@ impl Protocol {
                 "Finger is the internet's oldest status update. It answers \"what is this \
                  person up to?\" — the .plan file, which predates blogging by decades and \
                  does the same job in four lines. It does not serve documents."
+            }
+            Protocol::Web => {
+                "This is the web mirror of a capsule that also lives on the smaller, older \
+                 protocols listed below. It is the same writing, rendered from the same \
+                 folder — nothing here is exclusive to the web. If any of those protocols \
+                 look interesting, each is readable with one small program and no account."
             }
         }
     }
@@ -174,6 +189,8 @@ impl Protocol {
                 ),
                 ("the finger(1) command", "RFC 1288; ships with many systems"),
             ],
+            // You are already reading this in one.
+            Protocol::Web => &[],
         }
     }
 }
@@ -287,7 +304,13 @@ pub fn gemtext(protocol: Protocol, addrs: &Addresses) -> String {
     let name = protocol.name();
     let scheme = protocol.scheme();
 
-    s.push_str(&format!("# This is a {name} page\n\n"));
+    // The web mirror is not "a web page" -- everything is a web page.
+    // What is worth saying is that it mirrors something else.
+    if protocol == Protocol::Web {
+        s.push_str("# This is the web mirror of a smolnet capsule\n\n");
+    } else {
+        s.push_str(&format!("# This is a {name} page\n\n"));
+    }
 
     // Where you are, and what served it.
     let self_url = addrs
@@ -296,9 +319,14 @@ pub fn gemtext(protocol: Protocol, addrs: &Addresses) -> String {
         .find(|(p, _)| *p == protocol)
         .map(|(_, u)| u)
         .unwrap_or_else(|| format!("{scheme}://{}/", addrs.host));
+    let role = if protocol == Protocol::Web {
+        "web mirror".to_string()
+    } else {
+        format!("{name} server")
+    };
     s.push_str(&format!(
         "You are reading this at {self_url} — served to you by the Unseen Servant \
-         (usv) {name} server.\n\n"
+         (usv) {role}.\n\n"
     ));
 
     // The name, which nobody can be expected to guess.
@@ -320,19 +348,21 @@ pub fn gemtext(protocol: Protocol, addrs: &Addresses) -> String {
     s.push('\n');
 
     // How to read it natively.
-    s.push_str(&format!("## Reading {name} natively\n\n"));
-    s.push_str(&format!(
-        "If this page arrived looking strange, you may be reading it through a gateway. \
-         These clients speak {name} directly:\n\n"
-    ));
-    for (client, url) in protocol.clients() {
-        if url.starts_with("http") {
-            s.push_str(&format!("=> {url} {client}\n"));
-        } else {
-            s.push_str(&format!("* {client} — {url}\n"));
+    if !protocol.clients().is_empty() {
+        s.push_str(&format!("## Reading {name} natively\n\n"));
+        s.push_str(&format!(
+            "If this page arrived looking strange, you may be reading it through a gateway. \
+             These clients speak {name} directly:\n\n"
+        ));
+        for (client, url) in protocol.clients() {
+            if url.starts_with("http") {
+                s.push_str(&format!("=> {url} {client}\n"));
+            } else {
+                s.push_str(&format!("* {client} — {url}\n"));
+            }
         }
+        s.push_str("\nClient support changes; this list was checked in August 2026.\n\n");
     }
-    s.push_str("\nClient support changes; this list was checked in August 2026.\n\n");
 
     // The same words, elsewhere.
     let others: Vec<_> = addrs
@@ -548,5 +578,15 @@ mod tests {
             }
         }
         assert!(gemtext(Protocol::Finger, &addrs()).contains("rfc1288"));
+    }
+
+    #[test]
+    fn the_web_mirror_does_not_call_itself_a_web_page() {
+        // "This is a web page" says nothing -- everything is. What the
+        // reader needs is that it mirrors something they have not met.
+        let out = gemtext(Protocol::Web, &addrs());
+        assert!(out.starts_with("# This is the web mirror"), "{out}");
+        assert!(out.contains("web mirror."), "{out}");
+        assert!(!out.contains("web server"), "{out}");
     }
 }

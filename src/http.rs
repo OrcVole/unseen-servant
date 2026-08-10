@@ -46,6 +46,10 @@ const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
 pub struct Shared {
     /// `${state_dir}/html` — the rendered tree's live root.
     pub html_dir: PathBuf,
+    /// Every address this capsule answers on, for the colophon. Carried
+    /// here rather than re-derived per request so it tracks a config
+    /// reload through the same watch channel as the tree itself.
+    pub addrs: crate::render::colophon::Addresses,
 }
 
 /// Bind the HTTP listener. Plain TCP, no TLS — Cloudron's own reverse
@@ -186,6 +190,19 @@ async fn respond(tcp: &mut TcpStream, state: &Shared, path: &str) {
 
     match static_file::resolve_safe_path(&state.html_dir, path_only).await {
         Some(file) => serve_file(tcp, &file).await,
+        // The colophon, rendered through the same gemtext-to-HTML
+        // emitter the rest of the mirror uses, so it inherits the
+        // capsule's markup rather than growing a second style. Only
+        // reached when the operator has no page of their own here.
+        None if crate::render::colophon::matches(path_only) => {
+            let gmi = crate::render::colophon::gemtext(
+                crate::render::colophon::Protocol::Web,
+                &state.addrs,
+            );
+            let lines = crate::render::gemtext::parse(&gmi);
+            let html = crate::render::html::render_document(&lines, "About this capsule", "en");
+            let _ = write_response(tcp, 200, "text/html; charset=utf-8", html.as_bytes()).await;
+        }
         None => {
             let _ = write_response(tcp, 404, "text/plain; charset=utf-8", b"not found").await;
         }
@@ -258,7 +275,10 @@ mod tests {
     async fn start_server(html_dir: PathBuf) -> SocketAddr {
         let listener = bind("127.0.0.1:0".parse().unwrap()).unwrap();
         let addr = listener.local_addr().unwrap();
-        let (state_tx, state_rx) = watch::channel(Shared { html_dir });
+        let (state_tx, state_rx) = watch::channel(Shared {
+            html_dir,
+            addrs: Default::default(),
+        });
         let (shutdown_tx, shutdown_rx) = watch::channel(false);
         // Both senders must outlive this function: a dropped `watch::Sender`
         // resolves the receiver's `.changed()` (as an error, but the
@@ -373,5 +393,37 @@ mod tests {
         assert_eq!(status, 200);
         assert!(body.contains("<h1>Home</h1>"));
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[tokio::test]
+    async fn the_web_mirror_serves_the_colophon_rather_than_404() {
+        // The default skeleton links /usv from the capsule root, so this
+        // path must answer on every surface the skeleton is rendered to
+        // -- the web mirror included, where it is not a file in the tree.
+        let out = colophon_html();
+        assert!(out.contains("UnSeen serVant"), "{out}");
+        assert!(
+            out.contains("<h1"),
+            "not rendered through the HTML emitter: {out}"
+        );
+    }
+
+    fn colophon_html() -> String {
+        let addrs = crate::render::colophon::Addresses {
+            host: "example.org".into(),
+            gemini_port: Some(1965),
+            gopher_port: Some(70),
+            ..Default::default()
+        };
+        let gmi = crate::render::colophon::gemtext(crate::render::colophon::Protocol::Web, &addrs);
+        let lines = crate::render::gemtext::parse(&gmi);
+        crate::render::html::render_document(&lines, "About this capsule", "en")
+    }
+
+    #[test]
+    fn the_web_colophon_points_at_the_other_protocols() {
+        let out = colophon_html();
+        assert!(out.contains("gemini://example.org/"), "{out}");
+        assert!(out.contains("gopher://example.org:70/"), "{out}");
     }
 }

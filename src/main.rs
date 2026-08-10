@@ -964,7 +964,12 @@ async fn serve(args: Args) -> Result<(), ()> {
         match http::bind(addr) {
             Ok(listener) => {
                 let html_dir = state_rx.borrow().config.state_dir.join("html");
-                let (http_state_tx, http_state_rx) = watch::channel(http::Shared { html_dir });
+                let (http_state_tx, http_state_rx) = watch::channel(http::Shared {
+                    html_dir,
+                    addrs: unseen_servant::render::colophon::Addresses::from_config(
+                        &state_rx.borrow().config.clone(),
+                    ),
+                });
                 std::mem::forget(http_state_tx); // html_dir is stable for process lifetime
                 tracing::info!(%addr, "http listener bound");
                 http_task = Some(tokio::spawn(http::accept_loop(
