@@ -33,16 +33,49 @@ pkgver() {
         "$(git rev-parse --short HEAD)"
 }
 
+prepare() {
+    cd "$pkgname"
+    export RUSTUP_TOOLCHAIN=stable
+    # Fetches everything Cargo.lock names, over the network, once — before
+    # build()/check() run --frozen (the standard Arch Rust packaging split:
+    # prepare() is the only step allowed network access, so its absence
+    # from build/check is provable, not just intended). Found live: without
+    # this step, `cargo build --frozen` fails outright on a clean machine
+    # with "no matching package named `crossterm` found" — --frozen means
+    # zero network access, not merely "respect Cargo.lock".
+    cargo fetch --locked --target "$(rustc -vV | sed -n 's/host: //p')"
+}
+
 build() {
     cd "$pkgname"
     export RUSTUP_TOOLCHAIN=stable
     export CARGO_TARGET_DIR=target
+    # makepkg.conf's default flags break ring's build script (it compiles
+    # a handful of hand-written C/assembly files via `cc`, then links the
+    # result into the Rust binary). Found live, isolating one variable at
+    # a time, both real and both independently necessary:
+    #  - LDFLAGS carries -Wl,--as-needed, a known breaker for crates that
+    #    link hand-assembled static archives with no visible Rust-side
+    #    symbol references until the final link.
+    #  - CFLAGS/CXXFLAGS carry -flto=auto, which turns ring's plain object
+    #    files into LTO bitcode that a non-LTO Rust link can't consume —
+    #    the actual cause of the "undefined symbol: ring_core_0_17_14__*"
+    #    wall of errors this produced (dozens of symbols, every one of
+    #    them a real function ring's build script compiles, just not
+    #    reachable through the mismatched LTO representation).
+    # A plain `cargo build` outside makepkg's environment reproduces
+    # neither failure — this is specifically about what makepkg.conf
+    # injects, not usv's own build. Distro hardening flags belong on
+    # distro-compiled C/C++; there's no reason to also apply them to the
+    # few bytes of C a Rust crate's build.rs compiles internally.
+    unset LDFLAGS CFLAGS CXXFLAGS
     cargo build --frozen --release --bin usv
 }
 
 check() {
     cd "$pkgname"
     export RUSTUP_TOOLCHAIN=stable
+    unset LDFLAGS CFLAGS CXXFLAGS
     cargo test --frozen --release
 }
 
