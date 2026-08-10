@@ -2,9 +2,15 @@
 //!
 //! Phase C1: zero-arg `usv` starts a working capsule (ADR 0008) — config
 //! loaded per the ADR 0007 search order, identity minted on first run
-//! (ADR 0003), Gemini served on the configured listeners. The M4 subcommands
-//! (init, status, fingerprint, check, zones, render, stats, export) arrive
-//! in C5; naming one today is a loud error, not a silent no-op.
+//! (ADR 0003), Gemini served on the configured listeners.
+//!
+//! C5 (`docs/BUILD-PLAN.md`): `status`, `fingerprint`, `check`, `zones`,
+//! `stats`, `render [--force]` are implemented — thin argument-parsing
+//! wrappers in this file around business logic in [`unseen_servant::cli`],
+//! which is where every format/lint function is actually tested. `init`
+//! (the ratatui wizard) and `export` (OnionShare-ready folder) are still
+//! reserved: naming either today is a loud, named error, never a silent
+//! no-op or a fallthrough to "unknown argument".
 //!
 //! Signal discipline (ADR 0002): SIGHUP reloads config + certificates
 //! without dropping listeners (an invalid file keeps the old config);
@@ -17,6 +23,7 @@ use std::sync::Arc;
 
 use tokio::sync::{Semaphore, watch};
 
+use unseen_servant::cli;
 use unseen_servant::config::{Config, EnvOverrides};
 use unseen_servant::http;
 use unseen_servant::identity::IdentityStore;
@@ -30,7 +37,13 @@ const HELP: &str = concat!(
     " — Unseen Servant, a security-first Gemini server (pre-release)\n",
     "\n",
     "USAGE:\n",
-    "  usv [--config <path>]     start the server (zero-config default works)\n",
+    "  usv [--config <path>]           start the server (zero-config default works)\n",
+    "  usv status     [--config <p>]   config, fingerprints, roster, zones, published\n",
+    "  usv fingerprint [--config <p>]  this capsule's server certificate fingerprint(s)\n",
+    "  usv check      [--config <p>]   validate config + lint the content tree\n",
+    "  usv zones      [--config <p>]   list certificate and Titan zones\n",
+    "  usv stats      [--config <p>]   what's currently published (read-only)\n",
+    "  usv render     [--config <p>] [--force]   render the content tree now\n",
     "  usv --version | --help\n",
     "\n",
     "CONFIG:\n",
@@ -45,13 +58,34 @@ const HELP: &str = concat!(
     "  SIGHUP  reload config and certificates without dropping listeners\n",
     "  SIGTERM graceful drain and exit\n",
     "\n",
-    "Subcommands (init, status, fingerprint, check, zones, render, stats,\n",
-    "export) arrive per docs/BUILD-PLAN.md phases C2–C5. Nothing is announced\n",
-    "or exposed publicly before the v1.0 gates pass (docs/ROADMAP.md).\n",
+    "`status`/`fingerprint`/`zones` open (and, on a fresh capsule, mint) the\n",
+    "identity store — the same first-run behaviour starting the server has.\n",
+    "`stats` is read-only and never renders; `render` always performs a real\n",
+    "render (the same atomic staging-swap the server itself uses).\n",
+    "\n",
+    "Subcommands (init, export) and Tor/I2P affordances arrive per\n",
+    "docs/BUILD-PLAN.md C5. Nothing is announced or exposed publicly before\n",
+    "the v1.0 gates pass (docs/ROADMAP.md).\n",
 );
+
+/// A subcommand not yet implemented — recognised and named rather than
+/// falling through to the generic "unknown argument" error, so the
+/// director gets "not yet, see BUILD-PLAN C5" instead of "typo?".
+const RESERVED_SUBCOMMANDS: &[&str] = &["init", "export", "identity"];
+
+enum Command {
+    Serve,
+    Status,
+    Fingerprint,
+    Check,
+    Zones,
+    Stats,
+    Render { force: bool },
+}
 
 struct Args {
     config: Option<PathBuf>,
+    command: Command,
 }
 
 enum Parsed {
@@ -61,6 +95,8 @@ enum Parsed {
 
 fn parse_args() -> Parsed {
     let mut config = None;
+    let mut command = None;
+    let mut force = false;
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
         match arg.as_str() {
@@ -79,13 +115,205 @@ fn parse_args() -> Parsed {
                     return Parsed::Exit(ExitCode::from(2));
                 }
             },
+            "--force" => force = true,
+            "status" | "fingerprint" | "check" | "zones" | "stats" | "render"
+                if command.is_none() =>
+            {
+                command = Some(arg);
+            }
+            reserved if RESERVED_SUBCOMMANDS.contains(&reserved) && command.is_none() => {
+                eprintln!(
+                    "usv: '{reserved}' is not implemented yet (docs/BUILD-PLAN.md C5). \
+                     Nothing was run."
+                );
+                return Parsed::Exit(ExitCode::from(2));
+            }
             other => {
                 eprintln!("usv: unknown argument '{other}' (see --help)");
                 return Parsed::Exit(ExitCode::from(2));
             }
         }
     }
-    Parsed::Run(Args { config })
+    let command = match command.as_deref() {
+        None => Command::Serve,
+        Some("status") => Command::Status,
+        Some("fingerprint") => Command::Fingerprint,
+        Some("check") => Command::Check,
+        Some("zones") => Command::Zones,
+        Some("stats") => Command::Stats,
+        Some("render") => Command::Render { force },
+        Some(_) => unreachable!("only recognised subcommand strings are stored"),
+    };
+    if force && !matches!(command, Command::Render { .. }) {
+        eprintln!("usv: --force only applies to 'render'");
+        return Parsed::Exit(ExitCode::from(2));
+    }
+    Parsed::Run(Args { config, command })
+}
+
+/// The content directory rendering reads from: the primary host's
+/// docroot, or `state_dir/content` for a config naming no hosts yet.
+/// Shared between `serve()` and every CLI subcommand that touches
+/// content, so "where is the content tree" is answered in exactly one
+/// place (ADR 0004's one-content-tree model, applied to this binary's
+/// own code, not just the capsule's data).
+fn content_dir(config: &Config) -> PathBuf {
+    config
+        .hosts
+        .first()
+        .map(|h| h.docroot.clone())
+        .unwrap_or_else(|| config.state_dir.join("content"))
+}
+
+/// The render context a full render needs, built from config alone —
+/// shared by `serve()`'s initial render, its watcher, and `usv render`/
+/// `usv check`, so the three can never construct it differently.
+fn render_context(config: &Config) -> pipeline::RenderContext {
+    let primary_host = config
+        .hosts
+        .first()
+        .map(|h| h.name.clone())
+        .unwrap_or_default();
+    let web_base_url = config
+        .http_listen
+        .map(|_| format!("https://{primary_host}"))
+        .unwrap_or_default();
+    pipeline::RenderContext {
+        theme_css: config.theme.css.to_string(),
+        web_base_url,
+        capsule_title: primary_host,
+        lang: config.lang.clone(),
+    }
+}
+
+/// Load config the same way every subcommand does: env overrides, the
+/// `--config` search order (ADR 0007), a plain error message on failure.
+fn load_config(args: &Args) -> Result<Config, ExitCode> {
+    let env = EnvOverrides::from_process_env();
+    Config::load(args.config.as_deref(), &env).map_err(|e| {
+        eprintln!("usv: {e}");
+        ExitCode::FAILURE
+    })
+}
+
+/// Open (and, on a fresh capsule, mint) the identity store for every
+/// configured host — the same call `build_state` makes for the server
+/// itself, reused so `status`/`fingerprint`/`zones` report the identity
+/// the server would actually run with, not a second, divergent notion of
+/// it.
+fn open_identities(config: &Config) -> Result<IdentityStore, ExitCode> {
+    let hostnames: Vec<String> = config.hosts.iter().map(|h| h.name.clone()).collect();
+    IdentityStore::open(&config.certs_dir(), &hostnames).map_err(|e| {
+        eprintln!("usv: {e}");
+        ExitCode::FAILURE
+    })
+}
+
+async fn run_command(args: Args) -> ExitCode {
+    match args.command {
+        Command::Serve => unreachable!("Serve is dispatched by main() before reaching here"),
+        Command::Status => cmd_status(&args).await,
+        Command::Fingerprint => cmd_fingerprint(&args).await,
+        Command::Check => cmd_check(&args).await,
+        Command::Zones => cmd_zones(&args),
+        Command::Stats => cmd_stats(&args).await,
+        Command::Render { force } => cmd_render(&args, force).await,
+    }
+}
+
+async fn cmd_status(args: &Args) -> ExitCode {
+    let config = match load_config(args) {
+        Ok(c) => c,
+        Err(code) => return code,
+    };
+    let store = match open_identities(&config) {
+        Ok(s) => s,
+        Err(code) => return code,
+    };
+    let published = cli::inspect_published(&config.state_dir).await;
+    print!("{}", cli::format_status(&config, &store, &published));
+    ExitCode::SUCCESS
+}
+
+async fn cmd_fingerprint(args: &Args) -> ExitCode {
+    let config = match load_config(args) {
+        Ok(c) => c,
+        Err(code) => return code,
+    };
+    let store = match open_identities(&config) {
+        Ok(s) => s,
+        Err(code) => return code,
+    };
+    print!("{}", cli::format_fingerprints(&store));
+    ExitCode::SUCCESS
+}
+
+fn cmd_zones(args: &Args) -> ExitCode {
+    let config = match load_config(args) {
+        Ok(c) => c,
+        Err(code) => return code,
+    };
+    print!("{}", cli::format_zones(&config));
+    ExitCode::SUCCESS
+}
+
+async fn cmd_check(args: &Args) -> ExitCode {
+    let config = match load_config(args) {
+        Ok(c) => c,
+        Err(code) => return code,
+    };
+    let content = content_dir(&config);
+    let lint = match cli::lint_content(&content).await {
+        Ok(l) => l,
+        Err(e) => {
+            eprintln!(
+                "usv: could not read content directory {}: {e}",
+                content.display()
+            );
+            return ExitCode::FAILURE;
+        }
+    };
+    print!("{}", cli::format_check_report(&config, &lint));
+    ExitCode::SUCCESS
+}
+
+async fn cmd_stats(args: &Args) -> ExitCode {
+    let config = match load_config(args) {
+        Ok(c) => c,
+        Err(code) => return code,
+    };
+    let published = cli::inspect_published(&config.state_dir).await;
+    print!("{}", cli::format_published_stats(&published));
+    ExitCode::SUCCESS
+}
+
+async fn cmd_render(args: &Args, _force: bool) -> ExitCode {
+    // `render_tree` is already always a full rebuild (design brief §5.4:
+    // "full-tree rebuild every time, not incremental"), so `--force` has
+    // no distinct behaviour to select today. It is accepted and parsed
+    // now — rather than added later as a breaking CLI change — because a
+    // future incremental-render mode would need exactly this flag to
+    // force a full one, and the surface should be stable before that
+    // exists, not after.
+    let config = match load_config(args) {
+        Ok(c) => c,
+        Err(code) => return code,
+    };
+    let content = content_dir(&config);
+    let ctx = render_context(&config);
+    match pipeline::render_tree(&content, &config.state_dir, &ctx).await {
+        Ok(stats) => {
+            println!(
+                "rendered {} page(s) (feed entries: {}, mapped pages: {}, robots mirrored: {})",
+                stats.pages_rendered, stats.feed_entries, stats.mapped_pages, stats.robots_mirrored
+            );
+            ExitCode::SUCCESS
+        }
+        Err(e) => {
+            eprintln!("usv: render failed: {e}");
+            ExitCode::FAILURE
+        }
+    }
 }
 
 fn main() -> ExitCode {
@@ -121,9 +349,13 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    match runtime.block_on(serve(args)) {
-        Ok(()) => ExitCode::SUCCESS,
-        Err(()) => ExitCode::FAILURE,
+    if matches!(args.command, Command::Serve) {
+        match runtime.block_on(serve(args)) {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(()) => ExitCode::FAILURE,
+        }
+    } else {
+        runtime.block_on(run_command(args))
     }
 }
 
