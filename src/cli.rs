@@ -1,6 +1,6 @@
 //! C5 CLI subcommands (`docs/BUILD-PLAN.md` C5): `status`, `fingerprint`,
-//! `check`, `zones`, `stats`, `render`. `export` and `usv init` (the
-//! ratatui wizard) arrive separately; Tor/I2P affordances too.
+//! `check`, `zones`, `stats`, `render`, `export`. `usv init` (the ratatui
+//! wizard) and Tor/I2P affordances arrive separately.
 //!
 //! Kept in the library, not `main.rs`, on the same principle every other
 //! phase has followed: business logic goes where it can be unit-tested
@@ -554,6 +554,117 @@ fn present(b: bool) -> &'static str {
     if b { "present" } else { "absent" }
 }
 
+/// Why `usv export` refused to run.
+#[derive(Debug)]
+pub enum ExportError {
+    /// `state_dir/html` doesn't exist — nothing to export yet.
+    NothingRendered,
+    /// The destination already exists and isn't empty. Refused rather
+    /// than merged or overwritten, matching the house rule this codebase
+    /// applies everywhere a write could destroy existing material
+    /// (identity minting, the content skeleton): silently overwriting
+    /// whatever the operator has at that path is exactly the failure
+    /// mode worth a named error instead of a surprise.
+    DestinationNotEmpty(std::path::PathBuf),
+    /// A filesystem operation failed partway through the copy.
+    Io(std::io::Error),
+}
+
+impl std::fmt::Display for ExportError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ExportError::NothingRendered => f.write_str(
+                "no rendered HTML tree yet — run `usv render` (or start the server once) first",
+            ),
+            ExportError::DestinationNotEmpty(p) => write!(
+                f,
+                "{} already exists and is not empty; export refuses to overwrite it \
+                 (remove it first, or choose an empty destination)",
+                p.display()
+            ),
+            ExportError::Io(e) => write!(f, "{e}"),
+        }
+    }
+}
+
+impl std::error::Error for ExportError {}
+
+/// `usv export`: copy the already-rendered `state_dir/html` tree to
+/// `destination`, verbatim.
+///
+/// This is deliberately almost the whole implementation — a validated
+/// recursive copy, nothing more. usv's rendered HTML tree already *is* a
+/// self-contained static site (ADR 0004; no build step, no server-side
+/// includes, no absolute-path assumptions beyond `/style.css` and the
+/// other root-relative links every page already uses); the point of
+/// `export` is to hand an operator that folder without them needing to
+/// know usv's internal `state_dir` layout, not to transform it into
+/// something new. "Your capsule's web mirror as an OnionShare site" is
+/// documented (`docs/notes/integration-ideas.md`) as a copy-the-folder
+/// recipe with zero new code — this function is that recipe, made
+/// discoverable and given a destination-safety check.
+///
+/// Never renders (matching `stats`, not `render`): exporting is a read of
+/// whatever's already published, not a trigger to publish something new.
+/// Returns the number of files copied.
+pub async fn export_html_tree(state_dir: &Path, destination: &Path) -> Result<usize, ExportError> {
+    let html_dir = state_dir.join("html");
+    if tokio::fs::metadata(&html_dir).await.is_err() {
+        return Err(ExportError::NothingRendered);
+    }
+    match tokio::fs::metadata(destination).await {
+        Ok(meta) if meta.is_dir() => {
+            let mut entries = tokio::fs::read_dir(destination)
+                .await
+                .map_err(ExportError::Io)?;
+            if entries
+                .next_entry()
+                .await
+                .map_err(ExportError::Io)?
+                .is_some()
+            {
+                return Err(ExportError::DestinationNotEmpty(destination.to_path_buf()));
+            }
+        }
+        Ok(_) => {
+            // Exists and is not a directory (a plain file, say) — same
+            // refusal, for the same reason.
+            return Err(ExportError::DestinationNotEmpty(destination.to_path_buf()));
+        }
+        Err(_) => {} // doesn't exist yet: created below, the normal case.
+    }
+    tokio::fs::create_dir_all(destination)
+        .await
+        .map_err(ExportError::Io)?;
+    let mut copied = 0usize;
+    copy_tree(&html_dir, destination, &mut copied)
+        .await
+        .map_err(ExportError::Io)?;
+    Ok(copied)
+}
+
+fn copy_tree<'a>(
+    src: &'a Path,
+    dst: &'a Path,
+    copied: &'a mut usize,
+) -> std::pin::Pin<Box<dyn std::future::Future<Output = std::io::Result<()>> + Send + 'a>> {
+    Box::pin(async move {
+        let mut entries = tokio::fs::read_dir(src).await?;
+        while let Some(entry) = entries.next_entry().await? {
+            let src_path = entry.path();
+            let dst_path = dst.join(entry.file_name());
+            if entry.file_type().await?.is_dir() {
+                tokio::fs::create_dir_all(&dst_path).await?;
+                copy_tree(&src_path, &dst_path, copied).await?;
+            } else {
+                tokio::fs::copy(&src_path, &dst_path).await?;
+                *copied += 1;
+            }
+        }
+        Ok(())
+    })
+}
+
 /// `usv status`: the at-a-glance dashboard — config summary, server
 /// fingerprints, the identity roster, zones, and what's currently
 /// published, one command instead of five. Each section reuses the same
@@ -983,5 +1094,110 @@ mod tests {
         assert!(out.contains("titan-write"));
         assert!(out.contains("rotating"));
         assert!(out.contains("2099-01-01"));
+    }
+
+    // --- usv export ---
+
+    #[tokio::test]
+    async fn export_copies_every_file_preserving_structure() {
+        let base = tmpdir("export-basic");
+        let html = base.join("html");
+        std::fs::create_dir_all(html.join("notes")).unwrap();
+        std::fs::write(html.join("index.html"), "<html>home</html>").unwrap();
+        std::fs::write(html.join("style.css"), "body{}").unwrap();
+        std::fs::write(html.join("notes/a.html"), "<html>a</html>").unwrap();
+        let dest = base.join("export-out");
+
+        let count = export_html_tree(&base, &dest).await.unwrap();
+        assert_eq!(count, 3);
+        assert_eq!(
+            std::fs::read_to_string(dest.join("index.html")).unwrap(),
+            "<html>home</html>"
+        );
+        assert_eq!(
+            std::fs::read_to_string(dest.join("notes/a.html")).unwrap(),
+            "<html>a</html>"
+        );
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    #[tokio::test]
+    async fn export_without_a_render_yet_is_a_named_error() {
+        let base = tmpdir("export-norender");
+        let dest = base.join("out");
+        let err = export_html_tree(&base, &dest).await.unwrap_err();
+        assert!(matches!(err, ExportError::NothingRendered));
+        assert!(!dest.exists(), "must not create the destination on failure");
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    #[tokio::test]
+    async fn export_refuses_a_non_empty_destination() {
+        let base = tmpdir("export-nonempty-dest");
+        std::fs::create_dir_all(base.join("html")).unwrap();
+        std::fs::write(base.join("html/index.html"), "x").unwrap();
+        let dest = base.join("out");
+        std::fs::create_dir_all(&dest).unwrap();
+        std::fs::write(dest.join("already-here.txt"), "pre-existing").unwrap();
+
+        let err = export_html_tree(&base, &dest).await.unwrap_err();
+        assert!(matches!(err, ExportError::DestinationNotEmpty(_)));
+        // The pre-existing file must survive untouched.
+        assert_eq!(
+            std::fs::read_to_string(dest.join("already-here.txt")).unwrap(),
+            "pre-existing"
+        );
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    #[tokio::test]
+    async fn export_refuses_a_destination_that_is_a_plain_file() {
+        let base = tmpdir("export-dest-is-file");
+        std::fs::create_dir_all(base.join("html")).unwrap();
+        std::fs::write(base.join("html/index.html"), "x").unwrap();
+        let dest = base.join("out");
+        std::fs::write(&dest, "not a directory").unwrap();
+
+        let err = export_html_tree(&base, &dest).await.unwrap_err();
+        assert!(matches!(err, ExportError::DestinationNotEmpty(_)));
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    #[tokio::test]
+    async fn export_into_an_existing_empty_directory_succeeds() {
+        let base = tmpdir("export-empty-dest");
+        std::fs::create_dir_all(base.join("html")).unwrap();
+        std::fs::write(base.join("html/index.html"), "hi").unwrap();
+        let dest = base.join("out");
+        std::fs::create_dir_all(&dest).unwrap(); // exists, but empty
+
+        let count = export_html_tree(&base, &dest).await.unwrap();
+        assert_eq!(count, 1);
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    #[tokio::test]
+    async fn export_never_renders_anything_new() {
+        // The same read-only-of-what's-published discipline `stats` and
+        // `inspect_published` follow: export must not write into
+        // state_dir/html itself, only read from it.
+        let base = tmpdir("export-readonly-source");
+        let html = base.join("html");
+        std::fs::create_dir_all(&html).unwrap();
+        std::fs::write(html.join("index.html"), "original").unwrap();
+        let before: Vec<_> = std::fs::read_dir(&html)
+            .unwrap()
+            .map(|e| e.unwrap().file_name())
+            .collect();
+
+        let dest = base.join("out");
+        export_html_tree(&base, &dest).await.unwrap();
+
+        let after: Vec<_> = std::fs::read_dir(&html)
+            .unwrap()
+            .map(|e| e.unwrap().file_name())
+            .collect();
+        assert_eq!(before, after, "export must not modify the source tree");
+        let _ = std::fs::remove_dir_all(&base);
     }
 }

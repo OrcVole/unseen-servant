@@ -5,11 +5,12 @@
 //! (ADR 0003), Gemini served on the configured listeners.
 //!
 //! C5 (`docs/BUILD-PLAN.md`): `status`, `fingerprint`, `check`, `zones`,
-//! `stats`, `render [--force]` are implemented — thin argument-parsing
-//! wrappers in this file around business logic in [`unseen_servant::cli`],
-//! which is where every format/lint function is actually tested. `init`
-//! (the ratatui wizard) and `export` (OnionShare-ready folder) are still
-//! reserved: naming either today is a loud, named error, never a silent
+//! `stats`, `render [--force]`, `identity add/rotate/revoke`, `export`
+//! are implemented — thin argument-parsing wrappers in this file around
+//! business logic in [`unseen_servant::cli`]/[`unseen_servant::handler::
+//! admin`], which is where every format/lint/export function is actually
+//! tested. `init` (the ratatui wizard) and Tor/I2P affordances are still
+//! reserved: naming `init` today is a loud, named error, never a silent
 //! no-op or a fallthrough to "unknown argument".
 //!
 //! Signal discipline (ADR 0002): SIGHUP reloads config + certificates
@@ -48,6 +49,7 @@ const HELP: &str = concat!(
     "  usv identity add    <label> <fingerprint> [--capability <c>]... [--enrolled <date>]\n",
     "  usv identity rotate <label> <new-fingerprint> --until <date>\n",
     "  usv identity revoke <label> (--capability <c>... | --all)\n",
+    "  usv export     [--config <p>] <destination>   copy the rendered tree out\n",
     "  usv --version | --help\n",
     "\n",
     "CONFIG:\n",
@@ -72,7 +74,13 @@ const HELP: &str = concat!(
     "Look the identity up first with `--config` pointed at the real file, so\n",
     "rotate/revoke can find the existing entry.\n",
     "\n",
-    "Subcommands (init, export) and Tor/I2P affordances arrive per\n",
+    "`usv export` copies the already-rendered state_dir/html tree to\n",
+    "<destination> verbatim (refuses a non-empty destination) — that folder\n",
+    "is already a self-contained static site (ADR 0004), so this is\n",
+    "\"copy it out for OnionShare or any other static host\", not a second\n",
+    "render. Never renders anything new: run `usv render` first if needed.\n",
+    "\n",
+    "`usv init` (the ratatui wizard) and Tor/I2P affordances arrive per\n",
     "docs/BUILD-PLAN.md C5. Nothing is announced or exposed publicly before\n",
     "the v1.0 gates pass (docs/ROADMAP.md).\n",
 );
@@ -80,7 +88,7 @@ const HELP: &str = concat!(
 /// A subcommand not yet implemented — recognised and named rather than
 /// falling through to the generic "unknown argument" error, so the
 /// director gets "not yet, see BUILD-PLAN C5" instead of "typo?".
-const RESERVED_SUBCOMMANDS: &[&str] = &["init", "export"];
+const RESERVED_SUBCOMMANDS: &[&str] = &["init"];
 
 /// `usv identity <action>`'s own parsed action — kept separate from the
 /// flat single-token subcommands, since it takes positional arguments and
@@ -113,6 +121,7 @@ enum Command {
     Stats,
     Render { force: bool },
     Identity(IdentityAction),
+    Export { destination: PathBuf },
 }
 
 struct Args {
@@ -156,6 +165,23 @@ fn parse_args() -> Parsed {
                     }),
                     Err(code) => Parsed::Exit(code),
                 };
+            }
+            "export" if command.is_none() => {
+                let destination = match args.next() {
+                    Some(d) => PathBuf::from(d),
+                    None => {
+                        eprintln!("usv: export needs a destination directory (see --help)");
+                        return Parsed::Exit(ExitCode::from(2));
+                    }
+                };
+                if let Some(extra) = args.next() {
+                    eprintln!("usv: export: unexpected argument '{extra}' (see --help)");
+                    return Parsed::Exit(ExitCode::from(2));
+                }
+                return Parsed::Run(Args {
+                    config,
+                    command: Command::Export { destination },
+                });
             }
             "status" | "fingerprint" | "check" | "zones" | "stats" | "render"
                 if command.is_none() =>
@@ -403,6 +429,27 @@ async fn run_command(args: Args) -> ExitCode {
         Command::Stats => cmd_stats(config_path).await,
         Command::Render { force } => cmd_render(config_path, force).await,
         Command::Identity(action) => cmd_identity(config_path, action),
+        Command::Export { destination } => cmd_export(config_path, &destination).await,
+    }
+}
+
+/// `usv export <destination>`: copy the rendered HTML tree out to a plain
+/// folder — see `cli::export_html_tree`'s docs for why this is
+/// deliberately almost the whole implementation.
+async fn cmd_export(config_path: Option<&Path>, destination: &Path) -> ExitCode {
+    let config = match load_config(config_path) {
+        Ok(c) => c,
+        Err(code) => return code,
+    };
+    match cli::export_html_tree(&config.state_dir, destination).await {
+        Ok(count) => {
+            println!("exported {count} file(s) to {}", destination.display());
+            ExitCode::SUCCESS
+        }
+        Err(e) => {
+            eprintln!("usv: {e}");
+            ExitCode::FAILURE
+        }
     }
 }
 
