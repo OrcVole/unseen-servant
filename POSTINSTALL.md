@@ -1,11 +1,23 @@
 ## Your capsule is live
 
-- **Gemini**: `gemini://$CLOUDRON-APP-FQDN/`
-- **Web mirror**: $CLOUDRON-APP-ORIGIN/
+One folder of writing, published to several places at once. **The
+hostname never changes — you change the bit before the `://`, and that
+alone decides which protocol you get and which port you land on.**
 
-Both addresses serve the same content. There is nothing else to set up —
-a starter page is already written, and the identity your readers will
+| Type this | You reach | On port |
+|---|---|---|
+| `gemini://$CLOUDRON-APP-FQDN/` | the Gemini capsule, in a client like Lagrange | 1965 |
+| $CLOUDRON-APP-ORIGIN/ | the web mirror, in any browser | 443 |
+
+So swapping `gemini://` for `https://` on the *same address* gets you
+the same writing in a browser instead. Nothing else to set up — a
+starter page is already written, and the identity your readers will
 trust has already been generated.
+
+*(More smolnet protocols are in development and work the same way. When
+gopher ships, typing `gopher://$CLOUDRON-APP-FQDN/` instead of
+`gemini://…` will send you to port 7070 rather than 1965, and give you
+a gopher experience — menus and all — of the very same content.)*
 
 ### The first visit will show a warning
 

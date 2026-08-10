@@ -261,6 +261,12 @@ pub const LASTLINE: &str = ".\r\n";
 /// A line consisting of a single `.` terminates the response, so any
 /// content line that begins with `.` must be doubled or it truncates the
 /// document at that point — the oldest bug in the protocol.
+///
+/// Un-stuffing is the *client's* job. Verified live against gelim
+/// 0.13.1, which does not do it and displays the doubled dot: the
+/// document arrives whole, which is what stuffing is for, but the
+/// leading dot shows twice. Sending it unstuffed to please that client
+/// would truncate the page in every correct one, so the stuffing stays.
 pub fn text_body(content: &str) -> String {
     let mut out = String::with_capacity(content.len() + 16);
     for line in content.split('\n') {
