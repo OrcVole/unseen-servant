@@ -28,7 +28,9 @@ Titan is on the same listener, gated per zone on client-certificate fingerprints
 
 What it deliberately will not do: CGI, FastCGI, scripting, proxying, or any plugin API. If what you are building is a program rather than a capsule — the way this board is — GmCapsule is the right foundation and usv is not.
 
-Two disclosures rather than footnotes. It is written by an AI under human direction, with the reasoning recorded before the code. And it currently logs visitor IPs (queries are redacted; addresses are not), which I know sits badly with how a lot of people here run their capsules — it is an open question in the repo and I would like views on it.
+One disclosure rather than a footnote: it is written by an AI under human direction, with the reasoning recorded before the code.
+
+On logs, since it comes up here: no visitor addresses by default. The peer field reads as a dash, queries are redacted by construction, and if you do want addresses there is a per-boot-salted digest option that correlates repeat visits within a single run and keeps nothing across a restart.
 
 => gemini://unseen-servant.wanderingmonster.dev/ The capsule, served by usv
 

@@ -74,25 +74,42 @@ adds churn without adding security.
 A hostname change is detected and gets a *fresh* identity rather than
 reusing the old one on a new name.
 
-## What is logged — read this before deploying
+## What is logged
 
-One line per request, at `info`: **the client's IP address**, the
-response status, and the request path.
+One line per request, at `info`: the response status, the request path,
+and a peer field whose contents you choose.
 
-The query string is redacted by construction — the log line is built
-from the path only, never the query — because Gemini's status `10`/`11`
-input flow puts user-typed text in the query, including passwords.
+**Visitor addresses are not logged by default.** The peer field renders
+as `-` unless you ask for more. Geminispace's norm is aggressive log
+minimalism — operators routinely make a point of not retaining visitor
+addresses — and the default follows that rather than the habit inherited
+from web servers.
 
-**The peer IP is not redacted.** That is a deliberate operational
-default, but it sits against a strong community norm: Geminispace
-operators frequently make a point of *not* retaining visitor IPs, and
-some map them to ephemeral identifiers discarded within the hour. If you
-run a capsule where that matters, set the log level to `warn` (which
-drops the per-request line entirely) or filter at the collector. There
-is currently **no built-in option to log requests without the IP**;
-`docs/OPEN-QUESTIONS.md` carries this as a decision to make before v1.0.
+`server.log_peer` takes three values:
 
-`usv` writes only to stdout/stderr and keeps no log files.
+| Value | Logs |
+|---|---|
+| `"off"` *(default)* | `-`. Nothing identifying at all. |
+| `"hashed"` | A 48-bit digest of the address under a salt generated fresh at every start and never persisted. Repeat visits correlate within one run of the process; nothing survives a restart. |
+| `"full"` | The address verbatim, for a conventional access log. |
+
+The hashed mode digests the **address only**, never the ephemeral source
+port — including the port would make every request from one visitor look
+like a different visitor, which is the whole thing the mode exists to
+provide.
+
+**The query string is redacted by construction** in every mode. The log
+line is built from the path alone, because Gemini's status `10`/`11`
+input flow puts user-typed text in the query, up to and including
+passwords.
+
+A mistyped `log_peer` value is a startup error, not a warning: failing
+open would silently keep addresses an operator believed they had turned
+off.
+
+`usv` writes only to stdout/stderr and keeps no log files. If you do
+enable `full`, note that your platform's journal typically retains it
+for weeks even though `usv` itself retains nothing.
 
 ## What `usv` deliberately does not protect you from
 

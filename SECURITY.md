@@ -34,8 +34,9 @@ Out of scope, because they are documented behaviour rather than defects
   gate the *Gemini* surface only.
 - A writable Titan zone is writable by every fingerprint listed in it.
 - Client certificates prove continuity, not who someone is.
-- Per-request logs record the visitor's IP (this is a *known open
-  question*, `docs/OPEN-QUESTIONS.md` OQ-9, not a finding).
+- Visitor addresses are **not** logged by default (`server.log_peer`
+  defaults to `off`). An operator who opts into `full` has chosen a
+  conventional access log; that is configuration, not a defect.
 
 ## What we do already
 
