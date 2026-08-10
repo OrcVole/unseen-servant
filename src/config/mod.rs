@@ -607,7 +607,7 @@ impl Config {
         })?;
 
         let lang = server.lang.unwrap_or_else(|| "en".to_string());
-        if lang.trim().is_empty() || !lang.is_ascii() {
+        if !is_plausible_lang(&lang) {
             return Err(ConfigError::Rejected(format!(
                 "server.lang {lang:?} is not a BCP 47 language tag (e.g. \"en\", \"fr\", \"pt-BR\")"
             )));
@@ -648,11 +648,25 @@ impl Config {
     }
 }
 
+/// Not a real BCP 47 parser (recon: no such validator was judged worth a
+/// dependency for this) — the same structural sanity check `Config::
+/// resolve` applies: non-empty, ASCII. `pub(crate)` so `cli::init` can
+/// reject the same bad input the wizard would otherwise let through to a
+/// config `Config::resolve` then refuses.
+pub(crate) fn is_plausible_lang(lang: &str) -> bool {
+    !lang.trim().is_empty() && lang.is_ascii()
+}
+
 /// Validate and normalize (lowercase) a configured hostname. Clients send
 /// punycoded, ASCII hostnames on the wire (the spec is URI-based, not
 /// IRI-based), so that is the only form config accepts; rejecting Unicode
 /// here catches the "typed my IDN in directly" mistake loudly at startup.
-fn validate_hostname(name: &str) -> Result<String, ConfigError> {
+///
+/// `pub(crate)`: `cli::init` reuses this so the wizard rejects a bad
+/// hostname with the exact same rule `Config::resolve` would apply to the
+/// file it's about to write — one definition, not a second that could
+/// accept something the real loader then refuses.
+pub(crate) fn validate_hostname(name: &str) -> Result<String, ConfigError> {
     let reject = |why: &str| {
         Err(ConfigError::Rejected(format!(
             "hostname {name:?} {why} (hostnames are sent punycoded and portless on the \
