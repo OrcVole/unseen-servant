@@ -40,14 +40,17 @@ pub async fn serve(req: &Request, root: &Path) -> Vec<u8> {
 
 /// The MIME type for a served file.
 ///
-/// Gemtext is the default document type, and UTF-8 is the default
-/// encoding for `text/*` in Spartan, so it is stated rather than
-/// assumed.
+/// Bare `text/gemini`, with no charset parameter — matching what the
+/// reference server at spartan.mozz.us actually sends, checked on the
+/// wire rather than inferred. UTF-8 is already the spec's default for
+/// `text/*`, so stating it adds nothing and gives a client doing exact
+/// string comparison something extra to disagree with. Be conservative
+/// in what you send.
 fn mime_for(path: &Path) -> String {
     let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
     let lower = name.to_ascii_lowercase();
     if lower.ends_with(".gmi") || lower.ends_with(".gemini") {
-        "text/gemini;charset=utf-8".to_string()
+        "text/gemini".to_string()
     } else {
         crate::handler::mime::lookup(name).to_string()
     }
@@ -97,10 +100,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn a_page_is_served_as_gemtext_with_utf8_stated() {
+    async fn a_page_is_served_as_bare_gemtext_matching_the_reference_server() {
         let d = tmp("ok");
         let out = String::from_utf8(serve(&req("/index.gmi", 0), &d).await).unwrap();
-        assert!(out.starts_with("2 text/gemini;charset=utf-8\r\n"), "{out}");
+        assert!(out.starts_with("2 text/gemini\r\n"), "{out}");
         assert!(out.contains("# Home"));
     }
 

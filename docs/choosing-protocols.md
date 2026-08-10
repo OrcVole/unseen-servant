@@ -5,11 +5,11 @@ adding a protocol is mostly a question of *who you want to reach* and
 *what you are willing to serve in cleartext* — not of maintaining
 another site.
 
-**Status note:** Gemini, Titan and the web mirror work today. Gopher,
-Spartan, Nex and Finger are v1.1 and **not implemented yet** — the cases
-below describe what each is *for*, so you can decide now what you will
-turn on later. [`protocols.md`](protocols.md) is the authority on what
-actually exists.
+**Status note:** all of these work now — Gemini, Titan and the web
+mirror, plus Gopher, Spartan, Nex and Finger from the v1.1 round. The
+four cleartext ones are **off until you enable them**.
+[`protocols.md`](protocols.md) is the authority on what exists and, for
+each, which client it was verified against.
 
 ## The short version
 
@@ -119,6 +119,117 @@ here that is about a person rather than a document.
 
 **Serve it if** you like the idea of a status anyone can query in one
 command. Do not expect it to carry your writing.
+
+## New to these? Start here
+
+If you have never used any of this, the fastest route in is **one
+client that speaks several protocols**, so you can wander between them
+without installing something each time.
+
+| Client | Speaks | Kind |
+|---|---|---|
+| **Lagrange** | Gemini, Gopher, Spartan, Finger, Titan | Graphical; the friendliest starting point |
+| **Bombadillo** | Gemini, Gopher, Finger, HTTP | Terminal |
+| **gelim** | Gemini, Gopher, Spartan, Nex | Terminal, line-mode |
+| **Offpunk** | Gemini, Gopher, Spartan, HTTP | Terminal; offline-first |
+| **BFG** | Gopher, Finger, Nex, Spartan, Gemini | Terminal; the widest coverage |
+| **amfora** | Gemini | Terminal |
+| **lynx** | Gopher, HTTP | The venerable one; already on many systems |
+
+**Lagrange** is the one to try first if you want a window with fonts
+and images. **Bombadillo** or **gelim** if you live in a terminal.
+
+Client support shifts; this reflects what was verified in
+`docs/recon/smolnet.md` and `docs/recon/ecosystem.md` in August 2026.
+Nothing here endorses a client — they are simply the ones that exist.
+
+## The protocols, one by one
+
+### Gemini
+
+- **Home:** <https://geminiprotocol.net/>
+- **Clients:** Lagrange, amfora, Bombadillo, Offpunk, gelim, Elpher,
+  Kristall
+- **Philosophy:** deliberately, permanently small. The spec is capped
+  by design so a person can write a client in a weekend and no vendor
+  can make it complicated. Mandatory TLS, no cookies, no scripting, no
+  tracking — not as features but as things the protocol *cannot* do.
+- **Distinctive use:** a personal site read by people who chose to be
+  there. It is the only protocol here that can authenticate a *reader*,
+  which is what makes private areas and Titan editing possible.
+
+### The web mirror (HTTP)
+
+- **Clients:** every browser you already have.
+- **Philosophy:** none of its own — this is `usv` meeting people where
+  they are, not an endorsement of the web.
+- **Distinctive use:** reach. Your address works in an email footer, a
+  CV, a toot; search engines can find it.
+
+### Gopher
+
+- **Home:** RFC 1436 (1993); the living hub is
+  <gopher://gopher.floodgap.com/>, browsable over the web at
+  <https://gopher.floodgap.com/>
+- **Clients:** Lagrange, lynx, Bombadillo, Offpunk, BFG, Overbite (a
+  Firefox extension), plus web proxies
+- **Philosophy:** menus, not documents. Gopher thinks the internet is a
+  filing cabinet you browse, and it has not changed its mind since 1991.
+  That refusal to evolve is the point — it is why software nobody has
+  touched in decades still works.
+- **Distinctive use:** longevity, and a genuinely separate community
+  with its own aggregators (Bongusta) and search (Veronica-2). Also the
+  only protocol here a vintage machine that will never speak modern TLS
+  can read.
+- **Reality check:** by far the biggest of the plaintext protocols —
+  hundreds of active servers (Floodgap, SDF, bitreich, the tildeverse).
+  Spartan and Nex reach a rounding error by comparison.
+
+### Spartan
+
+- **Home:** <spartan://spartan.mozz.us/specification.gmi> — and, since
+  that is circular if you have no client yet, over the web at
+  <http://portal.mozz.us/spartan/spartan.mozz.us/specification.gmi>
+- **Clients:** Lagrange, Offpunk, gelim, Profectus, BFG
+- **Philosophy:** Gemini's document model with the cryptography
+  removed. Its argument is that mandatory TLS is ceremony for public
+  documents — clocks that must be right, libraries that must be
+  maintained, hardware that must do the maths — and that a plain
+  document deserves a plain protocol.
+- **Distinctive use:** somewhere TLS is a genuine burden — a local
+  network, a very small machine — or because you find that argument
+  persuasive. It reads the same gemtext, so it costs you nothing.
+- **Reality check:** a few dozen capsules. Spec finished and stable
+  since ~2021.
+
+### Nex
+
+- **Home:** <https://nightfall.city/nex/info/specification.txt> (m15o)
+- **Clients:** gelim, BFG, Profectus
+- **Philosophy:** the smallest thing that still works. No status codes,
+  no content types, no headers — send a path, get bytes, connection
+  closes. Explicitly telnet-compatible, so you can speak it by hand.
+- **Distinctive use:** if you enjoy that the entire protocol fits in
+  your head, or you want to hand-roll a client in an afternoon.
+- **Reality check:** the smallest audience here, and you will likely
+  need a specific client to see your own work. Serving it is a gesture
+  more than reach — a perfectly good reason, and roughly why much of
+  smolnet exists.
+
+### Finger
+
+- **Home:** RFC 1288 (1991)
+- **Clients:** Lagrange, Bombadillo, BFG, and the `finger` command that
+  ships with many systems
+- **Philosophy:** the internet's oldest status update. It answers "what
+  is this person up to?" — the `.plan` file, which predates blogging by
+  decades and does the same job in four lines.
+- **Distinctive use:** a *now* page with no page. One command, a few
+  lines back. In `usv` it does not serve your writing at all — it
+  answers with a short profile and points at your capsule.
+- **Note:** `usv` refuses finger **forwarding** (`user@host` queries),
+  as RFC 1288 itself recommends: answering them turns a server into a
+  relay for probing hosts that would not answer the asker directly.
 
 ## The thing to understand before enabling any of the last four
 

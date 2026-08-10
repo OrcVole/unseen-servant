@@ -16,16 +16,38 @@ this page is the bug.
 
 ## Today (pre-1.0)
 
-| Protocol | Status | Notes |
+| Protocol | Status | Verified by |
 |---|---|---|
-| **Gemini** | Supported | The primary protocol. Port 1965, own TLS, TOFU identity. Passes the community `gemini-diagnostics` suite (see `DEBUGGING.md`). |
-| **Titan** | Supported | Uploads on the *same* listener, distinguished by URL scheme. Client-certificate gated, per-zone. |
-| **Web (HTTP)** | Supported | The statically rendered HTML mirror of the same content tree. Behind a TLS-terminating proxy in the Cloudron profile; a plain HTTP listener standalone. |
-| Gopher | **Planned (v1.1)** | Not implemented. See below. |
-| Spartan | **Planned (v1.1)** | Not implemented. |
-| Nex | **Planned (v1.1)** | Not implemented. |
-| Finger | **Planned (v1.1)** | Not implemented. |
-| Everything else (`http://` to *other* hosts, `gopher://` today, arbitrary schemes) | Rejected | Answered with Gemini status `53 PROXY REQUEST REFUSED`. `usv` is not a proxy. |
+| **Gemini** | Supported | `gemini-diagnostics` 25/27 against a live deployment; Lagrange |
+| **Titan** | Supported | Live uploads from Lagrange |
+| **Web (HTTP)** | Supported | Browsers, `lynx`, `w3m` |
+| **Gopher** | Supported | **gelim, against a live public deployment** |
+| **Finger** | Supported | **bombadillo** |
+| **Nex** | Supported | **gelim** |
+| **Spartan** | Supported *(wire-verified)* | Raw wire only — see the note below |
+| Anything else (`http://` to *other* hosts, arbitrary schemes) | Rejected | Answered `53`; `usv` is not a proxy |
+
+### What "verified by" means here, and why Spartan is hedged
+
+A protocol is called Supported when it has been exercised against a
+real client, not merely unit-tested. Gopher, Finger and Nex each have
+one; Spartan does not yet, and saying so is the point of the column.
+
+`gelim`'s Spartan mode returned nothing in non-interactive use — and
+returned nothing against **spartan.mozz.us**, the reference server,
+too. So it is a client-side limitation rather than a defect here. What
+*is* confirmed is the wire: byte-for-byte request and response
+exchanges, compared against what the reference server sends for the
+same request.
+
+That comparison also produced a fix. The reference server answers with
+bare `text/gemini`; `usv` had been sending
+`text/gemini;charset=utf-8`. UTF-8 is already the spec's default for
+`text/*`, so the parameter added nothing and gave a client doing exact
+string comparison something extra to disagree with. Now matched.
+
+Spartan moves to unhedged Supported when it has been driven from
+Lagrange or another client with working Spartan support.
 
 ### The web mirror is not a web server
 
@@ -35,30 +57,35 @@ If you need a general-purpose web server, run one — this surface exists
 so a gemtext capsule is *also* readable by someone who only has a
 browser, from the same source files, with no second publishing step.
 
-That combination — one content tree, two protocols, rendered at write
-time rather than per request — is the thing that distinguishes `usv`
-from the other servers in [`../COMPARISON.md`](../COMPARISON.md).
+That combination — one content tree, several protocols, rendered at
+write time rather than per request — is what distinguishes `usv` from
+the other servers in [`../COMPARISON.md`](../COMPARISON.md).
 
-## Planned for v1.1 — read this before claiming support
+### Cleartext protocols carry less
 
-Gopher, Spartan, Nex, and Finger are **scheduled, designed, and
-researched** (`docs/recon/smolnet.md` has the wire formats, server
-requirements, and per-protocol effort estimates; `docs/ROADMAP.md` has
-the schedule). They are **not written**. As of today the only mention of
-Gopher in `src/` is in `protocol/uri.rs`, where it appears in the list of
-foreign schemes to *refuse*.
+Gopher, Spartan, Nex and Finger offer no confidentiality, no integrity,
+no server authentication, and **no client authentication of any kind**.
+Certificate-gated and Titan-gated paths are therefore excluded from
+every cleartext tree, structurally, at the point the tree is built
+(ADR 0012 §6). All four are off unless the operator enables them.
 
-The intent is that v1.1 ships them as optional, off-by-default listeners
-— out of the box, but opt-in per capsule, because a plaintext protocol
-alongside a TLS one is a decision an operator should make deliberately
-rather than inherit.
+Choosing between them — with clients, homepages and the philosophy of
+each — is [`choosing-protocols.md`](choosing-protocols.md).
 
-Until an implementation exists and has been exercised against a real
-client, no README, capsule page, store listing, or announcement may
-describe them as anything but planned. Announcing protocol support to
-the one community certain to check it is the fastest available way to
-lose the credibility that [`../COMPARISON.md`](../COMPARISON.md) is
-written to earn.
+## The rule that got us here
+
+Gopher, Spartan, Nex and Finger shipped in the v1.1 round. Until each
+had been *exercised*, this page listed it as Planned and every
+outward-facing document had to agree — because announcing protocol
+support to the one community certain to check it is the fastest
+available way to lose the credibility
+[`../COMPARISON.md`](../COMPARISON.md) is written to earn.
+
+The rule stands for whatever comes next: nothing is described as
+supported here, in the README, in a store listing, or in announcement
+copy until an implementation exists and a real client has driven it.
+The "Verified by" column above is what that rule looks like when it is
+being kept.
 
 ## Per-capsule versus per-project
 
