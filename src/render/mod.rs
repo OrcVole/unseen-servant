@@ -24,6 +24,7 @@
 
 pub mod feed;
 pub mod gemtext;
+pub mod gopher;
 pub mod html;
 pub mod llms;
 pub mod markdown;
