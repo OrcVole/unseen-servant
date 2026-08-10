@@ -1423,10 +1423,58 @@ impl WizardState {
     }
 }
 
+/// Where `step` sits in the sequence, and how many steps there are —
+/// so the wizard can say "3 of 5" instead of leaving the operator
+/// guessing how much is left. Pure, and therefore testable without a
+/// terminal, which is the rule the rest of this section follows.
+fn wizard_progress(step: WizardStep, http_enabled: bool) -> (usize, usize) {
+    let total = if http_enabled { 6 } else { 5 };
+    let index = match step {
+        WizardStep::Hostname => 1,
+        WizardStep::Lang => 2,
+        WizardStep::Theme => 3,
+        WizardStep::HttpEnabled => 4,
+        WizardStep::HttpAddress => 5,
+        WizardStep::Confirm => total,
+    };
+    (index, total)
+}
+
+/// The short title for a step, shown beside the progress dots.
+fn wizard_title(step: WizardStep) -> &'static str {
+    match step {
+        WizardStep::Hostname => "Hostname",
+        WizardStep::Lang => "Language",
+        WizardStep::Theme => "Theme",
+        WizardStep::HttpEnabled => "Web mirror",
+        WizardStep::HttpAddress => "Listen address",
+        WizardStep::Confirm => "Review",
+    }
+}
+
+/// One sentence explaining why the field is being asked for.
+///
+/// A setup wizard that only labels its fields assumes the operator
+/// already knows the software; this is the first thing they ever see.
+fn wizard_help(step: WizardStep) -> &'static str {
+    match step {
+        WizardStep::Hostname => {
+            "The name clients will use. It goes in the certificate, so pick the real one."
+        }
+        WizardStep::Lang => "A BCP 47 tag. Screen readers use it to choose pronunciation.",
+        WizardStep::Theme => "Styles the web mirror only. Gemini clients always use their own.",
+        WizardStep::HttpEnabled => {
+            "Renders the same folder to HTML, so people with only a browser can read you."
+        }
+        WizardStep::HttpAddress => "Where the web mirror listens. Put a reverse proxy in front.",
+        WizardStep::Confirm => "Nothing has been written yet. This is the file that will be.",
+    }
+}
+
 /// Run the interactive wizard. `Ok(None)` means the operator cancelled
-/// (Esc/Ctrl-C); `path` is shown in the confirm screen so the operator
-/// knows exactly what they're about to write, and is never touched here
-/// — writing is `cmd_init`'s job, after this returns.
+/// (Esc/Ctrl-C); `path` is shown in the header so the operator knows
+/// exactly what they're about to write, and is never touched here —
+/// writing is `cmd_init`'s job, after this returns.
 fn run_init_wizard(path: &Path) -> std::io::Result<Option<InitAnswers>> {
     let mut terminal = ratatui::init();
     let result = run_wizard_loop(&mut terminal, path);
@@ -1442,120 +1490,252 @@ fn run_wizard_loop(
     use ratatui::layout::{Constraint, Direction, Layout};
     use ratatui::style::{Color, Modifier, Style};
     use ratatui::text::{Line, Span};
-    use ratatui::widgets::{Block, Borders, List, ListItem, Paragraph};
+    use ratatui::widgets::{Block, BorderType, Borders, Paragraph};
 
     let mut state = WizardState::new();
     loop {
         terminal.draw(|frame| {
-            let area = Layout::default()
-                .direction(Direction::Vertical)
-                .constraints([
-                    Constraint::Length(3),
-                    Constraint::Min(6),
-                    Constraint::Length(2),
-                ])
-                .split(frame.area());
+            // A capsule server's setup should look like the thing it
+            // serves: centred, unhurried, nothing shouting. The column is
+            // capped and centred rather than stretched, because a full-
+            // width form on a 200-column terminal is unreadable.
+            let accent = Color::Cyan;
+            let full = frame.area();
+            let width = full.width.min(84);
+            let left = full.x + (full.width.saturating_sub(width)) / 2;
+            let canvas = ratatui::layout::Rect {
+                x: left,
+                y: full.y,
+                width,
+                height: full.height,
+            };
 
+            let rows = Layout::default()
+                .direction(Direction::Vertical)
+                .margin(1)
+                .constraints([
+                    Constraint::Length(2),  // title
+                    Constraint::Length(2),  // progress
+                    Constraint::Length(13), // the question
+                    Constraint::Length(9),  // live preview
+                    // Slack goes here, below the content, so a tall
+                    // terminal leaves whitespace at the bottom instead of
+                    // stretching one panel into a void.
+                    Constraint::Min(0),
+                    Constraint::Length(1), // keys
+                ])
+                .split(canvas);
+
+            // --- title -------------------------------------------------
             frame.render_widget(
                 Paragraph::new(vec![
+                    Line::from(vec![
+                        Span::styled(
+                            "Unseen Servant",
+                            Style::default().fg(accent).add_modifier(Modifier::BOLD),
+                        ),
+                        Span::styled(
+                            "  ·  setting up a capsule",
+                            Style::default().fg(Color::Gray),
+                        ),
+                    ]),
                     Line::from(Span::styled(
-                        "usv init",
-                        Style::default().add_modifier(Modifier::BOLD),
-                    )),
-                    Line::from(Span::styled(
-                        format!("writing to {}", path.display()),
+                        format!("{}", path.display()),
                         Style::default().fg(Color::DarkGray),
                     )),
                 ]),
-                area[0],
+                rows[0],
             );
 
-            let body: Vec<Line> = match state.step {
-                WizardStep::Hostname => vec![
-                    Line::from("Hostname"),
-                    Line::from(Span::styled(
-                        format!("> {}_", state.hostname),
-                        Style::default().fg(Color::Yellow),
-                    )),
-                ],
-                WizardStep::Lang => vec![
-                    Line::from("Language (BCP 47, e.g. en, fr, pt-BR)"),
-                    Line::from(Span::styled(
-                        format!("> {}_", state.lang),
-                        Style::default().fg(Color::Yellow),
-                    )),
-                ],
-                WizardStep::Theme => {
-                    let mut lines = vec![Line::from("Theme (↑↓ to choose, Enter to accept)")];
-                    for (i, t) in theme::THEMES.iter().enumerate() {
-                        let marker = if i == state.theme_idx { "> " } else { "  " };
-                        let style = if i == state.theme_idx {
-                            Style::default()
-                                .fg(Color::Yellow)
-                                .add_modifier(Modifier::BOLD)
-                        } else {
-                            Style::default()
-                        };
-                        lines.push(Line::from(Span::styled(
-                            format!("{marker}{} — {}", t.name, t.description),
-                            style,
-                        )));
-                    }
-                    lines
-                }
-                WizardStep::HttpEnabled => vec![
-                    Line::from("Enable the HTTP (web mirror) surface? (y/n)"),
-                    Line::from(Span::styled(
-                        if state.http_enabled { "> yes" } else { "> no" },
-                        Style::default().fg(Color::Yellow),
-                    )),
-                ],
-                WizardStep::HttpAddress => vec![
-                    Line::from("HTTP listen address (e.g. 0.0.0.0:8080)"),
-                    Line::from(Span::styled(
-                        format!("> {}_", state.http_address),
-                        Style::default().fg(Color::Yellow),
-                    )),
-                ],
-                WizardStep::Confirm => {
-                    let mut lines = vec![Line::from("Review — Enter to write, Backspace to edit")];
-                    match state.validate() {
-                        Ok(answers) => {
-                            for line in init::render_toml(&answers).lines() {
-                                lines.push(Line::from(line.to_string()));
-                            }
-                        }
-                        Err(e) => {
-                            lines.push(Line::from(Span::styled(
-                                format!("Cannot write yet: {e}"),
-                                Style::default().fg(Color::Red),
-                            )));
-                        }
-                    }
-                    lines
-                }
+            // --- progress dots ----------------------------------------
+            let (idx, total) = wizard_progress(state.step, state.http_enabled);
+            let mut dots: Vec<Span> = Vec::new();
+            for n in 1..=total {
+                let (glyph, style) = if n < idx {
+                    ("●", Style::default().fg(accent))
+                } else if n == idx {
+                    (
+                        "●",
+                        Style::default().fg(accent).add_modifier(Modifier::BOLD),
+                    )
+                } else {
+                    ("○", Style::default().fg(Color::DarkGray))
+                };
+                dots.push(Span::styled(glyph, style));
+                dots.push(Span::raw(" "));
+            }
+            dots.push(Span::styled(
+                format!(" {}  ", wizard_title(state.step)),
+                Style::default().add_modifier(Modifier::BOLD),
+            ));
+            dots.push(Span::styled(
+                format!("({idx} of {total})"),
+                Style::default().fg(Color::DarkGray),
+            ));
+            frame.render_widget(Paragraph::new(Line::from(dots)), rows[1]);
+
+            // --- the question ------------------------------------------
+            let field = |value: &str| {
+                Line::from(vec![
+                    Span::styled("  ", Style::default()),
+                    Span::styled(
+                        format!(" {value} "),
+                        Style::default().fg(Color::Black).bg(accent),
+                    ),
+                    Span::styled("▏", Style::default().fg(accent)),
+                ])
             };
-            let mut all_lines = body;
+
+            let mut body: Vec<Line> = vec![
+                Line::from(Span::styled(
+                    wizard_help(state.step),
+                    Style::default().fg(Color::Gray),
+                )),
+                Line::from(""),
+            ];
+            match state.step {
+                WizardStep::Hostname => body.push(field(&state.hostname)),
+                WizardStep::Lang => body.push(field(&state.lang)),
+                WizardStep::Theme => {
+                    for (i, t) in theme::THEMES.iter().enumerate() {
+                        let on = i == state.theme_idx;
+                        body.push(Line::from(vec![
+                            Span::styled(
+                                if on { "  ▸ " } else { "    " },
+                                Style::default().fg(accent),
+                            ),
+                            Span::styled(
+                                format!("{:<12}", t.name),
+                                if on {
+                                    Style::default().fg(accent).add_modifier(Modifier::BOLD)
+                                } else {
+                                    Style::default()
+                                },
+                            ),
+                            Span::styled(t.description, Style::default().fg(Color::DarkGray)),
+                        ]));
+                    }
+                    body.push(Line::from(""));
+                    body.push(Line::from(Span::styled(
+                        "  ↑ ↓ to choose",
+                        Style::default().fg(Color::DarkGray),
+                    )));
+                }
+                WizardStep::HttpEnabled => {
+                    for (on, label, note) in [
+                        (state.http_enabled, "yes", "serve a web mirror too"),
+                        (!state.http_enabled, "no", "Gemini only"),
+                    ] {
+                        body.push(Line::from(vec![
+                            Span::styled(
+                                if on { "  ▸ " } else { "    " },
+                                Style::default().fg(accent),
+                            ),
+                            Span::styled(
+                                format!("{label:<6}"),
+                                if on {
+                                    Style::default().fg(accent).add_modifier(Modifier::BOLD)
+                                } else {
+                                    Style::default()
+                                },
+                            ),
+                            Span::styled(note, Style::default().fg(Color::DarkGray)),
+                        ]));
+                    }
+                    body.push(Line::from(""));
+                    body.push(Line::from(Span::styled(
+                        "  y / n",
+                        Style::default().fg(Color::DarkGray),
+                    )));
+                }
+                WizardStep::HttpAddress => body.push(field(&state.http_address)),
+                WizardStep::Confirm => {
+                    body.push(match state.validate() {
+                        Ok(_) => Line::from(Span::styled(
+                            "  Everything below is valid. Enter writes it.",
+                            Style::default().fg(Color::Green),
+                        )),
+                        Err(e) => Line::from(Span::styled(
+                            format!("  Not yet: {e}"),
+                            Style::default().fg(Color::Red),
+                        )),
+                    });
+                }
+            }
             if let Some(err) = &state.error {
-                all_lines.push(Line::from(""));
-                all_lines.push(Line::from(Span::styled(
-                    err.clone(),
+                body.push(Line::from(""));
+                body.push(Line::from(Span::styled(
+                    format!("  {err}"),
                     Style::default().fg(Color::Red),
                 )));
             }
             frame.render_widget(
-                List::new(all_lines.into_iter().map(ListItem::new).collect::<Vec<_>>())
-                    .block(Block::default().borders(Borders::TOP)),
-                area[1],
+                Paragraph::new(body).block(
+                    Block::default()
+                        .borders(Borders::ALL)
+                        .border_type(BorderType::Rounded)
+                        .border_style(Style::default().fg(Color::DarkGray))
+                        .title(Span::styled(
+                            format!(" {} ", wizard_title(state.step)),
+                            Style::default().fg(accent).add_modifier(Modifier::BOLD),
+                        ))
+                        .padding(ratatui::widgets::Padding::new(1, 1, 1, 0)),
+                ),
+                rows[2],
             );
 
+            // --- live preview of the file being built ------------------
+            // Shown from the first keystroke, not saved until the end: the
+            // operator can see exactly what they are agreeing to, which is
+            // the one thing a config wizard can offer that hand-editing
+            // cannot.
+            let mut preview: Vec<Line> = Vec::new();
+            let dim = Style::default().fg(Color::DarkGray);
+            let val = Style::default().fg(accent);
+            preview.push(Line::from(Span::styled("[server]", dim)));
+            preview.push(Line::from(vec![
+                Span::styled("lang = ", dim),
+                Span::styled(format!("\"{}\"", state.lang), val),
+            ]));
+            preview.push(Line::from(vec![
+                Span::styled("theme = ", dim),
+                Span::styled(format!("\"{}\"", theme::THEMES[state.theme_idx].name), val),
+            ]));
+            if state.http_enabled {
+                preview.push(Line::from(vec![
+                    Span::styled("http_listen = ", dim),
+                    Span::styled(format!("\"{}\"", state.http_address), val),
+                ]));
+            }
+            preview.push(Line::from(""));
+            preview.push(Line::from(Span::styled("[[host]]", dim)));
+            preview.push(Line::from(vec![
+                Span::styled("name = ", dim),
+                Span::styled(format!("\"{}\"", state.hostname), val),
+            ]));
             frame.render_widget(
-                Paragraph::new(Line::from(Span::styled(
-                    "Enter: next · Backspace: back · Esc/Ctrl-C: cancel",
-                    Style::default().fg(Color::DarkGray),
-                ))),
-                area[2],
+                Paragraph::new(preview).block(
+                    Block::default()
+                        .borders(Borders::ALL)
+                        .border_type(BorderType::Rounded)
+                        .border_style(Style::default().fg(Color::DarkGray))
+                        .title(Span::styled(" usv.toml ", dim))
+                        .padding(ratatui::widgets::Padding::new(1, 1, 0, 0)),
+                ),
+                rows[3],
             );
+
+            // --- keys --------------------------------------------------
+            let key = |k: &'static str, what: &'static str| {
+                vec![
+                    Span::styled(k, Style::default().fg(accent)),
+                    Span::styled(format!(" {what}   "), Style::default().fg(Color::DarkGray)),
+                ]
+            };
+            let mut keys = key("Enter", "next");
+            keys.extend(key("Backspace", "back"));
+            keys.extend(key("Esc", "cancel"));
+            frame.render_widget(Paragraph::new(Line::from(keys)), rows[5]);
         })?;
 
         let Event::Key(key) = event::read()? else {
@@ -1685,6 +1865,34 @@ mod wizard_tests {
     fn confirm_is_the_terminal_step() {
         assert_eq!(wizard_next(WizardStep::Confirm, false), WizardStep::Confirm);
         assert_eq!(wizard_next(WizardStep::Confirm, true), WizardStep::Confirm);
+    }
+
+    #[test]
+    fn progress_counts_the_steps_the_operator_will_actually_see() {
+        // The web-mirror address step is skipped when the mirror is off,
+        // so the total must shrink with it -- otherwise the wizard counts
+        // to a number it never reaches.
+        assert_eq!(wizard_progress(WizardStep::Hostname, true), (1, 6));
+        assert_eq!(wizard_progress(WizardStep::Confirm, true), (6, 6));
+        assert_eq!(wizard_progress(WizardStep::Confirm, false), (5, 5));
+        assert_eq!(wizard_progress(WizardStep::Hostname, false), (1, 5));
+    }
+
+    #[test]
+    fn every_step_has_a_title_and_a_reason_for_existing() {
+        for step in [
+            WizardStep::Hostname,
+            WizardStep::Lang,
+            WizardStep::Theme,
+            WizardStep::HttpEnabled,
+            WizardStep::HttpAddress,
+            WizardStep::Confirm,
+        ] {
+            assert!(!wizard_title(step).is_empty(), "{step:?} has no title");
+            let help = wizard_help(step);
+            assert!(help.len() > 20, "{step:?} help is too thin: {help}");
+            assert!(help.ends_with('.'), "{step:?} help is not a sentence");
+        }
     }
 
     #[test]
