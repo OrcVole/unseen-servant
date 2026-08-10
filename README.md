@@ -128,6 +128,11 @@ Full reference: [`docs/configuration.md`](docs/configuration.md).
 Unknown keys are a startup error — a typo in a security-relevant setting
 must not fail open by being ignored.
 
+Remote editing over Titan — zones, allowlists, key rotation — is
+[`docs/titan.md`](docs/titan.md). Common questions:
+[`docs/faq.md`](docs/faq.md). Everything else:
+[`docs/`](docs/index.md).
+
 ## When to use something else
 
 The full, honest version is [`COMPARISON.md`](COMPARISON.md), including
