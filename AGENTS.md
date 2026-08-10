@@ -20,28 +20,38 @@ archaeology.
 
 ## Phase state
 
-**C3 (dual render) exit gate passed — next: C4 (Titan).** The full
-gemtext → HTML/Atom/gemsub pipeline lands: fuzzed gemtext parser,
-metadata pass, semantic classless HTML emitter (always-escaped), Atom +
-gemsub feed emitters, a debounced watcher with atomic staging-swap
-renders, and an unconditional HTTP surface (ADR 0008). Four bundled
-themes (Daybreak/Midnight/Tokyo Night/Paper), a richly-formatted default
-skeleton verified rendering in Lagrange, w3m, and lynx, and robots.txt
-Gemini→web mirroring. The whole render path is wired into the binary and
-verified end to end. Branding direction is recorded
-(`docs/notes/branding.md`: the dot-mesh servant, concept 1).
+**C6 (packaging) exit gate passed — C7 (hardening + launch prep) under
+way.** C4 (Titan) and C5 (identity CLI, wire status/roster/audit,
+`usv init` wizard, `usv export`, Tor/I2P affordances) both landed and
+passed their exit gates since the C3 note this line used to carry —
+see git history for the blow-by-blow; this line only tracks the
+current edge, per its own instruction below.
 
-ADR 0010 (agent + assistive access) then landed as a cross-cutting pass:
-one requirement serves screen-reader/voice users and AI agents alike —
-named, addressable affordances. It fixes the `lang` declaration (real
-`<html lang>` and a `text/gemini; lang=` parameter, both from config,
-no hardcoded `en`), emits a full site map on both surfaces (`map.gmi`
-for Gemini, `sitemap.xml` for the web), and adds HTML landmarks (a
-`<main>` wrapper, a skip link as the first focusable element, always-on
-focus outlines). All verified end to end against a running binary.
-255 tests green. Update this
-line when a phase's exit gate passes; the gates are defined in
-`docs/BUILD-PLAN.md`.
+C6 shipped the full packaging matrix, every format actually built and
+verified (not just written) against a real install/run/remove cycle:
+the Cloudron app (multi-stage Dockerfile, `CloudronManifest.json`,
+`start.sh`), a static musl tarball + systemd unit, `.deb`, an AUR
+PKGBUILD, an RPM spec, a Nix flake, and a plain OCI image. The
+Cloudron image itself was optimized live after director feedback
+("smolnet is famously lightweight... this does not meet expectations"):
+`cloudron/base` was replaced with a minimal `alpine` final stage
+(su-exec instead of gosu, `bash` kept explicitly for dashboard
+terminal/file-manager conformance), cutting the packaged image from
+2.46GB to 20.1MB and the real install time on a live host from ~41min
+(from-source) to ~1m40s. That deviation from the ecosystem norm (no
+other Cloudron app found using a non-`cloudron/base` final stage) is
+recorded in `docs/recon/cloudron-fit.md`'s addendum and was raised on
+the Cloudron forum for outside review before treating it as settled.
+
+C7 is in progress: extended fuzz campaigns beyond the CI smoke corpus,
+`COMPARISON.md` (honest signposting against Agate/gmid/Molly
+Brown/GmCapsule, per director instruction), the project's own capsule
+content (`content/`), and a gemini-diagnostics run against the live
+deployment from a genuine external vantage point (25/27 clean,
+documented in `DEBUGGING.md` — the two non-passes are the same
+already-known tool/environment artifacts the C1 run hit, not new
+defects). Update this line when a phase's exit gate passes; the gates
+are defined in `docs/BUILD-PLAN.md`.
 
 ## Invariants (violating any of these needs an ADR amendment first)
 

@@ -1,0 +1,21 @@
+# Unseen Servant
+
+Pre-release. Unannounced. If you've found this early, please don't share it around yet — nothing here is asking for visitors until it clears its own quality bar.
+
+A security-first Gemini server, written in Rust, that publishes one content tree to two worlds: served natively as gemtext on port 1965, and statically rendered to themed, classless HTML for the web. Write a gemlog once; readers reach it from Lagrange or lynx or Chrome, whichever they have open.
+
+This capsule is usv serving itself — the project dogfoods its own server.
+
+=> about.gmi What usv actually does
+=> install.gmi Getting it running
+=> compare.gmi How it compares to Agate, gmid, Molly Brown, and GmCapsule
+=> status.gmi Current build status
+=> https://forgejo.wanderingmonster.dev/WanderingMonster/unseen-servant Source (Forgejo)
+
+## Elsewhere
+
+=> contact.gmi Contact
+
+## License
+
+MIT.
