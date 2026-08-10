@@ -164,6 +164,18 @@ async fn handle_connection(tcp: TcpStream, peer: SocketAddr, state: Shared) {
     };
 
     let client_cert = extract_client_cert(&stream);
+    // Debug-level only: an operator diagnosing "why is my zone refusing my
+    // client" needs the exact fingerprint the server saw, to compare
+    // against a cert_zone/titan_zone/identity config by eye. Never above
+    // debug — this is not part of the per-request audit line.
+    if let Some(c) = &client_cert {
+        tracing::debug!(
+            %peer,
+            fingerprint = %c.fingerprint_sha256,
+            valid = c.currently_valid,
+            "client certificate presented"
+        );
+    }
 
     let outcome = match timeout(request_deadline, read_request(&mut stream)).await {
         Ok(Ok(buf)) => match respond(&buf, &state, client_cert.as_ref()).await {
