@@ -20,6 +20,7 @@
 //!   entry that simply fails.
 
 use crate::protocol::gopher::{ItemType, LASTLINE, MenuLine};
+use crate::render::cleartext::Gate;
 use crate::render::gemtext::Line;
 
 /// The width prose is wrapped to before it becomes `i` lines.
@@ -45,7 +46,13 @@ pub struct Context {
 /// the root, `/notes/` for `notes/index.gmi`), used to resolve relative
 /// links — gopher selectors are absolute, so a relative gemtext link
 /// cannot be passed through unchanged.
-pub fn render_menu(lines: &[Line<'_>], title: &str, page_dir: &str, ctx: &Context) -> String {
+pub fn render_menu(
+    lines: &[Line<'_>],
+    title: &str,
+    page_dir: &str,
+    ctx: &Context,
+    gate: &Gate,
+) -> String {
     let mut out = String::with_capacity(1024);
 
     // The title as a heading, then a blank line. Menus have no <title>
@@ -105,7 +112,18 @@ pub fn render_menu(lines: &[Line<'_>], title: &str, page_dir: &str, ctx: &Contex
             }
             Line::Link { url, name } => {
                 let display = name.unwrap_or(url);
-                out.push_str(&link_line(url, display, page_dir, ctx).to_wire());
+                let line = link_line(url, display, page_dir, ctx);
+                // A link to gated content is dropped entirely, not
+                // rendered as text. Found by browsing a real capsule with
+                // gelim: excluding the *page* still left the parent menu
+                // advertising "Secret", which discloses both that a
+                // private area exists and what it is called — in the
+                // clear, to anyone, which is exactly what the zone was
+                // meant to prevent. Keeping the display text would leak
+                // the same thing, so the whole line goes.
+                if !gate.excludes(&line.selector) {
+                    out.push_str(&line.to_wire());
+                }
             }
         }
     }
@@ -316,7 +334,12 @@ mod tests {
 
     fn menu(src: &str, page_dir: &str) -> String {
         let lines = gemtext::parse(src);
-        render_menu(&lines, "T", page_dir, &ctx())
+        render_menu(&lines, "T", page_dir, &ctx(), &Gate::default())
+    }
+
+    fn menu_gated(src: &str, page_dir: &str, gate: &Gate) -> String {
+        let lines = gemtext::parse(src);
+        render_menu(&lines, "T", page_dir, &ctx(), gate)
     }
 
     #[test]
@@ -466,6 +489,34 @@ mod tests {
         for line in out.split("\r\n").filter(|l| !l.is_empty() && *l != ".") {
             assert_eq!(line.matches('\t').count(), 3, "forged: {line:?}");
         }
+    }
+
+    #[test]
+    fn a_link_to_gated_content_is_dropped_not_merely_broken() {
+        // Found live with gelim: excluding the gated PAGE still left the
+        // parent menu advertising it by name, which discloses that a
+        // private area exists and what it is called.
+        use crate::config::HostConfig;
+        use crate::handler::cert_zone;
+        let host = HostConfig {
+            name: "example.org".into(),
+            docroot: std::path::PathBuf::from("/tmp"),
+            redirects: Vec::new(),
+            cert_zones: vec![cert_zone::Zone {
+                path_prefix: "/private/".into(),
+                allowed_fingerprints: Vec::new(),
+            }],
+            titan_zones: Vec::new(),
+        };
+        let gate = Gate::for_host(&host);
+        let out = menu_gated(
+            "=> private/secret.gmi Secret Diary\n=> public.gmi Public\n",
+            "/",
+            &gate,
+        );
+        assert!(!out.contains("Secret Diary"), "title leaked: {out}");
+        assert!(!out.contains("/private/"), "path leaked: {out}");
+        assert!(out.contains("Public"), "public link must survive: {out}");
     }
 
     #[test]

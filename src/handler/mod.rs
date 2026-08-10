@@ -13,6 +13,7 @@
 
 pub mod admin;
 pub mod cert_zone;
+pub mod gopher;
 pub mod mime;
 pub mod redirect;
 pub mod static_file;

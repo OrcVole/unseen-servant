@@ -494,7 +494,8 @@ async fn render_page(
         if !target.gate.excludes(&selector) {
             let page_dir = selector.rsplit_once('/').map_or("/", |(dir, _)| dir);
             let page_dir = if page_dir.is_empty() { "/" } else { page_dir };
-            let menu = super::gopher::render_menu(&lines, &title, page_dir, &target.ctx);
+            let menu =
+                super::gopher::render_menu(&lines, &title, page_dir, &target.ctx, &target.gate);
             let gopher_path = gopher_output_path(gopher_root, relative);
             if let Some(parent) = gopher_path.parent() {
                 tokio::fs::create_dir_all(parent).await?;
