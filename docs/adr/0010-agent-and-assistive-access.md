@@ -1,18 +1,18 @@
-# ADR 0010: Legibility for agents and assistive access — one problem, not two
+# ADR 0010: Legibility for agents and assistive access: one problem, not two
 
 - Status: **Proposed** (director-raised 2026-08-09; awaiting review)
 - Date: 2026-08-09
-- Evidence: docs/recon/protocol.md (gemtext grammar, `lang` parameter,
-  status classes), docs/recon/ecosystem.md (companion specs), ADR 0004
+- Evidence: docs/internal/recon/protocol.md (gemtext grammar, `lang` parameter,
+  status classes), docs/internal/recon/ecosystem.md (companion specs), ADR 0004
   (dual surface), ADR 0005 (cert zones, no CGI), ADR 0006 (Titan),
-  docs/notes/integration-ideas.md
+  docs/internal/notes/integration-ideas.md
 
 ## Context
 
 The director asked two questions on the same day, and they turn out to
 have one answer:
 
-1. Make usv useful to **AI agents** — including agents that would *run*
+1. Make usv useful to **AI agents**: including agents that would *run*
    a capsule, not merely read one.
 2. Provide hooks for people using **voice control, screen readers, or a
    text browser** rather than a pointer.
@@ -36,7 +36,7 @@ for new features:
   directory and it is live on two protocols within the debounce window
   (300 ms). No API call, no auth handshake, no build step, no deploy,
   no CMS. Compared with any web publishing stack, the friction is close
-  to zero — and the failure modes an agent hits with those stacks
+  to zero, and the failure modes an agent hits with those stacks
   (broken templates, failed builds, malformed markup) mostly cannot
   occur here.
 - **The output format is nearly impossible to generate wrongly.**
@@ -45,8 +45,8 @@ for new features:
   class of bug at all. Generating correct HTML is a real engineering
   task; generating correct gemtext is not.
 - **The output is losslessly parseable.** Another agent reading the
-  capsule recovers exactly the structure the author wrote — headings,
-  links, lists, quotes, preformatted blocks — with a one-pass parser
+  capsule recovers exactly the structure the author wrote: headings,
+  links, lists, quotes, preformatted blocks, with a one-pass parser
   and one bit of state (`render::gemtext`). Round-tripping HTML does
   not work like that.
 - **Client certificates are identity without an account system**
@@ -64,8 +64,8 @@ for new features:
   next phase rather than a speculative addition.
 
 The honest summary: usv suits agents largely *by accident*, because the
-properties that make Gemini pleasant for people — small, plain, no build
-step, certificate identity — are the same properties that make a
+properties that make Gemini pleasant for people: small, plain, no build
+step, certificate identity: are the same properties that make a
 publishing surface easy for a program to drive. This ADR mostly
 protects and completes that accident rather than inventing on top of it.
 
@@ -84,7 +84,7 @@ agent is refused or deferred.
 
 ### 1. Accept that the two audiences share one requirement
 
-Every affordance usv grows — now and in future phases — must be a
+Every affordance usv grows: now and in future phases: must be a
 **named, addressable thing**, never a spatial or visual one. Concretely,
 as a standing rule for later phases: an action is a link with a stable
 name and a direct URL (ADR 0009's "a like is a page you visit" already
@@ -111,7 +111,7 @@ exist*. Feeds cover only dated posts (ADR 0004 / `render::metadata`);
 everything else requires crawling. usv already walks the entire content
 tree on every render, so it holds the complete answer for free.
 
-Decision: every render emits a site map — `/map.gmi` for Gemini (and,
+Decision: every render emits a site map: `/map.gmi` for Gemini (and,
 rendered, `/map.html`), and `sitemap.xml` for the web, the latter being
 an actual established standard rather than an invention.
 
@@ -127,7 +127,7 @@ The HTML emitter already produces semantic, classless markup. Add the
 navigational scaffolding assistive technology actually keys on:
 `<main>` around the content, a skip-to-content link as the first
 focusable element, and a visible focus style. Cheap, standards-plain,
-and the direct answer to "voice or other means instead of keyboard" —
+and the direct answer to "voice or other means instead of keyboard", 
 these are the hooks that let a voice user jump without a pointer.
 
 ### 5. What is refused, and why
@@ -138,7 +138,7 @@ these are the hooks that let a voice user jump without a pointer.
   the entire ADR 0004 thesis, and it already works.
 - **No bespoke capability manifest / JSON schema.** A format only usv
   speaks has no consumers. If a capsule wants to advertise what it
-  offers, that is *content* — an ordinary page saying so, which every
+  offers, that is *content*: an ordinary page saying so, which every
   client and every agent can already read. Revisit only if a real
   cross-implementation convention emerges.
 - **No "agent mode", no API surface, no JavaScript.** ADR 0005 closed
@@ -163,4 +163,4 @@ these are the hooks that let a voice user jump without a pointer.
   is all accessibility and ordinary usability work that stands on its
   own. That asymmetry is why these particular items were chosen over the
   more speculative ones, which are recorded in
-  `docs/notes/integration-ideas.md` and deliberately not built.
+  `docs/internal/notes/integration-ideas.md` and deliberately not built.

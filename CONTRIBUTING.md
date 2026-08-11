@@ -7,13 +7,13 @@ and directs. This shapes what contribution means here.
 ## Before v1.0
 
 The project is pre-release and unannounced. External contributions are not
-being solicited yet; if you found this repository, welcome — please don't
-publicise it (see `docs/ROADMAP.md` for why the announcement is gated).
+being solicited yet; if you found this repository, welcome: please do not
+publicise it (see `docs/internal/ROADMAP.md` for why the announcement is gated).
 
 ## What always applies
 
 - **Decisions live in ADRs** (`docs/adr/`). A change that contradicts an
-  accepted ADR needs an ADR amendment in the same change — never a silent
+  accepted ADR needs an ADR amendment in the same change: never a silent
   overturn. New non-obvious decisions get new ADRs.
 - **Invariants** are listed in `AGENTS.md` and are not up for casual
   renegotiation: no unsafe code, every parser fuzzed, the
@@ -32,5 +32,5 @@ publicise it (see `docs/ROADMAP.md` for why the announcement is gated).
 
 MIT (see `LICENSE`). By contributing you agree your contribution is
 MIT-licensed. Where mechanisms are adapted from studied prior art (Agate,
-gmid, Molly Brown — see `docs/recon/prior-art.md`), attribution lives in the
+gmid, Molly Brown: see `docs/internal/recon/prior-art.md`), attribution lives in the
 relevant module's doc comment.

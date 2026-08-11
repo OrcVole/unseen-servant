@@ -1,8 +1,8 @@
-# ADR 0006: Titan — committed for v1.0
+# ADR 0006: Titan: committed for v1.0
 
 - Status: Accepted, amended 2026-08-09 twice (director directives)
 - Date: 2026-08-09
-- Evidence: docs/recon/ecosystem.md §1
+- Evidence: docs/internal/recon/ecosystem.md §1
 
 ## Context
 
@@ -11,8 +11,8 @@ authoring story we want". Recon found: client-side adoption is real
 (Lagrange has shipped Titan upload since v1.6 and page-editing since
 v1.10, so every mainstream user already holds an editor); the spec is
 stable in practice but weakly stewarded (canonical home is a
-gemini://-only wiki whose HTTPS mirrors 404); and gmid — the field's
-maximalist — refuses to implement Titan in core, validating and
+gemini://-only wiki whose HTTPS mirrors 404); and gmid: the field's
+maximalist: refuses to implement Titan in core, validating and
 delegating it instead. For usv specifically, an upload is not a file
 write: it must land in the source tree and re-trigger the dual render,
 i.e. it is a pipeline mutation and real design work.
@@ -30,7 +30,7 @@ content.
   case and rejects it with a clean, logged code path (status 53 with
   an explanatory META), never as a generic parse failure.
 - Client-certificate plumbing (solicitation, fingerprint extraction,
-  path-scoped zones) ships in v1 for cert zones (ADR 0005) — exactly
+  path-scoped zones) ships in v1 for cert zones (ADR 0005): exactly
   the auth infrastructure Titan needs.
 - The render pipeline is re-entrant and treats "a file changed" as its
   only input, so an upload handler would be a new writer, not a new
@@ -48,14 +48,14 @@ default none; size limits enforced before body read.
 ## Amendments (2026-08-09, director)
 
 First amendment: the director committed Titan as the announcement
-gate — nothing is announced until Titan works. Second amendment,
+gate: nothing is announced until Titan works. Second amendment,
 later the same day: the quiet-release/announcement-release split was
-collapsed entirely ("we won't use or announce it till it is ready
-for titan… why not go there directly") — **Titan is v1.0, milestone
-M3** (docs/ROADMAP.md); there is no Titan-less release. "Designed
+collapsed entirely ("we will not use or announce it till it is ready
+for titan… why not go there directly"): **Titan is v1.0, milestone
+M3** (docs/internal/ROADMAP.md); there is no Titan-less release. "Designed
 for" hardened into scheduled work: the pipeline seams above are
 requirements of the earlier milestones, and the implementation-grade
-recon (docs/recon/titan.md — wire format, spec stewardship, client
+recon (docs/internal/recon/titan.md: wire format, spec stewardship, client
 divergences) is the design input. The security constraints in this
 ADR (cert-fingerprint gating only, no token-as-sole-factor, explicit
 writable paths, pre-read size limits) are unchanged and binding. The

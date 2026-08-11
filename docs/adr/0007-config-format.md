@@ -1,16 +1,16 @@
-# ADR 0007: Configuration — a single TOML file, gmid semantics, env overrides for platforms
+# ADR 0007: Configuration: a single TOML file, gmid semantics, env overrides for platforms
 
 - Status: **Accepted** (director, 2026-08-09: "one toml file is fine
-  unless there are distinct advantages to having multiple ones" —
+  unless there are distinct advantages to having multiple ones", 
   evaluation of multiple files below found no distinct advantage, so
   the single file stands; OQ-1 closed)
 - Date: 2026-08-09
-- Evidence: docs/recon/prior-art.md §§1–4, docs/recon/cloudron-fit.md §§1,6
+- Evidence: docs/internal/recon/prior-art.md §§1-4, docs/internal/recon/cloudron-fit.md §§1,6
 
 ## Context
 
 The field's config approaches: Agate is CLI-flags-only (which makes
-the Dockerfile the config file — refused); gmid has the most pleasant
+the Dockerfile the config file: refused); gmid has the most pleasant
 semantics (server blocks, locations, macros) behind a custom yacc
 grammar (refused as machinery); Molly Brown uses a single TOML file
 with one dependency; twins uses YAML (refused: footgun-rich).
@@ -20,7 +20,7 @@ same file to work with no platform at all.
 
 ## Decision
 
-**A single TOML file** — `usv.toml` — is the whole configuration
+**A single TOML file**: `usv.toml`: is the whole configuration
 surface. Search order: `--config <path>` flag, then
 `$USV_CONFIG`, then `${state_dir}/usv.toml`, then built-in defaults
 (the server must start usefully with no file at all, serving
@@ -30,7 +30,7 @@ surface. Search order: `--config <path>` flag, then
   defaults, `[[host]]` tables for per-hostname settings (root,
   cert slot, language), `[[host.location]]` tables for path-scoped
   overrides (MIME, redirects, cert zones per ADR 0005). No macros, no
-  includes, no conditionals — a config you can hold in your head, per
+  includes, no conditionals: a config you can hold in your head, per
   Gemini philosophy.
 - **Env-var overrides for platform-injected facts only** (ports,
   state/content paths, external hostname): `USV_*` variables and the
@@ -42,33 +42,33 @@ surface. Search order: `--config <path>` flag, then
   ignored. The reserved `[titan]` section errors with a "not yet
   implemented" message (ADR 0006).
 - **SIGHUP re-reads the file** (ADR 0002); an invalid file on reload
-  keeps the old config and logs the rejection — a running server is
+  keeps the old config and logs the rejection: a running server is
   never taken down by a bad edit.
 - Per-directory sidecar overrides in the content tree (Agate `.meta` /
   Molly `.molly` style) are deferred; if added, they follow Molly
-  Brown's whitelist rule — content-tree files may never change listen
+  Brown's whitelist rule: content-tree files may never change listen
   addresses, roots, or cert paths.
 
-## Multiple files — evaluated and declined
+## Multiple files: evaluated and declined
 
 Per the director's condition ("unless there are distinct advantages
-to having multiple ones"): the cases where projects split config —
+to having multiple ones"): the cases where projects split config, 
 secrets separation, per-vhost include files, machine-generated
-fragments — don't apply here. Secrets: usv has none in config (keys
+fragments: do not apply here. Secrets: usv has none in config (keys
 live as PEM files referenced by path, never inline). Per-vhost scale:
 usv serves one capsule with a handful of hostnames; `[[host]]` tables
 in one file stay readable. Generated fragments: the platform profile
 (ADR 0008) injects via environment, not file merging, precisely so
 there is exactly one file to read when debugging. A config split
-would add merge-order semantics — a classic source of "which file
-won?" confusion — for no gain at this scale. Single file stands.
+would add merge-order semantics: a classic source of "which file
+won?" confusion, for no gain at this scale. Single file stands.
 
 ## Consequences
 
 - One file to document, back up, and diff; it lives in the state dir
   so Cloudron backups capture it automatically.
 - TOML's inability to express gmid-style macros is accepted: usv's
-  scope (one capsule, few hostnames) doesn't need them.
+  scope (one capsule, few hostnames) does not need them.
 - If the director's truncated sentence intended something other than
-  "single TOML file", this ADR is amended, not overwritten — the
+  "single TOML file", this ADR is amended, not overwritten: the
   reasoning above stands as the evaluation record.

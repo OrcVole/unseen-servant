@@ -13,7 +13,7 @@ makepkg -si
 `unseen-servant-git` tracks `main` rather than a tagged release, because
 no release is tagged yet. That is the correct AUR shape for a project in
 this state. When v1.0 ships, this file becomes the template for a plain
-`unseen-servant` package sourced from a release tarball — remove the
+`unseen-servant` package sourced from a release tarball: remove the
 `source=`, `pkgver()` and `_srcname` VCS machinery and pin the version.
 
 ## What it installs
@@ -26,7 +26,7 @@ this state. When v1.0 ships, this file becomes the template for a plain
 | `/usr/share/licenses/unseen-servant-git/` | `LICENSE` |
 
 The `usv` user is created by `systemd-sysusers` from the shipped
-`sysusers.d` file — Arch's idiomatic mechanism, and the reason this
+`sysusers.d` file: Arch's idiomatic mechanism, and the reason this
 package needs no install scriptlet at all. (The RPM uses plain `useradd`
 instead; see [`rpm.md`](rpm.md) for why.)
 
@@ -40,7 +40,7 @@ in comments in the file itself:
 **`cargo build --frozen` fails on a clean machine.** `--frozen` disables
 *all* network access, not merely "respect `Cargo.lock`", so the build
 died with `no matching package named crossterm found`. The fix is a
-`prepare()` step running `cargo fetch --locked` — which also makes the
+`prepare()` step running `cargo fetch --locked`, which also makes the
 network boundary provable rather than merely intended, since `prepare()`
 is the only step permitted network access.
 

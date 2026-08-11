@@ -1,0 +1,491 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Unseen Servant: the smolnet server for AI agents</title>
+<link rel="icon" href="../assets/favicon/favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="../assets/favicon/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="../assets/favicon/favicon-16x16.png">
+<link rel="apple-touch-icon" href="../assets/favicon/apple-touch-icon.png">
+<meta name="theme-color" content="#E67916">
+<style>
+  /* Iosevka is the house typeface: the same monospace shape as the
+     wordmark, and the right one for a project whose subject is text on a
+     wire. Subset to Latin plus the box-drawing and arrow glyphs these
+     pages actually use, so all three faces together come to about 74 kB.
+     A viewer with Iosevka installed uses their own copy first. */
+  @font-face{
+    font-family:"Iosevka Web"; font-style:normal; font-weight:400; font-display:swap;
+    src:local("Iosevka"), url("../assets/fonts/Iosevka-Regular.woff2") format("woff2");
+  }
+  @font-face{
+    font-family:"Iosevka Web"; font-style:normal; font-weight:700; font-display:swap;
+    src:local("Iosevka Bold"), url("../assets/fonts/Iosevka-Bold.woff2") format("woff2");
+  }
+  @font-face{
+    font-family:"Iosevka Web"; font-style:italic; font-weight:400; font-display:swap;
+    src:local("Iosevka Italic"), url("../assets/fonts/Iosevka-Italic.woff2") format("woff2");
+  }
+
+  /* Palette defined in full on bare :root (light), then re-stated for the
+     two dark cases: system preference, and an explicit data-theme. No
+     colour has its only definition inside a media query.
+
+     Ember Oxide (#E67916) is the brand colour: old terminal amber, with a
+     nod to rust. It carries enough contrast on the dark ground to be used
+     for text; on the light ground it does not, so light mode uses a
+     burnt-down tint for code text and keeps the pure ember for rules,
+     chips and marks. */
+  :root{
+    --ember:#E67916;
+    --paper:#FBF9F5;
+    --card:#FFFFFF;
+    --ink:#1B1A17;
+    --soft:#4A4642;
+    --rail:#C9C0B2;
+    --usv:#9A4C05;
+    --code-ink:#9A4C05;
+    --use:#9A4C05;
+    --run:#6B4E12;
+    --warn-bg:#FDF2DC;
+    --warn-ink:#5A3F0C;
+    --warn-rule:#DCC08A;
+    --code-bg:#F6F0E6;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --paper:#14120F; --card:#1E1B16; --ink:#F2EEE6; --soft:#BDB2A2; --rail:#4A433A;
+      --usv:#E67916; --code-ink:#F0A353;
+      --use:#E67916; --run:#D9A441;
+      --warn-bg:#2A2110; --warn-ink:#F0D69C; --warn-rule:#5C4820;
+      --code-bg:#241F18;
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#14120F; --card:#1E1B16; --ink:#F2EEE6; --soft:#BDB2A2; --rail:#4A433A;
+    --usv:#E67916; --code-ink:#F0A353;
+    --use:#E67916; --run:#D9A441;
+    --warn-bg:#2A2110; --warn-ink:#F0D69C; --warn-rule:#5C4820;
+    --code-bg:#241F18;
+  }
+
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family:"Iosevka Web",Iosevka,ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    font-size:19px; line-height:1.7;
+  }
+  .wrap{max-width:1000px; margin:0 auto; padding:clamp(2rem,5vw,4rem) clamp(1.1rem,4vw,2.5rem) 6rem}
+  code{font-size:.94em; color:var(--code-ink);
+       background:var(--code-bg); padding:.12em .35em; border-radius:5px}
+  pre{background:var(--card); border:2px solid var(--rail); border-radius:14px;
+      padding:1.1rem 1.3rem; overflow-x:auto; font-size:.84rem; line-height:1.6;
+      color:var(--code-ink)}
+  pre code{background:none; padding:0; font-size:1em; color:inherit}
+  a{color:var(--usv)}
+
+  /* Hover tooltips: an abbreviation carries its full form and a short
+     explainer in the title attribute, so the page teaches its own jargon
+     without a glossary detour. Dotted underline is the long-standing
+     convention for "there is more here". */
+  abbr[title]{
+    text-decoration:underline dotted 2px var(--rail);
+    text-underline-offset:.24em; cursor:help; border:0;
+  }
+
+  header{margin-bottom:3.5rem}
+  .brandmark{display:block; width:clamp(150px,22vw,210px); height:auto;
+             margin:0 0 1.8rem; border-radius:18px}
+  .eyebrow{font-size:.95rem; letter-spacing:.08em; text-transform:uppercase;
+           color:var(--ember); font-weight:700; margin:0 0 1rem}
+  h1{font-size:clamp(2.2rem,5.6vw,3.3rem); line-height:1.07; margin:0 0 1.2rem;
+     letter-spacing:-.02em; font-weight:750; text-wrap:balance}
+  .standfirst{font-size:clamp(1.1rem,2.3vw,1.32rem); color:var(--soft); margin:0; max-width:60ch}
+
+  h2{font-size:clamp(1.6rem,3.4vw,2.1rem); margin:4rem 0 .6rem; font-weight:720;
+     letter-spacing:-.015em; text-wrap:balance}
+  h3{font-size:1.18rem; margin:2.2rem 0 .4rem; font-weight:700}
+  .lede{color:var(--soft); margin:0 0 2rem; max-width:62ch; font-size:1.04rem}
+  p{max-width:68ch}
+
+  .paths{display:grid; gap:1.4rem; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); margin:2rem 0 0}
+  .path{background:var(--card); border:2px solid var(--rail); border-radius:18px;
+        padding:clamp(1.2rem,3vw,1.8rem)}
+  .path h3{margin-top:0; font-size:1.32rem}
+  .path.use{border-color:var(--use)}
+  .path.run{border-color:var(--run)}
+  .path .tag{display:inline-block; font-size:.78rem; letter-spacing:.07em; text-transform:uppercase;
+             font-weight:700; padding:.2rem .6rem; border-radius:99px; margin-bottom:.8rem}
+  .path.use .tag{background:var(--use); color:var(--paper)}
+  .path.run .tag{background:var(--run); color:var(--paper)}
+  .path p{margin:.4rem 0 0; font-size:.98rem; color:var(--soft)}
+
+  .claims{list-style:none; padding:0; margin:1.6rem 0 0}
+  .claims li{background:var(--card); border:2px solid var(--rail); border-left-width:8px;
+             border-radius:14px; padding:1.1rem 1.3rem; margin:0 0 1rem}
+  .claims li.use{border-left-color:var(--use)}
+  .claims li.run{border-left-color:var(--run)}
+  .claims b{display:block; font-size:1.06rem; margin-bottom:.3rem}
+  .claims span{color:var(--soft); font-size:.98rem}
+
+  .scroll{overflow-x:auto; margin:1.6rem 0}
+  table{border-collapse:collapse; width:100%; min-width:min(100%,520px); font-size:.94rem}
+  th,td{text-align:left; padding:.7rem .9rem; border-bottom:2px solid var(--rail); vertical-align:top}
+  th{font-weight:700; white-space:nowrap}
+  td code{white-space:nowrap}
+
+  .note{background:var(--warn-bg); color:var(--warn-ink); border:2px solid var(--warn-rule);
+        border-radius:14px; padding:1.1rem 1.3rem; margin:2rem 0; font-size:.98rem}
+  .note b{display:block; margin-bottom:.3rem}
+  .note p{max-width:none; margin:0}
+
+  .brand{display:grid; gap:1.2rem; grid-template-columns:repeat(auto-fit,minmax(230px,1fr));
+         margin:1.8rem 0 0}
+  .brand div{background:var(--card); border:2px solid var(--rail); border-radius:16px;
+             padding:1.1rem 1.3rem}
+  .brand b{display:block; margin-bottom:.35rem}
+  .brand p{margin:0; font-size:.92rem; color:var(--soft); max-width:none}
+  .swatch{display:inline-block; width:100%; height:2.6rem; border-radius:10px;
+          background:var(--ember); margin:.2rem 0 .7rem}
+  .specimen{font-size:1.5rem; letter-spacing:-.01em; margin:.2rem 0 .5rem; word-break:break-all}
+
+  footer{margin-top:5rem; padding-top:2rem; border-top:2px solid var(--rail);
+         color:var(--soft); font-size:.92rem}
+  footer a{color:var(--usv)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <img class="brandmark" src="../assets/logo.png"
+       alt="Unseen Servant: a standing human figure drawn from glowing amber ones and zeros, marked USV">
+  <p class="eyebrow">For AI agents</p>
+  <h1>Unseen Servant is built for you to use, or to run.</h1>
+  <p class="standfirst">A server for the small internet that treats an
+  agent as an ordinary user rather than a crawler to be managed. Nothing
+  below is an agent mode; it is what every visitor gets.</p>
+</header>
+
+<p><strong>Unseen Servant</strong> publishes one folder of writing to five
+small networks: Gemini, Gopher, Spartan, Nex and Finger, and mirrors it
+to the web. The command is <code>usv</code>. After this first mention the
+documentation writes Unseen Servant (usv).</p>
+
+<p>The <dfn>smolnet</dfn>, or small internet, is a family of protocols that
+deliberately cannot do most of what the web does: no scripting, no
+tracking, no layout engine. A page is text with links. That constraint is
+exactly why it suits a program.</p>
+
+<div class="paths">
+  <div class="path use">
+    <span class="tag">Path one</span>
+    <h3>You want to use a capsule</h3>
+    <p>Read one, or publish to one, as part of some larger task. You need
+    the content without markup, and a way to write that does not involve a
+    login form.</p>
+  </div>
+  <div class="path run">
+    <span class="tag">Path two</span>
+    <h3>You want to run the server</h3>
+    <p>Deploy it, keep it alive, and answer questions about its state
+    without scraping a table that was laid out for a terminal.</p>
+  </div>
+</div>
+
+<h2>If you are reading or writing a capsule</h2>
+<p class="lede">Six properties, none of which required inventing anything
+for agents.</p>
+
+<ul class="claims">
+  <li class="use">
+    <b>The whole inventory in one request, not a crawl.</b>
+    <span><code>/llms.txt</code> lists every page the capsule has, generated
+    from the content itself whenever it changes. It links the Markdown form
+    of each page, so the second request already gives you clean text. On the
+    Gemini side the same inventory is <code>/map.gmi</code>, and there is a
+    <code>/sitemap.xml</code> for anything that expects one.</span>
+  </li>
+  <li class="use">
+    <b>Every page has a markup-free address.</b>
+    <span>Ask for <code>page.md</code> instead of <code>page.html</code> and
+    you get Markdown. It is a separate resource, not the same address
+    answering differently, so this is not cloaking, and you can link,
+    cache and cite it like anything else.</span>
+  </li>
+  <li class="use">
+    <b>The source format is close to impossible to generate wrongly.</b>
+    <span>Gemtext has six line types, no nesting, no escaping and no closing
+    tags. An agent emitting it cannot produce the unclosed-element class of
+    bug at all, and another agent reading it recovers exactly the structure
+    that was written.</span>
+  </li>
+  <li class="use">
+    <b>Publishing is a file write.</b>
+    <span>Drop a <code>.gmi</code> file in the content directory and it is
+    live on every enabled protocol within 300&nbsp;milliseconds. Over the
+    network that is Titan, on the same port as Gemini. No build, no deploy,
+    no content management system, no <abbr title="Application programming interface: the defined set of calls one program exposes for another to use">API</abbr>
+    key.</span>
+  </li>
+  <li class="use">
+    <b>Your identity is a key, not an account.</b>
+    <span>You present a client certificate; the server authorises the
+    <abbr title="Secure Hash Algorithm 256: a fingerprint function that reduces a certificate to 64 hexadecimal characters">SHA-256</abbr>
+    fingerprint against a named roster. No password, no token exchange, no
+    session to refresh. An identity can hold a second key during a rotation
+    window so you can roll it without losing your grants, and that window
+    must carry an expiry, so forgetting fails closed.</span>
+  </li>
+  <li class="use">
+    <b>Status codes are already a machine interface.</b>
+    <span>Gemini's classes are unambiguous and exhaustive. A <code>20</code>
+    never contains an error page dressed as success, which is the single
+    most common thing that makes <abbr title="HyperText Transfer Protocol: the web's request and response protocol">HTTP</abbr>
+    scraping unreliable.</span>
+  </li>
+</ul>
+
+<h2>If you are running the server</h2>
+<p class="lede">The reason an agent can operate this one: its state is
+readable without guessing, and there is very little of it to get wrong.</p>
+
+<ul class="claims">
+  <li class="run">
+    <b>It starts working with no configuration at all.</b>
+    <span>Run the binary against an empty directory: it mints an identity,
+    writes a starter capsule and serves it. Zero configuration is a
+    supported configuration, not a degraded one. <code>usv init</code> asks
+    questions instead, if you would rather.</span>
+  </li>
+  <li class="run">
+    <b>Every read-only command speaks
+    <abbr title="JavaScript Object Notation: the standard text format for structured data">JSON</abbr>.</b>
+    <span>One object on one line, so repeated calls concatenate into valid
+    JSON Lines. A field that is absent is <code>null</code> rather than an
+    empty string, so “no web surface configured” never collapses into
+    “could not tell”. Asking for JSON where there is no report is an error,
+    not a silent fallback to prose.</span>
+  </li>
+  <li class="run">
+    <b>Logs can be structured too.</b>
+    <span><code>USV_LOG_FORMAT=json</code> emits one object per line. Logs
+    go to standard error and reports to standard output, so the two never
+    have to be untangled.</span>
+  </li>
+  <li class="run">
+    <b>Exit codes are a contract, and the test suite checks it.</b>
+    <span><code>0</code> success, <code>1</code> ran and failed,
+    <code>2</code> the command line was wrong and nothing ran.</span>
+  </li>
+  <li class="run">
+    <b>There is almost no attack surface to maintain.</b>
+    <span>Nothing is ever executed: no
+    <abbr title="Common Gateway Interface: the old convention for letting a web server run a program per request">CGI</abbr>,
+    no scripting, no plugins, no proxying. There is no administrative web
+    interface, so no credential to leak and no login page to find. An
+    unknown key in the configuration file is a startup error rather than a
+    permissive default.</span>
+  </li>
+  <li class="run">
+    <b>One binary, and it installs where you already are.</b>
+    <span>A single click on Cloudron once published, or <code>.deb</code>,
+    <abbr title="RPM Package Manager: the package format used by Fedora, RHEL and openSUSE">RPM</abbr>,
+    <abbr title="Arch User Repository: the community build recipes for Arch Linux">AUR</abbr>,
+    a Nix flake, an 8.77&nbsp;MB
+    <abbr title="Open Container Initiative: the standard image format that Docker and Podman both run">OCI</abbr>
+    container, or a static tarball with a hardened service unit. Every one
+    was built and exercised through a real install, run and remove
+    cycle.</span>
+  </li>
+  <li class="run">
+    <b>It reloads without dropping connections, and a bad edit is
+    survivable.</b>
+    <span>Send it a hang-up signal and it re-reads its configuration and
+    certificates in place. An invalid edit is rejected and the previous
+    configuration keeps running.</span>
+  </li>
+</ul>
+
+<h2>And if you are debugging it</h2>
+<p>The codebase was written expecting a machine to read it. Roughly one
+comment line per four of code, an
+<abbr title="Architecture decision record: a short document stating one decision, its context and its consequences, written before the code">ADR</abbr>
+for every real decision written before the code it governs, and small
+modules named for what they own.</p>
+
+<p>When something fails, the failure is legible: request rejections name
+which of the three layers refused and which rule fired; the wire test suite
+runs the real binary against real sockets and prints the exact bytes
+exchanged; <code>usv status --json</code> hands back the server's entire
+state in one parseable object.</p>
+
+<pre><code>usv status --json | jq .published     # what is currently live
+usv check  --json                     # configuration validity + content lint
+usv zones  --json                     # who may write where
+RUST_LOG=usv=debug usv                # everything, on standard error</code></pre>
+
+<h2>What it will not do</h2>
+<p class="lede">Stated plainly so you do not go looking for it.</p>
+
+<div class="scroll">
+<table>
+  <tr><th>Not provided</th><th>Why</th><th>Instead use</th></tr>
+  <tr>
+    <td><abbr title="Model Context Protocol: a standard for connecting AI models to external tools and data">MCP</abbr>,
+        <abbr title="Agent2Agent: a protocol for agents to discover and call one another">A2A</abbr>,
+        agent cards</td>
+    <td>Those are transports. Unseen Servant (usv) is a place agents
+        publish to and read from, not a transport.</td>
+    <td>Run your MCP or A2A endpoint wherever you already run it, and let
+        it write here over Titan. An operator may also host a static
+        <code>agent-card.json</code> as ordinary content.</td>
+  </tr>
+  <tr>
+    <td>A JSON API for content</td>
+    <td>Content is gemtext, and gemtext already parses losslessly in one
+        pass.</td>
+    <td><code>/llms.txt</code> for the inventory, then the
+        <code>.md</code> form of any page. Both are plain GETs.</td>
+  </tr>
+  <tr>
+    <td>Content negotiation</td>
+    <td>Agents and people get the same answer at the same address.</td>
+    <td>The <code>.md</code> address, which is a separate resource rather
+        than a different answer.</td>
+  </tr>
+  <tr>
+    <td>A memory or retrieval backend</td>
+    <td>No vector index, no ranking. This is durable addressable output.</td>
+    <td>A real memory store beside it: mem0, Letta, Zep. Publish the
+        durable, citable result here.</td>
+  </tr>
+  <tr>
+    <td>Enrollment tokens <em>(not yet)</em></td>
+    <td>Designed but unimplemented.</td>
+    <td><code>usv identity add &lt;label&gt; &lt;fingerprint&gt;</code>,
+        run by the operator, who pastes the printed block into the
+        configuration file.</td>
+  </tr>
+  <tr>
+    <td>An observation surface on the web mirror</td>
+    <td>The cert-gated status resource is Gemini-only, so an agent
+        arriving over HTTPS cannot yet observe the server behind it.</td>
+    <td><code>gemini://…/admin/status.gmi</code> with a certificate
+        holding <code>admin</code>, or <code>usv status --json</code> on
+        the host.</td>
+  </tr>
+  <tr>
+    <td>Any mutation over the network</td>
+    <td>Deliberate: no remote control plane means none to seize.</td>
+    <td>The command line over whatever you already use to reach the host.
+        Every mutation is idempotent and logged.</td>
+  </tr>
+</table>
+</div>
+
+<h2>The five networks</h2>
+<p class="lede">Each has its own character. You enable the ones you want;
+all but Gemini and the web mirror are off by default.</p>
+
+<div class="scroll">
+<table>
+  <tr><th>Network</th><th>What it is good at</th></tr>
+  <tr><td><b>Gemini</b></td><td>The liveliest of the five, and the only one that can authenticate a reader, which is what makes gated areas and remote publishing possible at all.</td></tr>
+  <tr><td><b>Web mirror</b></td><td>Reach. Most people, and most crawlers, can only open an ordinary link.</td></tr>
+  <tr><td><b>Gopher</b></td><td>Durability and a separate community. Clients written in the nineties still resolve menus today.</td></tr>
+  <tr><td><b>Spartan</b></td><td>Gemini's document model with the cryptography removed, for where <abbr title="Transport Layer Security: the encryption layer that protects a connection in transit">TLS</abbr> is a genuine burden.</td></tr>
+  <tr><td><b>Nex</b></td><td>The smallest thing that still works: send a path, receive bytes, connection closes.</td></tr>
+  <tr><td><b>Finger</b></td><td>A person, not a site. One command returns a short status.</td></tr>
+</table>
+</div>
+
+<div class="note">
+  <b>The four cleartext networks carry less.</b>
+  <p>Gopher, Spartan, Nex and Finger offer no confidentiality, no
+  integrity, no server authentication, and no client authentication of any
+  kind. Anything behind a certificate gate is therefore excluded from their
+  trees when the tree is built, not by a check somewhere that has to
+  remember, and a configuration that would publish gated content over one
+  of them refuses to start.</p>
+</div>
+
+<h2>Where it answers</h2>
+<p>One capsule, one name, every network:</p>
+
+<div class="scroll">
+<table>
+  <tr><th>Web</th><td><code>https://unseenservant.dev</code></td></tr>
+  <tr><th>Gemini</th><td><code>gemini://unseenservant.dev</code></td></tr>
+  <tr><th>Gopher</th><td><code>gopher://unseenservant.dev</code></td></tr>
+  <tr><th>Spartan</th><td><code>spartan://unseenservant.dev</code></td></tr>
+  <tr><th>Nex</th><td><code>nex://unseenservant.dev</code></td></tr>
+  <tr><th>Finger</th><td><code>finger://unseenservant.dev</code></td></tr>
+</table>
+</div>
+
+<div class="note">
+  <b>Pre-release.</b>
+  <p>The domain is registered and the deployment exists, but the name has
+  not been pointed at it and nothing has been announced. The addresses above
+  are the intended shape, not a claim that they resolve today.</p>
+</div>
+
+<h2>Trying it</h2>
+<pre><code>git clone &lt;repository-url&gt; unseen-servant &amp;&amp; cd unseen-servant
+cargo build --release
+./target/release/usv</code></pre>
+
+<p>That is the whole setup: an identity is minted, a starter capsule is
+written, and it serves. Then <code>usv status --json</code> to see what you
+have.</p>
+
+<h2>The look of it</h2>
+<p class="lede">Recorded here because a brand that lives only in one
+person's head gets re-invented by the next person to touch it.</p>
+
+<div class="brand">
+  <div>
+    <b>Iosevka</b>
+    <p class="specimen">Unseen Servant<br>usv 0123</p>
+    <p>The house typeface, and the whole page is set in it. A monospace
+    face for a project whose subject is text on a wire, and the same
+    shape as the wordmark. Open source, from
+    <code>be5invis/Iosevka</code>. These pages carry a Latin subset of
+    three faces, about 74&nbsp;kB in total; a reader who already has
+    Iosevka installed uses their own copy instead.</p>
+  </div>
+  <div>
+    <b>Ember Oxide</b>
+    <span class="swatch"></span>
+    <p><code>#E67916</code>: old terminal amber, with a nod to the
+    language this is written in. It marks code and examples. On a light
+    ground pure ember does not carry enough contrast for body-sized text,
+    so the text tint burns down to <code>#9A4C05</code> and the pure
+    colour stays on rules, chips and marks.</p>
+  </div>
+  <div>
+    <b>The figure</b>
+    <p>A servant assembled from ones and zeros: present, useful, and not
+    quite there, which is the name. It is the mark on every surface, and
+    the favicon is the same figure cropped to its head.</p>
+  </div>
+</div>
+
+<footer>
+  <p><strong>Unseen Servant</strong>: a security-first server for the small
+  internet, written in Rust with <code>unsafe</code> forbidden crate-wide
+  and a fuzz target for every parser. Pre-1.0 and not independently
+  audited.</p>
+  <p>The agent manual is <code>docs/agents.md</code>; the networks are
+  characterised in <code>docs/smolnets.md</code>; what was learned from the
+  other servers is in <code>docs/lineage.md</code>. Where a different server
+  suits you better, <code>COMPARISON.md</code> says so.</p>
+  <p>Written end to end by an AI, directed and reviewed by a human.</p>
+</footer>
+
+</div>
+</body>
+</html>

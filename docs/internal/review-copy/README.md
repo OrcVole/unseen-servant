@@ -1,4 +1,4 @@
-# Review copy — every page a person actually sees
+# Review copy: every page a person actually sees
 
 One folder holding the first thing a reader meets on each protocol, plus
 the two pages an operator meets on Cloudron, so they can be reviewed
@@ -11,7 +11,7 @@ Everything here except the two Cloudron files is **fetched from a
 running server**, not rendered from source. That is deliberate: it is the
 served bytes that get reviewed, so a formatting fault that only appears
 on the wire cannot hide behind a tidy-looking source file. These are
-snapshots — the source of truth is the code and the Markdown they were
+snapshots: the source of truth is the code and the Markdown they were
 copied from, and edits made *here* are lost on the next run.
 
 | File | What it is | Where it comes from |
@@ -27,7 +27,7 @@ copied from, and edits made *here* are lost on the next run.
 
 ## What to look for
 
-- **The name.** Every page should make `usv` guessable — *UnSeen serVant*.
+- **The name.** Every page should make `usv` guessable: *UnSeen serVant*.
   A reader arriving cold on any protocol should not have to search.
 - **Right protocol, right words.** A Nex page must say Nex, quote a
   `nex://` address, and list only clients that actually speak Nex.
@@ -45,7 +45,7 @@ copied from, and edits made *here* are lost on the next run.
   document, so the protocol introduction is folded into the profile in
   four lines rather than served separately. Judge it as a profile.
 - **The two Cloudron files are copies**, not fetched from a running
-  Cloudron — the landing page as rendered by the store, and the admin
+  Cloudron: the landing page as rendered by the store, and the admin
   panel with its placeholders substituted, will differ in presentation.
 - **Gemini's colophon is not in the site map**, since it is generated at
   request time rather than rendered into the tree. It is reachable and
