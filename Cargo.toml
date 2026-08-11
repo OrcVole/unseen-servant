@@ -1,6 +1,6 @@
 # Unseen Servant — see AGENTS.md for the read order and invariants.
 #
-# Dependency policy (docs/BRIEF.md "explicit version pinning throughout" + ADR 0001):
+# Dependency policy (docs/internal/BRIEF.md "explicit version pinning throughout" + ADR 0001):
 # this crate has ZERO dependencies at phase C0, deliberately. The first dependencies
 # (tokio, rustls, rcgen, serde/toml, tracing — the ADR 0001 set, nothing else) land in
 # phase C1, each with an explicit version, and Cargo.lock is committed. cargo-deny
@@ -17,13 +17,13 @@ repository = "https://forgejo.wanderingmonster.dev/WanderingMonster/unseen-serva
 readme = "README.md"
 keywords = ["gemini", "gemtext", "server", "smolnet"]
 categories = ["network-programming"]
-# Not on crates.io until the v1.0 release gates pass (docs/ROADMAP.md M5/M6).
+# Not on crates.io until the v1.0 release gates pass (docs/internal/ROADMAP.md M5/M6).
 publish = false
 
 # `publish = false` also hides the binary from `dist` (cargo-dist) by
 # default, since dist's usual signal for "this is a real release artifact"
 # is publishability; opt back in explicitly — pre-release binary tarballs
-# are exactly what docs/BUILD-PLAN.md C6 asks for, crates.io publication is
+# are exactly what docs/internal/BUILD-PLAN.md C6 asks for, crates.io publication is
 # a separate, later gate.
 [package.metadata.dist]
 dist = true
@@ -79,7 +79,10 @@ tokio = { version = "1.53.1", features = ["rt-multi-thread", "net", "io-util", "
 tokio-rustls = { version = "0.26.4", default-features = false, features = ["ring", "logging", "tls12"] }
 toml = "1.1.4"
 tracing = "0.1.44"
-tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+# "json" backs USV_LOG_FORMAT=json (docs/agents.md): the same events, one
+# object per line, for log collectors and for agents reading their own
+# server's output. It is the only feature added beyond the ADR 0001 set.
+tracing-subscriber = { version = "0.3.23", features = ["env-filter", "json"] }
 x509-parser = "0.18.1"
 
 [dev-dependencies]

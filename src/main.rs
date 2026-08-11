@@ -4,7 +4,7 @@
 //! loaded per the ADR 0007 search order, identity minted on first run
 //! (ADR 0003), Gemini served on the configured listeners.
 //!
-//! C5 (`docs/BUILD-PLAN.md`): `status`, `fingerprint`, `check`, `zones`,
+//! C5 (`docs/internal/BUILD-PLAN.md`): `status`, `fingerprint`, `check`, `zones`,
 //! `stats`, `render [--force]`, `identity add/rotate/revoke`, `export`,
 //! `init [--defaults]` are implemented — thin argument-parsing wrappers
 //! in this file around business logic in [`unseen_servant::cli`]/
@@ -54,6 +54,8 @@ const HELP: &str = concat!(
     "  usv check      [--config <p>]   validate config + lint the content tree\n",
     "  usv zones      [--config <p>]   list certificate and Titan zones\n",
     "  usv stats      [--config <p>]   what's currently published (read-only)\n",
+    "      ...any of the five above also take --json for one machine-readable\n",
+    "      object on stdout instead of prose (docs/agents.md)\n",
     "  usv render     [--config <p>] [--force]   render the content tree now\n",
     "  usv identity add    <label> <fingerprint> [--capability <c>]... [--enrolled <date>]\n",
     "  usv identity rotate <label> <new-fingerprint> --until <date>\n",
@@ -73,6 +75,17 @@ const HELP: &str = concat!(
     "SIGNALS:\n",
     "  SIGHUP  reload config and certificates without dropping listeners\n",
     "  SIGTERM graceful drain and exit\n",
+    "\n",
+    "EXIT CODES (stable; scripts and agents may depend on these):\n",
+    "  0  success\n",
+    "  1  the command ran and failed (bad config, unreadable state, I/O)\n",
+    "  2  the command line itself was wrong; nothing was run\n",
+    "\n",
+    "LOGGING:\n",
+    "  Logs go to stderr only. RUST_LOG filters (default: info).\n",
+    "  USV_LOG_FORMAT=json emits one JSON object per line instead of the\n",
+    "  human format — for log collectors and for agents reading their own\n",
+    "  server's output. Anything else, or unset, keeps the human format.\n",
     "\n",
     "`status`/`fingerprint`/`zones` open (and, on a fresh capsule, mint) the\n",
     "identity store — the same first-run behaviour starting the server has.\n",
@@ -99,7 +112,7 @@ const HELP: &str = concat!(
     "Tor/I2P onion capsules: set server.advertised_host and add a [[host]]\n",
     "for the onion address (see INTEGRATIONS.md for the verified recipe and\n",
     "a real gotcha around advertised_port). Nothing is announced or exposed\n",
-    "publicly before the v1.0 gates pass (docs/ROADMAP.md).\n",
+    "publicly before the v1.0 gates pass (docs/internal/ROADMAP.md).\n",
 );
 
 /// A subcommand not yet implemented — recognised and named rather than
@@ -145,7 +158,21 @@ enum Command {
 struct Args {
     config: Option<PathBuf>,
     command: Command,
+    /// `--json`: emit one machine-readable object instead of prose.
+    /// Only the read-only reporting subcommands honour it; see
+    /// `JSON_SUBCOMMANDS` for why the others reject it rather than
+    /// ignoring it.
+    json: bool,
 }
+
+/// The subcommands `--json` applies to: the ones whose whole output is a
+/// *report*. `render`, `export`, `init` and `identity` are excluded on
+/// purpose — they act, or they print a TOML snippet meant to be pasted
+/// into a config file, and wrapping either in JSON would be a format
+/// invented for nobody. Passing `--json` to one of them is an error
+/// rather than a silent no-op, so a script never believes it asked for
+/// something it did not get.
+const JSON_SUBCOMMANDS: &[&str] = &["status", "fingerprint", "check", "zones", "stats"];
 
 enum Parsed {
     Run(Args),
@@ -157,6 +184,7 @@ fn parse_args() -> Parsed {
     let mut command = None;
     let mut force = false;
     let mut defaults = false;
+    let mut json = false;
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
         match arg.as_str() {
@@ -176,11 +204,16 @@ fn parse_args() -> Parsed {
                 }
             },
             "--force" => force = true,
+            "--json" => json = true,
             "identity" if command.is_none() => {
+                if json {
+                    return Parsed::Exit(json_not_applicable("identity"));
+                }
                 return match parse_identity_action(args) {
                     Ok(action) => Parsed::Run(Args {
                         config,
                         command: Command::Identity(action),
+                        json: false,
                     }),
                     Err(code) => Parsed::Exit(code),
                 };
@@ -197,9 +230,13 @@ fn parse_args() -> Parsed {
                     eprintln!("usv: export: unexpected argument '{extra}' (see --help)");
                     return Parsed::Exit(ExitCode::from(2));
                 }
+                if json {
+                    return Parsed::Exit(json_not_applicable("export"));
+                }
                 return Parsed::Run(Args {
                     config,
                     command: Command::Export { destination },
+                    json: false,
                 });
             }
             "--defaults" => defaults = true,
@@ -210,7 +247,7 @@ fn parse_args() -> Parsed {
             }
             reserved if RESERVED_SUBCOMMANDS.contains(&reserved) && command.is_none() => {
                 eprintln!(
-                    "usv: '{reserved}' is not implemented yet (docs/BUILD-PLAN.md C5). \
+                    "usv: '{reserved}' is not implemented yet (docs/internal/BUILD-PLAN.md C5). \
                      Nothing was run."
                 );
                 return Parsed::Exit(ExitCode::from(2));
@@ -221,7 +258,11 @@ fn parse_args() -> Parsed {
             }
         }
     }
-    let command = match command.as_deref() {
+    // Kept as a borrow of the original `Option<String>` before the shadow
+    // below turns it into a `Command`, so the `--json` applicability check
+    // can name the subcommand the user actually typed.
+    let command_word = command.as_deref();
+    let command = match command_word {
         None => Command::Serve,
         Some("status") => Command::Status,
         Some("fingerprint") => Command::Fingerprint,
@@ -240,7 +281,29 @@ fn parse_args() -> Parsed {
         eprintln!("usv: --defaults only applies to 'init'");
         return Parsed::Exit(ExitCode::from(2));
     }
-    Parsed::Run(Args { config, command })
+    if json {
+        let named = command_word.unwrap_or("serve");
+        if !JSON_SUBCOMMANDS.contains(&named) {
+            return Parsed::Exit(json_not_applicable(named));
+        }
+    }
+    Parsed::Run(Args {
+        config,
+        command,
+        json,
+    })
+}
+
+/// `--json` was passed to a subcommand that has no report to serialize.
+/// Names the flag, the subcommand, and the ones that do accept it —
+/// a caller that guessed wrong should not have to consult `--help` to
+/// find out which five those are.
+fn json_not_applicable(subcommand: &str) -> ExitCode {
+    eprintln!(
+        "usv: --json does not apply to '{subcommand}' (only to {}). Nothing was run.",
+        JSON_SUBCOMMANDS.join(", ")
+    );
+    ExitCode::from(2)
 }
 
 /// Parse `identity <action> ...` — everything after the `identity` token.
@@ -518,15 +581,19 @@ fn open_identities(config: &Config) -> Result<IdentityStore, ExitCode> {
 }
 
 async fn run_command(args: Args) -> ExitCode {
-    let Args { config, command } = args;
+    let Args {
+        config,
+        command,
+        json,
+    } = args;
     let config_path = config.as_deref();
     match command {
         Command::Serve => unreachable!("Serve is dispatched by main() before reaching here"),
-        Command::Status => cmd_status(config_path).await,
-        Command::Fingerprint => cmd_fingerprint(config_path).await,
-        Command::Check => cmd_check(config_path).await,
-        Command::Zones => cmd_zones(config_path),
-        Command::Stats => cmd_stats(config_path).await,
+        Command::Status => cmd_status(config_path, json).await,
+        Command::Fingerprint => cmd_fingerprint(config_path, json).await,
+        Command::Check => cmd_check(config_path, json).await,
+        Command::Zones => cmd_zones(config_path, json),
+        Command::Stats => cmd_stats(config_path, json).await,
         Command::Render { force } => cmd_render(config_path, force).await,
         Command::Identity(action) => cmd_identity(config_path, action),
         Command::Export { destination } => cmd_export(config_path, &destination).await,
@@ -645,7 +712,19 @@ fn cmd_identity(config_path: Option<&Path>, action: IdentityAction) -> ExitCode 
     }
 }
 
-async fn cmd_status(config_path: Option<&Path>) -> ExitCode {
+/// Print a report in whichever of the two forms was asked for. Every
+/// `--json` payload is one object on one line, terminated by a newline —
+/// so a caller may read a single line, and a caller streaming several
+/// invocations gets valid JSON Lines for free.
+fn emit(json: bool, json_body: String, prose: String) {
+    if json {
+        println!("{json_body}");
+    } else {
+        print!("{prose}");
+    }
+}
+
+async fn cmd_status(config_path: Option<&Path>, json: bool) -> ExitCode {
     let config = match load_config(config_path) {
         Ok(c) => c,
         Err(code) => return code,
@@ -655,11 +734,15 @@ async fn cmd_status(config_path: Option<&Path>) -> ExitCode {
         Err(code) => return code,
     };
     let published = cli::inspect_published(&config.state_dir).await;
-    print!("{}", cli::format_status(&config, &store, &published));
+    emit(
+        json,
+        cli::status_json(&config, &store, &published),
+        cli::format_status(&config, &store, &published),
+    );
     ExitCode::SUCCESS
 }
 
-async fn cmd_fingerprint(config_path: Option<&Path>) -> ExitCode {
+async fn cmd_fingerprint(config_path: Option<&Path>, json: bool) -> ExitCode {
     let config = match load_config(config_path) {
         Ok(c) => c,
         Err(code) => return code,
@@ -668,20 +751,24 @@ async fn cmd_fingerprint(config_path: Option<&Path>) -> ExitCode {
         Ok(s) => s,
         Err(code) => return code,
     };
-    print!("{}", cli::format_fingerprints(&store));
+    emit(
+        json,
+        cli::fingerprints_json(&store),
+        cli::format_fingerprints(&store),
+    );
     ExitCode::SUCCESS
 }
 
-fn cmd_zones(config_path: Option<&Path>) -> ExitCode {
+fn cmd_zones(config_path: Option<&Path>, json: bool) -> ExitCode {
     let config = match load_config(config_path) {
         Ok(c) => c,
         Err(code) => return code,
     };
-    print!("{}", cli::format_zones(&config));
+    emit(json, cli::zones_json(&config), cli::format_zones(&config));
     ExitCode::SUCCESS
 }
 
-async fn cmd_check(config_path: Option<&Path>) -> ExitCode {
+async fn cmd_check(config_path: Option<&Path>, json: bool) -> ExitCode {
     let config = match load_config(config_path) {
         Ok(c) => c,
         Err(code) => return code,
@@ -697,17 +784,25 @@ async fn cmd_check(config_path: Option<&Path>) -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    print!("{}", cli::format_check_report(&config, &lint));
+    emit(
+        json,
+        cli::check_report_json(&config, &lint),
+        cli::format_check_report(&config, &lint),
+    );
     ExitCode::SUCCESS
 }
 
-async fn cmd_stats(config_path: Option<&Path>) -> ExitCode {
+async fn cmd_stats(config_path: Option<&Path>, json: bool) -> ExitCode {
     let config = match load_config(config_path) {
         Ok(c) => c,
         Err(code) => return code,
     };
     let published = cli::inspect_published(&config.state_dir).await;
-    print!("{}", cli::format_published_stats(&published));
+    emit(
+        json,
+        cli::published_stats_json(&published),
+        cli::format_published_stats(&published),
+    );
     ExitCode::SUCCESS
 }
 
@@ -750,18 +845,35 @@ fn main() -> ExitCode {
     // platform rotates). RUST_LOG filters; default level info. ANSI color
     // only when stderr is a real terminal: platform log collectors and the
     // regress suite read these lines as text.
+    //
+    // `USV_LOG_FORMAT=json` switches to one JSON object per line. The
+    // fields are already structured at every call site (`tracing::info!
+    // (%peer, status = …)`); the human format flattens them into a
+    // sentence and this one does not. It is an environment variable
+    // rather than a config key because logging is initialized before any
+    // config file is located, and a log format that only takes effect
+    // after config load would be missing from exactly the startup lines
+    // most worth reading when config load is what failed.
     let color = {
         use std::io::IsTerminal;
         std::io::stderr().is_terminal()
     };
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
-        )
-        .with_writer(std::io::stderr)
-        .with_ansi(color)
-        .init();
+    let filter = tracing_subscriber::EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info"));
+    let json_logs = std::env::var("USV_LOG_FORMAT").is_ok_and(|v| v.eq_ignore_ascii_case("json"));
+    if json_logs {
+        tracing_subscriber::fmt()
+            .json()
+            .with_env_filter(filter)
+            .with_writer(std::io::stderr)
+            .init();
+    } else {
+        tracing_subscriber::fmt()
+            .with_env_filter(filter)
+            .with_writer(std::io::stderr)
+            .with_ansi(color)
+            .init();
+    }
 
     let runtime = match tokio::runtime::Builder::new_multi_thread()
         .enable_all()

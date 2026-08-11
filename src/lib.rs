@@ -9,14 +9,14 @@
 //!
 //! This codebase is AI-authored and optimised for machine legibility: small
 //! modules, exhaustive doc comments, and an ADR for every non-obvious decision.
-//! Orientation path: `AGENTS.md` → `docs/BRIEF.md` → `docs/adr/README.md` →
-//! `docs/ROADMAP.md` → `docs/BUILD-PLAN.md`. Nothing in this crate should
+//! Orientation path: `AGENTS.md` → `docs/internal/BRIEF.md` → `docs/adr/README.md` →
+//! `docs/internal/ROADMAP.md` → `docs/internal/BUILD-PLAN.md`. Nothing in this crate should
 //! surprise a reader who has walked that path; if it does, that is a
 //! documentation bug — fix the documents, not just the surprise.
 //!
 //! # Build-phase state
 //!
-//! C1-C5 of `docs/BUILD-PLAN.md` are underway; the module map below is the
+//! C1-C5 of `docs/internal/BUILD-PLAN.md` are underway; the module map below is the
 //! intended shape, updated as each module lands:
 //!
 //! | Module | Phase | Owns |
@@ -32,6 +32,7 @@
 //! | [`runtime_state`] | C5 | in-process state that must survive a SIGHUP config reload: activity log, last render snapshot |
 //! | [`cli`] | C5 | business logic behind every `usv` subcommand except `init`'s interactive wizard |
 //! | [`init`] | C5 | `usv init`'s validation and file-writing — the wizard's own event loop lives in the binary |
+//! | [`json`] | C7 | JSON emission for the `--json` CLI output (`docs/agents.md`) |
 
 pub mod cli;
 pub mod config;
@@ -39,6 +40,7 @@ pub mod handler;
 pub mod http;
 pub mod identity;
 pub mod init;
+pub mod json;
 pub mod plaintext;
 pub mod protocol;
 pub mod render;
