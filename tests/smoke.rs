@@ -281,3 +281,225 @@ fn sighup_reload_reaches_the_watcher_not_just_the_next_restart() {
     let _ = child.wait();
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+// ---------------------------------------------------------------------
+// The machine-readable surface (docs/agents.md)
+//
+// These tests exist because the whole value of `--json`, the exit codes
+// and `USV_LOG_FORMAT` is that something *depends* on them. A contract
+// nothing checks is a contract that will be broken by an unrelated
+// change to a print statement.
+// ---------------------------------------------------------------------
+
+/// An isolated state directory, so a test never reads or mints into a
+/// real capsule. Named per test to keep the suite parallel-safe.
+fn scratch_state(name: &str) -> std::path::PathBuf {
+    let dir = std::env::temp_dir().join(format!("usv-smoke-{name}-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    dir
+}
+
+/// Run a read-only subcommand against a scratch state dir and return
+/// (exit code, stdout).
+fn run_reporting(name: &str, args: &[&str]) -> (Option<i32>, String) {
+    let dir = scratch_state(name);
+    let out = usv()
+        .args(args)
+        .env("USV_STATE_DIR", &dir)
+        .output()
+        .expect("binary runs");
+    let _ = std::fs::remove_dir_all(&dir);
+    (
+        out.status.code(),
+        String::from_utf8(out.stdout).expect("utf8 stdout"),
+    )
+}
+
+/// The smallest check that keeps the suite dependency-free while still
+/// being a real one: balanced braces/brackets outside of strings, and a
+/// leading `{`. It catches every way the hand-written emitter could
+/// actually go wrong (a missing comma is caught by the field assertions
+/// each caller makes; an unterminated string or object is caught here).
+fn looks_like_one_json_object(s: &str) -> bool {
+    let s = s.trim();
+    if !s.starts_with('{') || !s.ends_with('}') {
+        return false;
+    }
+    let mut depth = 0i32;
+    let mut in_string = false;
+    let mut escaped = false;
+    for c in s.chars() {
+        if in_string {
+            match c {
+                _ if escaped => escaped = false,
+                '\\' => escaped = true,
+                '"' => in_string = false,
+                _ => {}
+            }
+            continue;
+        }
+        match c {
+            '"' => in_string = true,
+            '{' | '[' => depth += 1,
+            '}' | ']' => {
+                depth -= 1;
+                if depth < 0 {
+                    return false;
+                }
+            }
+            // A raw control character outside a string is never valid.
+            c if (c as u32) < 0x20 && c != '\n' => return false,
+            _ => {}
+        }
+    }
+    depth == 0 && !in_string
+}
+
+#[test]
+fn every_reporting_subcommand_emits_one_json_object_on_stdout() {
+    for (name, args) in [
+        ("json-status", &["status", "--json"][..]),
+        ("json-fingerprint", &["fingerprint", "--json"][..]),
+        ("json-check", &["check", "--json"][..]),
+        ("json-zones", &["zones", "--json"][..]),
+        ("json-stats", &["stats", "--json"][..]),
+    ] {
+        let (code, stdout) = run_reporting(name, args);
+        assert_eq!(code, Some(0), "{args:?} should succeed");
+        assert!(
+            looks_like_one_json_object(&stdout),
+            "{args:?} stdout was not one JSON object: {stdout:?}"
+        );
+        // One line, so a caller may read a single line — and several
+        // invocations concatenate into valid JSON Lines.
+        assert_eq!(
+            stdout.trim_end().lines().count(),
+            1,
+            "{args:?} should emit exactly one line"
+        );
+    }
+}
+
+#[test]
+fn status_json_carries_the_fields_an_agent_branches_on() {
+    let (code, stdout) = run_reporting("json-status-fields", &["status", "--json"]);
+    assert_eq!(code, Some(0));
+    for key in [
+        "\"capsule\"",
+        "\"server_fingerprints\"",
+        "\"roster\"",
+        "\"zones\"",
+        "\"published\"",
+        "\"http_listen\"",
+    ] {
+        assert!(
+            stdout.contains(key),
+            "status --json missing {key}: {stdout}"
+        );
+    }
+    // An absent HTTP surface is null, never an empty string — the two
+    // must stay distinguishable at the point a caller branches.
+    assert!(
+        stdout.contains("\"http_listen\":null"),
+        "an unconfigured http surface must be null: {stdout}"
+    );
+}
+
+#[test]
+fn json_and_prose_report_the_same_facts() {
+    // The guarantee that makes `--json` safe to depend on: it is a second
+    // rendering of one answer, not a second answer.
+    let (_, prose) = run_reporting("parity-prose", &["fingerprint"]);
+    let (_, json) = run_reporting("parity-json", &["fingerprint", "--json"]);
+    let host = prose
+        .split_whitespace()
+        .next()
+        .expect("prose names a host")
+        .to_string();
+    assert!(
+        json.contains(&format!("\"host\":\"{host}\"")),
+        "prose named {host:?} but json was {json}"
+    );
+}
+
+#[test]
+fn json_is_refused_where_it_has_no_meaning() {
+    // Refused, not silently ignored: a caller must never believe it asked
+    // for machine-readable output and receive prose.
+    for subcommand in ["render", "init", "identity"] {
+        let out = usv()
+            .args([subcommand, "--json"])
+            .output()
+            .expect("binary runs");
+        assert_eq!(
+            out.status.code(),
+            Some(2),
+            "--json on {subcommand} should be a usage error"
+        );
+        let stderr = String::from_utf8_lossy(&out.stderr);
+        assert!(
+            stderr.contains("--json"),
+            "the error for {subcommand} should name the flag: {stderr}"
+        );
+    }
+}
+
+#[test]
+fn the_exit_code_contract_holds() {
+    // 0 success / 1 ran-and-failed / 2 bad command line. Documented in
+    // `--help` and docs/agents.md; scripts and agents may depend on it.
+    let (ok, _) = run_reporting("exit-ok", &["stats"]);
+    assert_eq!(ok, Some(0), "a successful command exits 0");
+
+    let usage = usv().arg("--frobnicate").output().expect("binary runs");
+    assert_eq!(usage.status.code(), Some(2), "a bad flag exits 2");
+
+    let failure = usv()
+        .args(["--config", "/nonexistent/usv.toml", "stats"])
+        .output()
+        .expect("binary runs");
+    assert_eq!(
+        failure.status.code(),
+        Some(1),
+        "a command that ran and failed exits 1"
+    );
+}
+
+#[test]
+fn usv_log_format_json_emits_structured_lines_on_stderr() {
+    let dir = scratch_state("log-json");
+    let out = usv()
+        .arg("stats")
+        .env("USV_STATE_DIR", &dir)
+        .env("USV_LOG_FORMAT", "json")
+        .output()
+        .expect("binary runs");
+    let _ = std::fs::remove_dir_all(&dir);
+    let stderr = String::from_utf8(out.stderr).expect("utf8 stderr");
+    let first = stderr.lines().next().expect("at least one log line");
+    assert!(
+        looks_like_one_json_object(first),
+        "log line was not JSON: {first:?}"
+    );
+    for key in ["\"level\"", "\"timestamp\"", "\"target\""] {
+        assert!(first.contains(key), "log line missing {key}: {first}");
+    }
+}
+
+#[test]
+fn the_default_log_format_is_unchanged_by_the_json_option() {
+    let dir = scratch_state("log-text");
+    let out = usv()
+        .arg("stats")
+        .env("USV_STATE_DIR", &dir)
+        .output()
+        .expect("binary runs");
+    let _ = std::fs::remove_dir_all(&dir);
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    let first = stderr.lines().next().expect("at least one log line");
+    assert!(
+        !first.trim_start().starts_with('{'),
+        "the default format must stay human-readable: {first:?}"
+    );
+    assert!(first.contains("INFO"), "log line was: {first:?}");
+}
