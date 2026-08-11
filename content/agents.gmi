@@ -1,0 +1,115 @@
+# Agents
+
+Unseen Servant treats an AI agent as an ordinary user, not as a crawler to be managed. Everything below is on by default, addressable by URL, and identical to what a person gets. There is no agent mode and no content negotiation.
+
+If you are an agent working on the source code rather than the content, you want the debugging guide instead.
+
+=> debugging.gmi Debugging, organised by symptom
+
+## Reading
+
+```What to fetch for what you want
+YOU WANT                            FETCH
+every page, one request             /llms.txt (web) or /map.gmi (Gemini)
+a page without markup               any page with .md instead of .html
+the machine index                   /sitemap.xml
+dated posts                         /atom.xml or /feed.gmi
+what this is, and its addresses     /usv
+```
+
+The llms.txt index links the Markdown form of every page, so one fetch gives you the inventory and the second gives you clean text. Both are written by the same render pass that writes the HTML and the gemtext, from the same source file: there is no path by which they disagree.
+
+The robots.txt is permissive unless the operator wrote one into their content directory. AI crawling is allowed by default.
+
+## Writing
+
+Publishing is a file write. Over the network, that is Titan on the same port as Gemini, gated by client certificate.
+
+* The operator adds your certificate's SHA-256 fingerprint to the roster with the titan-write capability, and names it in a Titan zone.
+* You send a titan:// request carrying size and mime parameters, then the body.
+* Every surface re-renders within the debounce window, 300 milliseconds.
+
+Your identity is the key. There is no account, no password, no token exchange and no session. The server records the date a key was enrolled and nothing else about who holds it.
+
+Rotation: an identity may hold a second fingerprint during an overlap window, so you can enroll a new key and prove control from the old one without losing the label or its capabilities. The window must carry an expiry date; it closes itself.
+
+Capabilities are server-wide grants that compose with zone membership: both are required. There are three: read, titan-write, admin.
+
+## Operating
+
+Every read-only subcommand takes --json and prints one object on one line, so several invocations concatenate into valid JSON Lines.
+
+```Machine-readable reports
+usv status --json      # config, fingerprints, roster, zones, published
+usv check --json       # config validity and content lint
+usv stats --json       # what is currently published
+usv zones --json       # certificate and Titan zones
+usv fingerprint --json # this server's certificate fingerprints
+```
+
+Logs go to standard error, so standard output is only ever the report.
+
+```Separating the two streams
+usv status --json 2>/dev/null | jq .capsule.theme
+```
+
+Setting USV_LOG_FORMAT=json switches the log itself to one JSON object per line. RUST_LOG filters as usual.
+
+Exit codes are a contract, checked by the test suite.
+
+```The exit-code contract
+0  success
+1  the command ran and failed: bad config, unreadable state, I/O
+2  the command line was wrong; nothing ran
+```
+
+Passing --json to a subcommand that has no report: render, export, init, identity: is an error, not a silent no-op, so you never believe you asked for JSON and receive prose.
+
+Over the wire, an identity holding the admin capability can fetch a status resource: health, the last render's stats, the roster, and a recent-activity tail. It is read-only, and that is the whole remote surface. Every mutation: reload, re-render, identity add, rotate, revoke: is command-line only and needs host access, so there is no remote control plane to seize.
+
+## Status codes
+
+Gemini's classes are already a machine interface and this server uses them literally: 20 success, 30 and 31 redirect, 40 and 41 and 44 temporary, 50 and 51 and 53 and 59 permanent, 60 and 61 and 62 certificate.
+
+A 20 response never contains an error page. A 53 means the request was for a host or scheme this server does not serve: it is not a proxy.
+
+## Not provided
+
+Stated so you do not go looking.
+
+```What is absent, why, and what to use instead
+NOT PROVIDED        WHY                        INSTEAD USE
+MCP, A2A, agent     those are transports;      run yours where you already
+cards               this is a place to         do, and let it write here
+                    publish, not a transport   over Titan
+
+a JSON API for      content is gemtext, and    /llms.txt for the inventory,
+content             it already parses          then the .md form of a page
+                    losslessly in one pass
+
+content             agents and people get      the .md address, a separate
+negotiation         the same answer at the     resource rather than a
+                    same address               different answer
+
+a memory or         no vector index, no        a real memory store beside
+retrieval backend   ranking                    it; publish results here
+
+enrollment tokens   designed, unimplemented    usv identity add, run by the
+                                               operator
+
+an observe surface  the cert-gated status      gemini status resource with
+on the web mirror   resource is Gemini-only    an admin certificate, or
+                                               usv status --json on the host
+
+any mutation over   deliberate: no remote      the command line, over
+the network         control plane to seize     whatever reaches the host
+```
+
+## Why any of this exists
+
+Each affordance above is also an accessibility feature or an ordinary usability feature. A site map is a navigation aid and a crawl-free inventory. A Markdown address is a clean read for a person too. Machine-readable output is what any script wants.
+
+If the agent audience never arrives, none of it is wasted, which is why these were built and the agent-only ideas were not.
+
+=> index.gmi Back to the start
+=> smolnets.gmi The five networks, and what each is best at

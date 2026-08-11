@@ -15,7 +15,7 @@ cargo build --release
 ./target/release/usv
 ```
 
-That is the entire setup. With no configuration file and an empty state directory, usv mints its own certificate, writes a starter capsule, and serves it — on Gemini, and on the web if you point it at an HTTP address. Zero configuration is a supported configuration here, not a degraded one.
+That is the entire setup. With no configuration file and an empty state directory, usv mints its own certificate, writes a starter capsule, and serves it: on Gemini, and on the web if you point it at an HTTP address. Zero configuration is a supported configuration here, not a degraded one.
 
 If you would rather be asked questions than write a config file, run "usv init" for a terminal wizard.
 
@@ -27,7 +27,7 @@ Removing the package keeps your capsule and its identity. Purging deletes them. 
 
 ## Fedora, RHEL and openSUSE
 
-An RPM, built the same way from the same binary. There is no purge equivalent in RPM, so the state directory is simply never owned by the package — uninstalling cannot take your content or your identity with it.
+An RPM, built the same way from the same binary. There is no purge equivalent in RPM, so the state directory is simply never owned by the package: uninstalling cannot take your content or your identity with it.
 
 ## Arch
 
@@ -39,11 +39,11 @@ A flake. "nix build" produces the binary; "nix develop" gives you a shell with t
 
 ## Containers
 
-Two images, for two different jobs. The Cloudron package is a complete platform app. The plain OCI image is a distroless build from scratch — 8.77 MB, no shell, no package manager, no libc, running as an unprivileged numeric user. There is nothing in it to exploit that is not usv itself.
+Two images, for two different jobs. The Cloudron package is a complete platform app. The plain OCI image is a distroless build from scratch: 8.77 MB, no shell, no package manager, no libc, running as an unprivileged numeric user. There is nothing in it to exploit that is not usv itself.
 
 ## Cloudron
 
-A full app package: the Gemini port is exposed and pinned to 1965, the web mirror becomes the dashboard tile, and the state directory is included in the platform's backups — so the capsule's identity survives updates, restores, and moves between domains.
+A full app package: the Gemini port is exposed and pinned to 1965, the web mirror becomes the dashboard tile, and the state directory is included in the platform's backups, so the capsule's identity survives updates, restores, and moves between domains.
 
 ## Configuration, when you want some
 
@@ -52,4 +52,4 @@ One file. Every setting has a working default, and the file does not need to exi
 Reloading re-reads the configuration and certificates without dropping connections. An invalid edit is refused and the previous configuration keeps running, so a mistake cannot take your capsule down.
 
 => index.gmi Back to the front page
-=> compare.gmi How it compares to other Gemini servers
+=> compare.gmi How it compares to the other servers
