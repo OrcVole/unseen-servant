@@ -151,6 +151,9 @@ pub struct FingerConfig {
     /// Where to bind. Defaults to `0.0.0.0:7979` — port 79 is
     /// privileged, and the same reasoning as gopher applies.
     pub listen: SocketAddr,
+    /// The port to advertise, when a platform maps the bound port to a
+    /// different external one. Defaults to the bound port.
+    pub advertised_port: u16,
 }
 
 /// Resolve one address-only cleartext listener, off unless enabled.
@@ -158,7 +161,23 @@ fn resolve_cleartext(
     name: &str,
     raw: Option<RawCleartext>,
     default_addr: &str,
+    env_listen: Option<&str>,
+    env_advertised: Option<&str>,
 ) -> Result<Option<CleartextListener>, ConfigError> {
+    // A platform that injects the port has no file to edit, so a
+    // non-empty listen override enables the protocol on its own, and an
+    // explicitly empty one turns it off even if the file enables it.
+    // Identical semantics to USV_LISTEN and USV_GOPHER_LISTEN.
+    let raw = match (raw, env_listen.map(str::trim)) {
+        (_, Some("")) => None,
+        (existing, Some(addr)) => {
+            let mut c = existing.unwrap_or_default();
+            c.enabled = Some(true);
+            c.listen = Some(addr.to_string());
+            Some(c)
+        }
+        (existing, None) => existing,
+    };
     match raw {
         None => Ok(None),
         Some(c) if !c.enabled.unwrap_or(false) => Ok(None),
@@ -169,7 +188,16 @@ fn resolve_cleartext(
                     "{name}.listen {s:?} is not a valid socket address (e.g. {default_addr:?})"
                 ))
             })?;
-            Ok(Some(CleartextListener { listen }))
+            let advertised_port = env_advertised
+                .map(str::trim)
+                .filter(|v| !v.is_empty())
+                .and_then(|v| v.parse::<u16>().ok())
+                .or(c.advertised_port)
+                .unwrap_or_else(|| listen.port());
+            Ok(Some(CleartextListener {
+                listen,
+                advertised_port,
+            }))
         }
     }
 }
@@ -181,6 +209,12 @@ pub struct CleartextListener {
     /// canonical port is already unprivileged, so it is the one protocol
     /// here that can sit where its community expects it.
     pub listen: SocketAddr,
+    /// The port to advertise in generated addresses, which differs from
+    /// the bound port whenever a platform maps them (Cloudron's
+    /// `tcpPorts`). Defaults to the bound port. Same reasoning as
+    /// [`GopherConfig::advertised_port`]: a generated address that names
+    /// the container's own port is unreachable from outside.
+    pub advertised_port: u16,
 }
 
 /// How much of a visitor's address the request log may carry (OQ-9).
@@ -397,6 +431,7 @@ struct RawGopher {
 struct RawCleartext {
     enabled: Option<bool>,
     listen: Option<String>,
+    advertised_port: Option<u16>,
 }
 
 /// `[finger]` — the cleartext finger listener (ADR 0012).
@@ -405,6 +440,7 @@ struct RawCleartext {
 struct RawFinger {
     enabled: Option<bool>,
     listen: Option<String>,
+    advertised_port: Option<u16>,
 }
 
 /// `[[identity]]` — one named client identity (ADR 0011).
@@ -453,6 +489,21 @@ pub mod env_keys {
     /// The gopher port to advertise in menus, when the platform maps the
     /// bound port to a different external one.
     pub const GOPHER_ADVERTISED_PORT: &str = "USV_GOPHER_ADVERTISED_PORT";
+
+    /// Where the Spartan listener binds; non-empty enables Spartan, on
+    /// the same "the platform has no file to edit" reasoning as
+    /// [`GOPHER_LISTEN`].
+    pub const SPARTAN_LISTEN: &str = "USV_SPARTAN_LISTEN";
+    /// The Spartan port to advertise when the platform maps it.
+    pub const SPARTAN_ADVERTISED_PORT: &str = "USV_SPARTAN_ADVERTISED_PORT";
+    /// Where the Nex listener binds; non-empty enables Nex.
+    pub const NEX_LISTEN: &str = "USV_NEX_LISTEN";
+    /// The Nex port to advertise when the platform maps it.
+    pub const NEX_ADVERTISED_PORT: &str = "USV_NEX_ADVERTISED_PORT";
+    /// Where the Finger listener binds; non-empty enables Finger.
+    pub const FINGER_LISTEN: &str = "USV_FINGER_LISTEN";
+    /// The Finger port to advertise when the platform maps it.
+    pub const FINGER_ADVERTISED_PORT: &str = "USV_FINGER_ADVERTISED_PORT";
 }
 
 /// A snapshot of the `USV_*` environment, taken once at load time so the
@@ -472,6 +523,18 @@ pub struct EnvOverrides {
     pub http_listen: Option<String>,
     /// See [`env_keys::GOPHER_LISTEN`].
     pub gopher_listen: Option<String>,
+    /// See [`env_keys::SPARTAN_LISTEN`].
+    pub spartan_listen: Option<String>,
+    /// See [`env_keys::SPARTAN_ADVERTISED_PORT`].
+    pub spartan_advertised_port: Option<String>,
+    /// See [`env_keys::NEX_LISTEN`].
+    pub nex_listen: Option<String>,
+    /// See [`env_keys::NEX_ADVERTISED_PORT`].
+    pub nex_advertised_port: Option<String>,
+    /// See [`env_keys::FINGER_LISTEN`].
+    pub finger_listen: Option<String>,
+    /// See [`env_keys::FINGER_ADVERTISED_PORT`].
+    pub finger_advertised_port: Option<String>,
     /// See [`env_keys::GOPHER_ADVERTISED_PORT`].
     pub gopher_advertised_port: Option<String>,
 }
@@ -487,6 +550,12 @@ impl EnvOverrides {
             http_listen: std::env::var(env_keys::HTTP_LISTEN).ok(),
             gopher_listen: std::env::var(env_keys::GOPHER_LISTEN).ok(),
             gopher_advertised_port: std::env::var(env_keys::GOPHER_ADVERTISED_PORT).ok(),
+            spartan_listen: std::env::var(env_keys::SPARTAN_LISTEN).ok(),
+            spartan_advertised_port: std::env::var(env_keys::SPARTAN_ADVERTISED_PORT).ok(),
+            nex_listen: std::env::var(env_keys::NEX_LISTEN).ok(),
+            nex_advertised_port: std::env::var(env_keys::NEX_ADVERTISED_PORT).ok(),
+            finger_listen: std::env::var(env_keys::FINGER_LISTEN).ok(),
+            finger_advertised_port: std::env::var(env_keys::FINGER_ADVERTISED_PORT).ok(),
         }
     }
 }
@@ -889,6 +958,19 @@ impl Config {
             }
         };
 
+        // Same platform-override shape as gopher and the other two
+        // cleartext listeners: a non-empty address enables finger, an
+        // explicitly empty one turns it off over the file.
+        let finger_raw = match (finger_raw, env.finger_listen.as_deref().map(str::trim)) {
+            (_, Some("")) => None,
+            (existing, Some(addr)) => {
+                let mut f = existing.unwrap_or_default();
+                f.enabled = Some(true);
+                f.listen = Some(addr.to_string());
+                Some(f)
+            }
+            (existing, None) => existing,
+        };
         let finger = match finger_raw {
             None => None,
             Some(f) if !f.enabled.unwrap_or(false) => None,
@@ -900,12 +982,35 @@ impl Config {
                          (e.g. \"0.0.0.0:7979\")"
                     ))
                 })?;
-                Some(FingerConfig { listen })
+                let advertised_port = env
+                    .finger_advertised_port
+                    .as_deref()
+                    .map(str::trim)
+                    .filter(|v| !v.is_empty())
+                    .and_then(|v| v.parse::<u16>().ok())
+                    .or(f.advertised_port)
+                    .unwrap_or_else(|| listen.port());
+                Some(FingerConfig {
+                    listen,
+                    advertised_port,
+                })
             }
         };
 
-        let spartan = resolve_cleartext("spartan", spartan_raw, "0.0.0.0:3000")?;
-        let nex = resolve_cleartext("nex", nex_raw, "0.0.0.0:1900")?;
+        let spartan = resolve_cleartext(
+            "spartan",
+            spartan_raw,
+            "0.0.0.0:3000",
+            env.spartan_listen.as_deref(),
+            env.spartan_advertised_port.as_deref(),
+        )?;
+        let nex = resolve_cleartext(
+            "nex",
+            nex_raw,
+            "0.0.0.0:1900",
+            env.nex_listen.as_deref(),
+            env.nex_advertised_port.as_deref(),
+        )?;
 
         Ok(Config {
             state_dir,
@@ -1006,6 +1111,63 @@ pub(crate) fn validate_hostname(name: &str) -> Result<String, ConfigError> {
 )]
 mod tests {
     use super::*;
+
+    /// The platform injects a port and has no file to edit, so the env
+    /// override must be able to enable a listener on its own.
+    #[test]
+    fn env_listen_enables_a_cleartext_protocol_with_no_config_file() {
+        for key in ["spartan", "nex", "finger"] {
+            let mut env = EnvOverrides::default();
+            match key {
+                "spartan" => env.spartan_listen = Some("0.0.0.0:3000".into()),
+                "nex" => env.nex_listen = Some("0.0.0.0:1900".into()),
+                _ => env.finger_listen = Some("0.0.0.0:7979".into()),
+            }
+            let cfg = Config::load(None, &env).expect("loads");
+            let on = match key {
+                "spartan" => cfg.spartan.is_some(),
+                "nex" => cfg.nex.is_some(),
+                _ => cfg.finger.is_some(),
+            };
+            assert!(on, "{key} should be enabled by its listen override alone");
+        }
+    }
+
+    /// The failure this guards: a generated address naming the port the
+    /// container bound rather than the one the platform published is
+    /// unreachable from outside, and looks correct in every local test.
+    #[test]
+    fn the_advertised_port_overrides_the_bound_port() {
+        let env = EnvOverrides {
+            spartan_listen: Some("0.0.0.0:3000".into()),
+            spartan_advertised_port: Some("30300".into()),
+            nex_listen: Some("0.0.0.0:1900".into()),
+            nex_advertised_port: Some("31900".into()),
+            finger_listen: Some("0.0.0.0:7979".into()),
+            finger_advertised_port: Some("30079".into()),
+            ..Default::default()
+        };
+        let cfg = Config::load(None, &env).expect("loads");
+        let s = cfg.spartan.expect("spartan on");
+        assert_eq!(s.listen.port(), 3000);
+        assert_eq!(s.advertised_port, 30300);
+        assert_eq!(cfg.nex.expect("nex on").advertised_port, 31900);
+        assert_eq!(cfg.finger.expect("finger on").advertised_port, 30079);
+    }
+
+    /// An explicitly empty override is the platform saying "the admin
+    /// disabled this service", and must beat a config file that enables it.
+    #[test]
+    fn an_empty_env_listen_turns_a_protocol_off() {
+        let env = EnvOverrides {
+            spartan_listen: Some(String::new()),
+            nex_listen: Some("   ".into()),
+            finger_listen: Some(String::new()),
+            ..Default::default()
+        };
+        let cfg = Config::load(None, &env).expect("loads");
+        assert!(cfg.spartan.is_none() && cfg.nex.is_none() && cfg.finger.is_none());
+    }
 
     fn no_env() -> EnvOverrides {
         EnvOverrides::default()

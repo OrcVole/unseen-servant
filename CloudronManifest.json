@@ -27,6 +27,30 @@
       "containerPort": 7070,
       "readOnly": false,
       "enabledByDefault": false
+    },
+    "SPARTAN_PORT": {
+      "title": "Spartan Port",
+      "description": "Public TCP port for Spartan (spartan://), Gemini's document model without the cryptography. Canonical port 300 is privileged and Cloudron refuses privileged tcpPorts, so a Cloudron-hosted Spartan site is reached with an explicit port. CLEARTEXT: no encryption, no integrity and no way to authenticate a reader, so certificate-gated content is never served over it. Off unless you enable it.",
+      "defaultValue": 3000,
+      "containerPort": 3000,
+      "readOnly": false,
+      "enabledByDefault": false
+    },
+    "NEX_PORT": {
+      "title": "Nex Port",
+      "description": "Public TCP port for Nex (nex://), the smallest of the small-internet protocols. Nex's canonical port is 1900, which is already unprivileged, so this is the one protocol here that can sit exactly where its community expects it. Note that TCP 1900 is unrelated to SSDP, which is UDP. CLEARTEXT: no encryption, no integrity and no way to authenticate a reader, so certificate-gated content is never served over it. Off unless you enable it.",
+      "defaultValue": 1900,
+      "containerPort": 1900,
+      "readOnly": false,
+      "enabledByDefault": false
+    },
+    "FINGER_PORT": {
+      "title": "Finger Port",
+      "description": "Public TCP port for Finger (finger://), which answers with a short generated profile rather than serving the content tree. Canonical port 79 is privileged and Cloudron refuses privileged tcpPorts, so it is reached with an explicit port. Finger forwarding (user@host) is always refused, as RFC 1288 recommends. CLEARTEXT: no encryption, no integrity and no way to authenticate a reader, so certificate-gated content is never served over it. Off unless you enable it.",
+      "defaultValue": 7979,
+      "containerPort": 7979,
+      "readOnly": false,
+      "enabledByDefault": false
     }
   },
   "manifestVersion": 2,

@@ -251,9 +251,9 @@ impl Addresses {
             web_base_url: cfg.http_listen.map(|_| format!("https://{host}")),
             gemini_port: Some(cfg.advertised_port),
             gopher_port: cfg.gopher.as_ref().map(|g| g.advertised_port),
-            spartan_port: cfg.spartan.as_ref().map(|s| s.listen.port()),
-            nex_port: cfg.nex.as_ref().map(|n| n.listen.port()),
-            finger_port: cfg.finger.as_ref().map(|f| f.listen.port()),
+            spartan_port: cfg.spartan.as_ref().map(|s| s.advertised_port),
+            nex_port: cfg.nex.as_ref().map(|n| n.advertised_port),
+            finger_port: cfg.finger.as_ref().map(|f| f.advertised_port),
             host,
         }
     }
