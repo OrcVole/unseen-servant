@@ -43,6 +43,26 @@ impl Protocol {
         }
     }
 
+    /// What this network's own community calls a collection of pages.
+    ///
+    /// Each of these is researched, not guessed
+    /// (`docs/internal/notes/terminology.md`). Gemini has "capsule";
+    /// Gopher has "gopherhole"; Spartan and Nex have no word of their own
+    /// and their people say "site", so inventing one would be worse than
+    /// borrowing nothing. Finger has no sites *at all* — it answers about
+    /// a person — so it gets the neutral word too rather than a fiction.
+    ///
+    /// The rule this exists to enforce: never use one network's word on
+    /// another network's wire. A gopher reader shown "capsule" is being
+    /// addressed in a vocabulary that is not theirs.
+    pub fn site_word(self) -> &'static str {
+        match self {
+            Protocol::Gemini => "capsule",
+            Protocol::Gopher => "gopherhole",
+            Protocol::Spartan | Protocol::Nex | Protocol::Finger | Protocol::Web => "site",
+        }
+    }
+
     /// The URL scheme.
     pub fn scheme(self) -> &'static str {
         match self {
@@ -133,7 +153,7 @@ impl Protocol {
                  does the same job in four lines. It does not serve documents."
             }
             Protocol::Web => {
-                "This is the web mirror of a capsule that also lives on the smaller, older \
+                "This is the web mirror of writing that also lives on the smaller, older \
                  protocols listed below. It is the same writing, rendered from the same \
                  folder — nothing here is exclusive to the web. If any of those protocols \
                  look interesting, each is readable with one small program and no account."
@@ -143,7 +163,7 @@ impl Protocol {
 
     /// Clients known to speak this protocol natively.
     ///
-    /// Verified in `docs/recon/smolnet.md` and `docs/recon/ecosystem.md`,
+    /// Verified in `docs/internal/recon/smolnet.md` and `docs/internal/recon/ecosystem.md`,
     /// August 2026. Client support drifts, so the date is printed with
     /// the list rather than left implicit.
     pub fn clients(self) -> &'static [(&'static str, &'static str)] {
@@ -307,7 +327,7 @@ pub fn gemtext(protocol: Protocol, addrs: &Addresses) -> String {
     // The web mirror is not "a web page" -- everything is a web page.
     // What is worth saying is that it mirrors something else.
     if protocol == Protocol::Web {
-        s.push_str("# This is the web mirror of a smolnet capsule\n\n");
+        s.push_str("# This is the web mirror of a smolnet site\n\n");
     } else {
         s.push_str(&format!("# This is a {name} page\n\n"));
     }
@@ -371,9 +391,9 @@ pub fn gemtext(protocol: Protocol, addrs: &Addresses) -> String {
         .filter(|(p, _)| *p != protocol)
         .collect();
     if !others.is_empty() || addrs.web_base_url.is_some() {
-        s.push_str("## The same capsule, other protocols\n\n");
+        s.push_str("## The same writing, other protocols\n\n");
         s.push_str(
-            "This capsule is one folder of writing, rendered to each of these. The hostname \
+            "This is one folder of writing, rendered to each of these. The hostname \
              never changes — the scheme at the front picks the protocol and the port:\n\n",
         );
         for (p, url) in &others {
@@ -385,7 +405,7 @@ pub fn gemtext(protocol: Protocol, addrs: &Addresses) -> String {
         s.push('\n');
     }
 
-    s.push_str("=> / Back to the capsule\n");
+    s.push_str(&format!("=> / Back to the {}\n", protocol.site_word()));
     s
 }
 
@@ -422,6 +442,39 @@ pub fn plain(protocol: Protocol, addrs: &Addresses) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn each_network_is_addressed_in_its_own_vocabulary() {
+        // The rule from docs/internal/notes/terminology.md: never use one
+        // network's word on another network's wire.
+        assert_eq!(Protocol::Gemini.site_word(), "capsule");
+        assert_eq!(Protocol::Gopher.site_word(), "gopherhole");
+        // Spartan, Nex and Finger have no word of their own; inventing
+        // one would be worse than using the neutral term.
+        for p in [Protocol::Spartan, Protocol::Nex, Protocol::Finger] {
+            assert_eq!(p.site_word(), "site", "{p:?} must not borrow a term");
+        }
+    }
+
+    #[test]
+    fn the_shared_colophon_text_never_says_capsule_to_a_non_gemini_reader() {
+        let addrs = Addresses {
+            host: "example.org".to_string(),
+            gemini_port: Some(1965),
+            gopher_port: Some(70),
+            spartan_port: Some(300),
+            nex_port: Some(1900),
+            finger_port: None,
+            web_base_url: None,
+        };
+        for p in [Protocol::Gopher, Protocol::Spartan, Protocol::Nex] {
+            let out = gemtext(p, &addrs);
+            assert!(
+                !out.contains("capsule"),
+                "{p:?} colophon uses Geminispace's word: {out}"
+            );
+        }
+    }
 
     fn addrs() -> Addresses {
         Addresses {
