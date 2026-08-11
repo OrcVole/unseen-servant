@@ -12,7 +12,7 @@ sudo rpm -Uvh target/distrib/unseen-servant-<version>-1.*.x86_64.rpm
 `build.sh` needs `rpmbuild` and the systemd macros
 (`dnf install rpm-build systemd-rpm-macros`). Like the `.deb`, the spec
 packages an **already-built** static musl binary rather than compiling
-inside `rpmbuild` — the binary is produced once, with the toolchain the
+inside `rpmbuild`: the binary is produced once, with the toolchain the
 project pins, and every packaging format ships that same artifact.
 
 ## What it installs
@@ -26,7 +26,7 @@ project pins, and every packaging format ships that same artifact.
 | `/usr/share/doc/unseen-servant/` | `README.md` |
 
 `%pre` creates the `usv` group and user with plain `groupadd`/`useradd`
-rather than the `sysusers.d` macros — availability and version of those
+rather than the `sysusers.d` macros: availability and version of those
 macros varies across Fedora, RHEL and openSUSE, while `useradd` is
 universal. (The Arch package *does* use `sysusers.d`, which is idiomatic
 there; see [`aur.md`](aur.md).)
@@ -42,7 +42,7 @@ sudo rpm -e unseen-servant
 
 leaves the `usv` user, `/var/lib/usv`, your content, and your TOFU
 identity untouched. Nothing in a scriptlet deletes them. To remove the
-capsule you delete the directory yourself, explicitly — the same
+capsule you delete the directory yourself, explicitly: the same
 "never silently lose the keypair" posture as ADR 0003 and the `.deb`'s
 `remove` case.
 
@@ -68,5 +68,5 @@ binary as that user and watched it mint its identity and serve, then
 Two spec bugs were found by actually running `rpmbuild` rather than
 reading the spec back: a `%{...}`-shaped token inside a comment tripped
 rpm's macro-expanded-in-comment check, and `%license`/`%doc` with bare
-filenames expect `%prep` to have populated the build directory — which
+filenames expect `%prep` to have populated the build directory, which
 this spec has no reason to do, since the binary arrives prebuilt.

@@ -1,8 +1,8 @@
-# ADR 0002: Process and privilege model — single process, capability-shaped module boundaries
+# ADR 0002: Process and privilege model: single process, capability-shaped module boundaries
 
 - Status: Accepted (pending director review)
 - Date: 2026-08-09
-- Evidence: docs/recon/prior-art.md §2, docs/recon/cloudron-fit.md §6
+- Evidence: docs/internal/recon/prior-art.md §2, docs/internal/recon/cloudron-fit.md §6
 
 ## Context
 
@@ -47,7 +47,7 @@ boundaries:**
 - A `control` task owning signals: SIGHUP = reload config + certs
   without dropping listeners (gmid's reload discipline); SIGTERM =
   graceful drain then exit (Agate had to retrofit this; we ship it in
-  v1 — Cloudron and systemd both stop with SIGTERM).
+  v1: Cloudron and systemd both stop with SIGTERM).
 - One `tracing` subscriber writing to stdout/stderr; no log files.
 
 Full gmid-style multi-process privsep is **refused** for v1: in a

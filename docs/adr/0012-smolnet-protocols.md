@@ -1,13 +1,13 @@
-# ADR 0012: The smolnet protocols — one plaintext listener kind, opt-in, and a hard wall against leaking gated content
+# ADR 0012: The smolnet protocols: one plaintext listener kind, opt-in, and a hard wall against leaking gated content
 
-- Status: **Proposed** (v1.1 scope; ADR precedes code per docs/ROADMAP.md)
+- Status: **Proposed** (v1.1 scope; ADR precedes code per docs/internal/ROADMAP.md)
 - Date: 2026-08-10
-- Evidence: docs/recon/smolnet.md (wire formats, server/render requirements, effort ranking, venues); docs/recon/ecosystem.md; ADR 0004 (dual surface), ADR 0005 (no dynamic content), ADR 0002 (process model); director 2026-08-09 ("include finger"), director 2026-08-10 ("we hope we will be supporting gopher etc when we eventually release")
+- Evidence: docs/internal/recon/smolnet.md (wire formats, server/render requirements, effort ranking, venues); docs/internal/recon/ecosystem.md; ADR 0004 (dual surface), ADR 0005 (no dynamic content), ADR 0002 (process model); director 2026-08-09 ("include finger"), director 2026-08-10 ("we hope we will be supporting gopher etc when we eventually release")
 
 ## Context
 
 v1.1 adds Gopher, Spartan, Nex and Finger. The recon establishes the
-shape: all are one-shot, line-framed, plaintext TCP protocols — read a
+shape: all are one-shot, line-framed, plaintext TCP protocols: read a
 line, optionally a body, write, close. None support keep-alive. None
 support TLS (bar optional `gophers` sniffing). **None can authenticate
 a client at all.**
@@ -27,7 +27,7 @@ Everything else here is engineering. That is a safety property.
 
 A single one-shot listener kind, parameterised by request parser and
 response writer, serves all four. It reuses the Gemini listener's
-existing machinery — accept loop, semaphore-based connection cap,
+existing machinery: accept loop, semaphore-based connection cap,
 per-phase timeouts, request-line length caps, graceful drain. Protocols
 differ in their grammar and their response framing, not in their
 connection lifecycle.
@@ -45,12 +45,12 @@ reach.
 
 Enabling one logs a one-line trust disclaimer at startup, naming the
 protocol and the fact that it is cleartext and unauthenticated. Not a
-warning to be silenced — a statement of what was just switched on.
+warning to be silenced: a statement of what was just switched on.
 
 ### 3. Non-privileged default ports
 
 Ports 70 (gopher), 79 (finger) and 300 (spartan) are privileged; 1900
-(nex) is not. Defaults are non-privileged — 7070, 7979, 3000, 1900 —
+(nex) is not. Defaults are non-privileged: 7070, 7979, 3000, 1900, 
 preserving ADR 0002's empty `CapabilityBoundingSet`, which is only
 possible while every port is above 1024.
 
@@ -64,13 +64,13 @@ wants port 70 can have it; they will know they asked, and what it cost.
 Following ADR 0004's write-time rendering: the same metadata pass gains
 emitters rather than growing request-time logic.
 
-- **Gopher** — a full third output target: menus per directory/page, item
+- **Gopher**, a full third output target: menus per directory/page, item
   typing, 70-column wrapping, `caps.txt`. This is where the effort is
-  (recon ranks it 6–10× Nex).
-- **Spartan** — serves the existing gemtext tree unchanged. Prefer
+  (recon ranks it 6-10× Nex).
+- **Spartan**: serves the existing gemtext tree unchanged. Prefer
   relative links so no scheme rewriting is ever needed.
-- **Nex** — serves the gemtext tree; optional nexification.
-- **Finger** — serves a configured profile/status text. Not the content
+- **Nex**: serves the gemtext tree; optional nexification.
+- **Finger**: serves a configured profile/status text. Not the content
   tree at all.
 
 **Redirects are resolved at generation time** for the Gopher and Nex
@@ -99,7 +99,7 @@ This is deliberately stricter than "document it plainly", which is what
 the recon proposed. Documentation does not survive an operator adding a
 `cert_zone` six months after enabling Gopher. The exclusion does.
 
-### Amendment, 2026-08-10 — made while implementing this section
+### Amendment, 2026-08-10: made while implementing this section
 
 This section originally required that a configuration which *would*
 publish a gated path over a cleartext protocol be a **startup error**.
@@ -110,7 +110,7 @@ Since exclusion already makes disclosure impossible, a blanket error
 would mean a capsule with one small private area could not serve Gopher
 **at all**. That does not make anyone safer; it forces a choice between
 the cert zone and the protocol, and the likeliest casualty is the cert
-zone — the safety measure, abandoned to get the feature. A rule that
+zone: the safety measure, abandoned to get the feature. A rule that
 pressures operators into removing their own gates is a bad rule however
 strict it looks.
 
@@ -119,7 +119,7 @@ What the section now requires, and what is implemented in
 
 1. **Exclusion is unconditional and structural.** Gated prefixes are
    subtracted where the cleartext trees are *built*, not where they are
-   served — so no request path, no later misconfiguration, and no
+   served, so no request path, no later misconfiguration, and no
    protocol added in future can serve what was never emitted. Titan
    zones are excluded alongside certificate zones: a writable area is
    one whose contents are controlled by a specific key, and mirroring it
@@ -127,7 +127,7 @@ What the section now requires, and what is implemented in
    extra step.
 2. **Every exclusion is announced at startup.** An operator who gated
    `/private/` and then enabled Gopher must not have to deduce why it is
-   missing — silence is how a safety measure gets mistaken for a bug and
+   missing: silence is how a safety measure gets mistaken for a bug and
    worked around.
 3. **A contradictory configuration is still a startup error.** A
    cleartext root pointing *into* a gated prefix can only mean "publish
@@ -149,13 +149,13 @@ is world-readable in transit and trivially tamperable by anyone on path.
 Serve only content whose integrity loss is acceptable.
 
 The counterweight, also stated: this is the settled norm of these
-communities — Gopher has run cleartext for 35 years — and mirroring
+communities: Gopher has run cleartext for 35 years, and mirroring
 public static content is the one workload where cleartext is defensible.
 
 ### 8. Logging
 
 The existing policy applies unchanged (`server.log_peer`, default
-`off` — OQ-9). Plaintext ports attract scanners, so these logs will be
+`off`: OQ-9). Plaintext ports attract scanners, so these logs will be
 noisier; that is a reason for the default to stay where it is, not a
 reason for a per-protocol exception.
 
@@ -167,7 +167,7 @@ reason for a per-protocol exception.
   *refused at startup* rather than quietly leaking. Some operators will
   find this annoying; the alternative is worse.
 - `usv` gains no client-authenticated capability on any new protocol,
-  and never will — cert zones and Titan stay Gemini-only by construction.
+  and never will: cert zones and Titan stay Gemini-only by construction.
 - Until every one of these ships and has been exercised against a real
   client, `docs/protocols.md` continues to list them as **Planned**, and
   no README, capsule page, store listing, or announcement may say
@@ -181,11 +181,11 @@ change, and the failure is silent disclosure of content the operator
 believed was gated.
 
 **TLS on the smolnet listeners (`gophers`).** Deferred, not refused. It
-exists, adoption is thin, and it does not solve client authentication —
+exists, adoption is thin, and it does not solve client authentication, 
 so it changes none of the reasoning above. Revisit if it gains traction.
 
 **Privileged ports by default.** Rejected: it would cost the empty
 capability bounding set that ADR 0002's whole hardening story rests on,
 for the convenience of not typing a port number.
 
-**One listener per protocol.** Rejected — see §1.
+**One listener per protocol.** Rejected: see §1.

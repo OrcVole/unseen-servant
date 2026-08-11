@@ -50,7 +50,7 @@ sudo -u usv usv fingerprint     # what readers will pin
 journalctl -u usv -f            # logs (usv logs to stdout/stderr only)
 ```
 
-Configuration is one file at `/var/lib/usv/usv.toml` — see
+Configuration is one file at `/var/lib/usv/usv.toml`: see
 [`../configuration.md`](../configuration.md). It does not need to exist;
 every setting has a working default.
 

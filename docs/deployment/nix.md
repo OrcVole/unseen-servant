@@ -24,8 +24,8 @@ build's source hash.
 check phase, and this is worth understanding rather than working around:
 
 Those tests spawn real `usv` subprocesses that bind a listener and wait
-for it to come up. Under Nix's build sandbox — a restricted network
-namespace — two of them hang indefinitely rather than failing fast, and
+for it to come up. Under Nix's build sandbox: a restricted network
+namespace: two of them hang indefinitely rather than failing fast, and
 two others that only inspect a subprocess's exit code and stderr fail
 outright. This was diagnosed rather than assumed: an initial run's
 failures were first (wrongly) blamed on a stale concurrent build process,
@@ -42,5 +42,5 @@ internally.
 
 `nix build .#default` completes green with 423 unit tests passing inside
 the sandbox, and the resulting `./result/bin/usv` was run outside the
-sandbox — where the network restriction does not apply — and confirmed to
+sandbox: where the network restriction does not apply, and confirmed to
 mint its identity, bind a listener, and serve.
