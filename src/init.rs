@@ -1,4 +1,4 @@
-//! `usv init` (`docs/BUILD-PLAN.md` C5): produce a working `usv.toml`
+//! `usv init` (`docs/internal/BUILD-PLAN.md` C5): produce a working `usv.toml`
 //! from an empty directory, interactively (a ratatui wizard, in
 //! `main.rs`) or non-interactively (`--defaults`).
 //!

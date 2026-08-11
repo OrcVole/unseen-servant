@@ -1,6 +1,6 @@
-//! Gemtext line-type grammar, spec v0.24.1 (docs/recon/protocol.md
+//! Gemtext line-type grammar, spec v0.24.1 (docs/internal/recon/protocol.md
 //! "Gemtext" section; full grammar and rationale in
-//! `docs/notes/c3-render-design-brief.md` §2).
+//! `docs/internal/notes/c3-render-design-brief.md` §2).
 //!
 //! One pass, one bit of state (normal vs. preformatted), starting in
 //! normal mode; state at EOF is meaningless per spec, so an unclosed
@@ -163,7 +163,7 @@ fn parse_heading(after_hashes: &str, level: u8) -> Line<'_> {
 
 /// First level-1 heading in the document, or a filename-derived fallback
 /// (`about.gmi` → `"About"`) when none exists — every document needs a
-/// non-empty title for the HTML `<title>` element (`docs/notes/
+/// non-empty title for the HTML `<title>` element (`docs/internal/notes/
 /// c3-render-design-brief.md` §4/§5.6).
 pub fn extract_title<'a>(lines: &'a [Line<'a>], source_path: &Path) -> String {
     for line in lines {

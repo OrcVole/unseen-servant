@@ -842,7 +842,7 @@ fn payload_already_read(raw: &[u8]) -> &[u8] {
 
 /// Advertised-port sanity warning at startup: a Gemini capsule off :1965 is
 /// reachable only through explicit-port URLs, which breaks discovery
-/// (docs/recon/cloudron-fit.md §1).
+/// (docs/internal/recon/cloudron-fit.md §1).
 pub fn warn_if_nonstandard(config: &Config) {
     if config.advertised_port != GEMINI_DEFAULT_PORT {
         tracing::warn!(

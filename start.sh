@@ -1,12 +1,12 @@
 #!/bin/bash
 # Cloudron entrypoint. Runs as root; every field choice here is cited in
-# docs/recon/cloudron-fit.md's hard-constraints checklist — read that
+# docs/internal/recon/cloudron-fit.md's hard-constraints checklist — read that
 # before changing this file, not the house cloudron-app-packaging skill.
 set -eu -o pipefail
 
 echo "==> Fixing permissions"
 # On every start, not just first run: backup/restore can reset ownership
-# (docs/recon/cloudron-fit.md §3), and this must never be conditional on
+# (docs/internal/recon/cloudron-fit.md §3), and this must never be conditional on
 # whether /app/data looks "already set up".
 chown -R cloudron:cloudron /app/data
 
@@ -30,7 +30,7 @@ if [[ -n "${GEMINI_PORT:-}" ]]; then
     # containerPort is fixed at 1965 in the manifest (readOnly tcpPorts
     # entry), so this never actually diverges from GEMINI_PORT today — but
     # binding the container port and advertising the external port
-    # separately is the correct shape in general (docs/recon/cloudron-fit.md
+    # separately is the correct shape in general (docs/internal/recon/cloudron-fit.md
     # §1), not an assumption that stays true only by accident.
     export USV_LISTEN="0.0.0.0:1965"
     export USV_ADVERTISED_PORT="${GEMINI_PORT}"

@@ -1,5 +1,5 @@
 //! The first-run content skeleton (director's "beautiful placeholder"
-//! note, docs/notes/integration-ideas.md): a fresh capsule with no
+//! note, docs/internal/notes/integration-ideas.md): a fresh capsule with no
 //! authored content is a normal state (ADR 0008), and the page a visitor
 //! or the owner sees there should be *gorgeous by default*, not a techy
 //! test page. Three moods, matching the brief's "offer a few stock

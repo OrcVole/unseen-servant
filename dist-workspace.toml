@@ -1,7 +1,7 @@
 [workspace]
 members = ["cargo:."]
 
-# Config for 'dist' (docs/BUILD-PLAN.md C6: "cargo-dist static musl tarballs").
+# Config for 'dist' (docs/internal/BUILD-PLAN.md C6: "cargo-dist static musl tarballs").
 #
 # ci = [] deliberately: cargo-dist's CI generation is GitHub-only as of
 # 0.32.0 (its own `--ci` flag accepts no other value), and this project is
@@ -10,11 +10,11 @@ members = ["cargo:."]
 # plain local/CI-agnostic build tool; a Forgejo Actions equivalent can call
 # it directly if C7's launch checklist wants one.
 #
-# targets = just the one platform docs/BUILD-PLAN.md actually asks for.
+# targets = just the one platform docs/internal/BUILD-PLAN.md actually asks for.
 # `dist init`'s own "good defaults" included aarch64-apple-darwin,
 # x86_64-apple-darwin, x86_64-pc-windows-msvc, and glibc linux — none of
 # which this project has built or tested anywhere, and this crate's own
-# dependency-pinning ethos (docs/BRIEF.md) argues against listing untested
+# dependency-pinning ethos (docs/internal/BRIEF.md) argues against listing untested
 # platforms as if they were supported.
 [dist]
 cargo-dist-version = "0.32.0"

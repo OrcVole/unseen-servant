@@ -1,5 +1,5 @@
 //! Regex-based redirects with capture-group substitution — Molly Brown's
-//! model (docs/recon/prior-art.md §3): a list of `(pattern, target)`
+//! model (docs/internal/recon/prior-art.md §3): a list of `(pattern, target)`
 //! pairs, tried in config order, first match wins. Single hop only: the
 //! target is never itself re-checked against the redirect list, matching
 //! recon guidance ("cap any internally-generated redirect chains... ideally
