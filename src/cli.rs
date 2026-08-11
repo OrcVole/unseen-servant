@@ -1,4 +1,4 @@
-//! C5 CLI subcommands (`docs/BUILD-PLAN.md` C5): `status`, `fingerprint`,
+//! C5 CLI subcommands (`docs/internal/BUILD-PLAN.md` C5): `status`, `fingerprint`,
 //! `check`, `zones`, `stats`, `render`, `export`. `usv init` (the ratatui
 //! wizard) lives in `main.rs`; Tor/I2P affordances (`server.advertised_host`,
 //! onion-hostname cert slots, no-SNI tolerance) needed no CLI surface —
@@ -25,6 +25,7 @@ use std::path::Path;
 
 use crate::config::Config;
 use crate::identity::IdentityStore;
+use crate::json;
 use crate::roster::{Capability, Roster};
 
 /// `usv fingerprint`: every configured hostname's server certificate
@@ -603,7 +604,7 @@ impl std::error::Error for ExportError {}
 /// `export` is to hand an operator that folder without them needing to
 /// know usv's internal `state_dir` layout, not to transform it into
 /// something new. "Your capsule's web mirror as an OnionShare site" is
-/// documented (`docs/notes/integration-ideas.md`) as a copy-the-folder
+/// documented (`docs/internal/notes/integration-ideas.md`) as a copy-the-folder
 /// recipe with zero new code — this function is that recipe, made
 /// discoverable and given a destination-safety check.
 ///
@@ -711,6 +712,182 @@ pub fn format_status(config: &Config, store: &IdentityStore, published: &Publish
     out.push_str("\n== published ==\n");
     out.push_str(&format_published_stats(published));
     out
+}
+
+// ---------------------------------------------------------------------
+// Machine-readable output (`--json`)
+//
+// Every read-only subcommand can emit its report as one JSON object on
+// stdout instead of prose. The reason is in `docs/agents.md`: an agent —
+// or a human debugging with one — should not have to write a regex
+// against a table that was laid out for a terminal, and a prose format
+// that something depends on becomes accidentally load-bearing the first
+// time it is scraped.
+//
+// Two rules hold across all of them, because they are what makes the
+// output safe to depend on:
+//
+// 1. **Same source, two renderings.** Each `*_json` function reads the
+//    same values its `format_*` twin does, so the two can disagree about
+//    presentation but never about facts — the same discipline the render
+//    pipeline applies to gemtext and HTML.
+// 2. **A field that is absent is `null`, never omitted and never an
+//    empty string.** "This capsule has no HTTP surface" and "I could not
+//    tell" must not collapse into the same value at the point a caller
+//    branches on it.
+// ---------------------------------------------------------------------
+
+/// `usv fingerprint --json`.
+pub fn fingerprints_json(store: &IdentityStore) -> String {
+    let hosts = store.fingerprints().map(|(host, fp)| {
+        let mut o = json::Object::new();
+        o.string("host", host).string("fingerprint", &fp);
+        o.finish()
+    });
+    let mut out = json::Object::new();
+    out.raw("hosts", &json::array(hosts.collect::<Vec<_>>()));
+    out.finish()
+}
+
+/// One `[[host]]`'s zones as a JSON object.
+fn host_zones_json(host: &crate::config::HostConfig) -> String {
+    let cert = host.cert_zones.iter().map(|zone| {
+        let mut o = json::Object::new();
+        o.string("path_prefix", &zone.path_prefix)
+            .number("fingerprints", zone.allowed_fingerprints.len() as u64)
+            // An empty allowlist on a *read* zone means "any client
+            // certificate", which is a materially different policy from
+            // "these three keys" — so it is stated, not left to be
+            // inferred from a zero.
+            .bool("any_certificate", zone.allowed_fingerprints.is_empty());
+        o.finish()
+    });
+    let titan = host.titan_zones.iter().map(|zone| {
+        let mut o = json::Object::new();
+        o.string("path_prefix", &zone.path_prefix)
+            .number("fingerprints", zone.allowed_fingerprints.len() as u64)
+            .number("identities", zone.allowed_identities.len() as u64)
+            .number("max_upload_bytes", zone.max_upload_bytes)
+            .bool("allow_delete", zone.allow_delete);
+        o.finish()
+    });
+    let mut o = json::Object::new();
+    o.string("host", &host.name)
+        .raw("cert_zones", &json::array(cert.collect::<Vec<_>>()))
+        .raw("titan_zones", &json::array(titan.collect::<Vec<_>>()));
+    o.finish()
+}
+
+/// `usv zones --json`.
+pub fn zones_json(config: &Config) -> String {
+    let hosts: Vec<String> = config.hosts.iter().map(host_zones_json).collect();
+    let mut out = json::Object::new();
+    out.raw("hosts", &json::array(hosts));
+    out.finish()
+}
+
+/// The identity roster as a JSON array — shared by `zones --json` and
+/// `status --json` so neither can drift from the other.
+fn roster_array_json(config: &Config) -> String {
+    let identities: Vec<String> = config
+        .roster
+        .identities()
+        .iter()
+        .map(|identity| {
+            let caps: Vec<&str> = identity.capabilities.iter().map(|c| c.as_str()).collect();
+            let mut o = json::Object::new();
+            o.string("label", &identity.label)
+                .string("fingerprint", &identity.fingerprint)
+                .raw("capabilities", &json::string_array(caps))
+                .string_or_null(
+                    "enrolled",
+                    identity.enrolled.map(|d| d.to_string()).as_deref(),
+                )
+                // `rotating` is derived rather than left for the caller to
+                // work out from the array length, because "is this identity
+                // mid-rotation" is the question actually being asked.
+                .bool("rotating", !identity.superseded.is_empty())
+                .raw(
+                    "superseded",
+                    &json::string_array(identity.superseded.iter().map(|s| s.as_str())),
+                )
+                .string_or_null(
+                    "superseded_until",
+                    identity.superseded_until.map(|d| d.to_string()).as_deref(),
+                );
+            o.finish()
+        })
+        .collect();
+    json::array(identities)
+}
+
+/// `usv stats --json`. `rendered` is false on a capsule that has not
+/// rendered yet; the counts are then zero rather than absent, since
+/// "nothing published" is a real answer to the question.
+pub fn published_stats_json(stats: &PublishedStats) -> String {
+    let mut o = json::Object::new();
+    o.bool("rendered", stats.html_tree_present)
+        .number("pages", stats.html_pages as u64)
+        .bool("robots_txt", stats.has_robots)
+        .bool("sitemap_xml", stats.has_sitemap)
+        .bool("llms_txt", stats.has_llms_txt)
+        .bool("atom_xml", stats.has_atom);
+    o.finish()
+}
+
+/// `usv check --json`. `notes` carries the same strings the prose report
+/// prints; they are advisory in both forms and neither fails the command.
+pub fn check_report_json(config: &Config, lint: &ContentLint) -> String {
+    let mut cfg = json::Object::new();
+    cfg.bool("valid", true)
+        .number("hosts", config.hosts.len() as u64)
+        .string("lang", &config.lang)
+        .string("theme", config.theme.name)
+        .number("identities", config.roster.identities().len() as u64);
+    let mut content = json::Object::new();
+    content.number("pages_found", lint.pages_found as u64).raw(
+        "notes",
+        &json::string_array(lint.notes.iter().map(|n| n.as_str())),
+    );
+    let mut out = json::Object::new();
+    out.raw("config", &cfg.finish())
+        .raw("content", &content.finish());
+    out.finish()
+}
+
+/// `usv status --json`: the whole dashboard as one object, composed from
+/// the same pieces the individual subcommands emit.
+pub fn status_json(config: &Config, store: &IdentityStore, published: &PublishedStats) -> String {
+    let listen: Vec<String> = config.listen.iter().map(|a| a.to_string()).collect();
+    let mut capsule = json::Object::new();
+    capsule
+        .number("hosts", config.hosts.len() as u64)
+        .string("lang", &config.lang)
+        .string("theme", config.theme.name)
+        .raw("gemini_listen", &json::string_array(&listen))
+        .string_or_null(
+            "http_listen",
+            config.http_listen.map(|a| a.to_string()).as_deref(),
+        )
+        .string_or_null("advertised_host", config.advertised_host.as_deref());
+
+    let fingerprints: Vec<String> = store
+        .fingerprints()
+        .map(|(host, fp)| {
+            let mut o = json::Object::new();
+            o.string("host", host).string("fingerprint", &fp);
+            o.finish()
+        })
+        .collect();
+    let zones: Vec<String> = config.hosts.iter().map(host_zones_json).collect();
+
+    let mut out = json::Object::new();
+    out.raw("capsule", &capsule.finish())
+        .raw("server_fingerprints", &json::array(fingerprints))
+        .raw("roster", &roster_array_json(config))
+        .raw("zones", &json::array(zones))
+        .raw("published", &published_stats_json(published));
+    out.finish()
 }
 
 #[cfg(test)]
