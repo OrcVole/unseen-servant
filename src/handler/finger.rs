@@ -42,9 +42,15 @@ fn default_profile(addr: &Addresses) -> String {
     s.push('\n');
     // Spell the name out. Finger is often the first thing a curious
     // visitor tries, and "usv" is not guessable from the long name.
-    s.push_str("A capsule served by Unseen Servant (UnSeen serVant -> usv).\n\n");
+    //
+    // Deliberately *not* "a capsule": that is Geminispace's word, and a
+    // reader who arrived over finger is holding a protocol that has no
+    // sites at all — only people and their .plan files. Using one
+    // network's vocabulary on another network's wire is the fastest way
+    // to sound like a tourist (docs/internal/notes/terminology.md).
+    s.push_str("Served by Unseen Servant (usv).\n\n");
 
-    s.push_str("Read it at:\n\n");
+    s.push_str("Read the writing at:\n\n");
     // Ports come from the shared address list, so a listener switched on
     // in config appears here without anyone remembering to add it.
     for (protocol, url) in addr.all() {
