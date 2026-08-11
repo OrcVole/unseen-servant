@@ -45,7 +45,7 @@ use unseen_servant::tls;
 const HELP: &str = concat!(
     "usv ",
     env!("CARGO_PKG_VERSION"),
-    " — Unseen Servant, a security-first Gemini server (pre-release)\n",
+    ": Unseen Servant, a security-first Gemini server (pre-release)\n",
     "\n",
     "USAGE:\n",
     "  usv [--config <path>]           start the server (zero-config default works)\n",
@@ -84,11 +84,11 @@ const HELP: &str = concat!(
     "LOGGING:\n",
     "  Logs go to stderr only. RUST_LOG filters (default: info).\n",
     "  USV_LOG_FORMAT=json emits one JSON object per line instead of the\n",
-    "  human format — for log collectors and for agents reading their own\n",
+    "  human format: for log collectors and for agents reading their own\n",
     "  server's output. Anything else, or unset, keeps the human format.\n",
     "\n",
     "`status`/`fingerprint`/`zones` open (and, on a fresh capsule, mint) the\n",
-    "identity store — the same first-run behaviour starting the server has.\n",
+    "identity store, the same first-run behaviour starting the server has.\n",
     "`stats` is read-only and never renders; `render` always performs a real\n",
     "render (the same atomic staging-swap the server itself uses).\n",
     "\n",
@@ -98,7 +98,7 @@ const HELP: &str = concat!(
     "rotate/revoke can find the existing entry.\n",
     "\n",
     "`usv export` copies the already-rendered state_dir/html tree to\n",
-    "<destination> verbatim (refuses a non-empty destination) — that folder\n",
+    "<destination> verbatim (refuses a non-empty destination): that folder\n",
     "is already a self-contained static site (ADR 0004), so this is\n",
     "\"copy it out for OnionShare or any other static host\", not a second\n",
     "render. Never renders anything new: run `usv render` first if needed.\n",
@@ -625,7 +625,7 @@ async fn cmd_init(config_path: Option<&Path>, defaults: bool) -> ExitCode {
         match run_init_wizard(&path) {
             Ok(Some(a)) => a,
             Ok(None) => {
-                println!("cancelled — nothing was written");
+                println!("cancelled: nothing was written");
                 return ExitCode::SUCCESS;
             }
             Err(e) => {
