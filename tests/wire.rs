@@ -1,5 +1,5 @@
 //! Wire-level regress suite: the real binary, real sockets, real TLS —
-//! gmid-style (docs/recon/prior-art.md §2). Every test here talks to a
+//! gmid-style (docs/internal/recon/prior-art.md §2). Every test here talks to a
 //! spawned `usv` process over an actual TLS connection.
 //!
 //! These tests cover the request/response contract the gemini-diagnostics
@@ -657,7 +657,7 @@ fn bad_requests_get_59() {
     }
 }
 
-/// The C2 exit gate's traversal corpus (docs/BUILD-PLAN.md): percent-
+/// The C2 exit gate's traversal corpus (docs/internal/BUILD-PLAN.md): percent-
 /// encoded, double-encoded, and literal `..` escapes, over the real wire —
 /// not just the unit-level `static_file` tests, since the whole pipeline
 /// (URI validation → authority → static_file::serve) is what must hold.
@@ -855,7 +855,7 @@ fn sni_selects_the_matching_host_cert_and_content() {
 }
 
 /// A ClientHello with no SNI at all (the shape a Tor/I2P client commonly
-/// sends — docs/notes/integration-ideas.md "Tor / I2P") must be served,
+/// sends — docs/internal/notes/integration-ideas.md "Tor / I2P") must be served,
 /// not refused: the resolver falls back to the first configured host's
 /// certificate (`identity::IdentityStore`'s documented no-SNI default),
 /// and the request's own authority check still governs which content

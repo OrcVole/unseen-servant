@@ -1,6 +1,6 @@
 //! Metadata extraction: titles and feed-worthy dates (BUILD-PLAN C3
 //! "metadata pass"). Design decisions recorded in
-//! `docs/notes/c3-render-design-brief.md` §4/§5.5, resolved here rather
+//! `docs/internal/notes/c3-render-design-brief.md` §4/§5.5, resolved here rather
 //! than left open, since nothing about them is security- or auth-
 //! sensitive — they are content conventions, changeable later without
 //! an ADR.

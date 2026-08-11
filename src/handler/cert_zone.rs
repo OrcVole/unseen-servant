@@ -1,5 +1,5 @@
 //! Certificate zones: path-scoped client-certificate gating (Molly Brown's
-//! `authorized_keys`-style model, docs/recon/prior-art.md §3; ADR 0005).
+//! `authorized_keys`-style model, docs/internal/recon/prior-art.md §3; ADR 0005).
 //!
 //! A zone is a path prefix plus an optional SHA-256 fingerprint allowlist.
 //! The **longest matching prefix wins** (most-specific zone applies), per

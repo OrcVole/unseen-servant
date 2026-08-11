@@ -30,7 +30,7 @@ pub fn lookup(filename: &str) -> &'static str {
         "svg" => "image/svg+xml",
         "ico" => "image/x-icon",
         "pdf" => "application/pdf",
-        // GemPub (docs/recon/ecosystem.md §7): a file format, not a
+        // GemPub (docs/internal/recon/ecosystem.md §7): a file format, not a
         // protocol feature — one MIME table entry is the entire "support".
         "gpub" => "application/gpub+zip",
         "zip" => "application/zip",

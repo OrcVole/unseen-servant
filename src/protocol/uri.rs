@@ -3,7 +3,7 @@
 //! Input is the framed URI slice from layer 1 (non-empty, ≤1024 bytes, free
 //! of CR/LF). This layer decides whether those bytes are a strict RFC 3986
 //! absolute URI acceptable in a Gemini request, per the recon reject-list
-//! (docs/recon/protocol.md "Implementation guidance" §1):
+//! (docs/internal/recon/protocol.md "Implementation guidance" §1):
 //!
 //! - non-ASCII bytes, control bytes, and literal spaces → reject (the spec
 //!   is URI-based, not IRI-based; percent-encoding is the only escape hatch)

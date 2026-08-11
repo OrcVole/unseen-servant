@@ -18,7 +18,7 @@
 //!    must not know about tokio tasks or fs events.
 //!
 //! Design questions still open for later stages in this phase are
-//! recorded in `docs/notes/c3-render-design-brief.md` §5; each is
+//! recorded in `docs/internal/notes/c3-render-design-brief.md` §5; each is
 //! resolved with a documented, reasonable default at the point its code
 //! lands rather than blocking on all of them up front.
 

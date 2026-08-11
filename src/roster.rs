@@ -8,7 +8,7 @@
 //! authorization primitive and a poor *identity* one: a fingerprint has no
 //! name, no history, no way to be rotated, and no meaning outside the one
 //! zone that lists it. The agent-web reconnaissance
-//! (`docs/recon/agent-web.md`) found usv philosophically ahead of the
+//! (`docs/internal/recon/agent-web.md`) found usv philosophically ahead of the
 //! field on "the key **is** the identity, no CA, no accounts" — Web Bot
 //! Auth, SPIFFE and DIDs are all converging on exactly that — but *behind*
 //! on lifecycle, where every serious effort (SPIFFE SVIDs, OAuth 2.1 in

@@ -1,5 +1,5 @@
 //! The Gemini wire protocol, spec v0.24.1 (frozen upstream since 2024-08-28;
-//! see `docs/recon/protocol.md` for the dated evidence and every ambiguity
+//! see `docs/internal/recon/protocol.md` for the dated evidence and every ambiguity
 //! ruling this implementation follows).
 //!
 //! # Layering
@@ -18,7 +18,7 @@
 //!    (Status 53 lives here, not in parsing.)
 //!
 //! Every rejection across all three layers maps to Gemini status 59 or 53 per
-//! the table in `docs/recon/protocol.md` §"Implementation guidance".
+//! the table in `docs/internal/recon/protocol.md` §"Implementation guidance".
 
 pub mod finger;
 pub mod gopher;

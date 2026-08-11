@@ -1,7 +1,7 @@
 //! The HTTP surface: serves the rendered HTML tree (BUILD-PLAN C3),
 //! **unconditionally** — this listener starts independent of the Gemini
 //! listener's state and must return 2xx at `/` even before any content
-//! has ever been rendered (docs/recon/cloudron-fit.md's hard constraint:
+//! has ever been rendered (docs/internal/recon/cloudron-fit.md's hard constraint:
 //! "the HTTP listener must start unconditionally... before/independently
 //! of the Gemini listener"; the health check must pass "even when the
 //! Gemini port is disabled or not yet configured").

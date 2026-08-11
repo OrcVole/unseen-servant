@@ -1,6 +1,6 @@
 //! Request-line **framing**: layer 1 of 3 (see [`crate::protocol`]).
 //!
-//! Spec basis (v0.24.1, quoted in `docs/recon/protocol.md`): a request is
+//! Spec basis (v0.24.1, quoted in `docs/internal/recon/protocol.md`): a request is
 //! `absolute-URI CRLF`, and "the URI MUST NOT exceed 1024 bytes, and a server
 //! MUST reject requests where the URI exceeds this limit". The limit is on the
 //! URI itself, excluding the terminator, so the largest conforming request is

@@ -264,7 +264,7 @@ fn mint(dir: &Path, hostname: &str) -> Result<(), IdentityError> {
         .push(rcgen::DnType::CommonName, hostname);
     // Backdated a day so a freshly minted cert is valid even against peers
     // with modest clock skew; far-future expiry is the TOFU convention
-    // (docs/recon/prior-art.md §1 — Agate).
+    // (docs/internal/recon/prior-art.md §1 — Agate).
     params.not_before = time::OffsetDateTime::now_utc() - time::Duration::days(1);
     #[expect(
         clippy::unwrap_used,
