@@ -125,7 +125,7 @@ pub fn format_roster(config: &Config) -> String {
     }
     if out.is_empty() {
         out.push_str(
-            "(no [[identity]] entries configured — zones may still list raw fingerprints)\n",
+            "(no [[identity]] entries configured: zones may still list raw fingerprints)\n",
         );
     }
     out
@@ -542,7 +542,7 @@ fn count_html<'a>(
 /// `usv stats`: format an [`PublishedStats`] snapshot for the terminal.
 pub fn format_published_stats(stats: &PublishedStats) -> String {
     if !stats.html_tree_present {
-        return "no rendered HTML tree yet — run `usv render` or start the server once\n"
+        return "no rendered HTML tree yet: run `usv render` or start the server once\n"
             .to_string();
     }
     let mut out = String::new();
@@ -578,7 +578,7 @@ impl std::fmt::Display for ExportError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             ExportError::NothingRendered => f.write_str(
-                "no rendered HTML tree yet — run `usv render` (or start the server once) first",
+                "no rendered HTML tree yet: run `usv render` (or start the server once) first",
             ),
             ExportError::DestinationNotEmpty(p) => write!(
                 f,
