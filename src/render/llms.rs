@@ -40,10 +40,26 @@ pub fn render(entries: &[PageEntry], capsule_title: &str, base_url: &str) -> Str
         out.push_str(&entry.title);
         out.push_str("](");
         out.push_str(base);
-        out.push_str(&entry.web_path);
+        out.push_str(&markdown_path(&entry.web_path));
         out.push_str(")\n");
     }
     out
+}
+
+/// The `.md` sibling of a rendered page. Every page is written twice —
+/// `page.html` and `page.md`, from the same render pass — and this index
+/// links the Markdown one: the whole reason a reader fetches `llms.txt`
+/// is to avoid parsing markup, so handing it back a list of HTML URLs
+/// would undo the point of both files. The `.html` form remains at its
+/// own address for anything that wants it; this is a choice of which
+/// serialization to *link*, not a redirect or a content negotiation.
+fn markdown_path(web_path: &str) -> String {
+    match web_path.strip_suffix(".html") {
+        Some(stem) => format!("{stem}.md"),
+        // Anything not ending `.html` has no `.md` sibling to point at,
+        // so it is linked unchanged rather than given a path that 404s.
+        None => web_path.to_string(),
+    }
 }
 
 #[cfg(test)]
@@ -64,27 +80,51 @@ mod tests {
         assert!(out.starts_with("# My Capsule\n"));
         assert!(out.contains("\n> "), "a blockquote summary line");
         assert!(out.contains("## Pages"));
-        assert!(out.contains("- [About](/about.html)"));
+        assert!(out.contains("- [About](/about.md)"));
     }
 
     #[test]
     fn a_base_url_makes_links_absolute() {
         let out = render(&[entry("about", "About")], "T", "https://example.org");
-        assert!(out.contains("- [About](https://example.org/about.html)"));
+        assert!(out.contains("- [About](https://example.org/about.md)"));
     }
 
     #[test]
     fn a_trailing_slash_on_the_base_is_not_doubled() {
         let out = render(&[entry("x", "X")], "T", "https://example.org/");
-        assert!(out.contains("https://example.org/x.html"));
+        assert!(out.contains("https://example.org/x.md"));
         assert!(!out.contains("org//x"));
+    }
+
+    #[test]
+    fn links_the_markdown_sibling_not_the_html_one() {
+        // The index exists so a reader need not parse markup; linking
+        // `.html` from it would defeat both this file and the `.md`
+        // siblings the render pass already writes.
+        let out = render(&[entry("about", "About")], "T", "");
+        assert!(out.contains("/about.md"));
+        assert!(!out.contains("/about.html"));
+    }
+
+    #[test]
+    fn a_path_with_no_markdown_sibling_is_linked_unchanged() {
+        let out = render(
+            &[PageEntry {
+                gemini_path: "/feed.gmi".to_string(),
+                web_path: "/atom.xml".to_string(),
+                title: "Feed".to_string(),
+            }],
+            "T",
+            "",
+        );
+        assert!(out.contains("- [Feed](/atom.xml)"));
     }
 
     #[test]
     fn entries_are_sorted_so_output_is_stable() {
         let out = render(&[entry("zebra", "Z"), entry("apple", "A")], "T", "");
-        let apple = out.find("/apple.html").expect("apple");
-        let zebra = out.find("/zebra.html").expect("zebra");
+        let apple = out.find("/apple.md").expect("apple");
+        let zebra = out.find("/zebra.md").expect("zebra");
         assert!(apple < zebra, "entries must be sorted by web path");
     }
 }

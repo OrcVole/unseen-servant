@@ -1,6 +1,6 @@
 //! The render pipeline: walk a content tree, render every `.gmi` file to
 //! HTML, swap the result into place atomically. Resolves design brief §5.4
-//! (`docs/notes/c3-render-design-brief.md`): **full-tree rebuild every
+//! (`docs/internal/notes/c3-render-design-brief.md`): **full-tree rebuild every
 //! time**, not incremental — simpler, and matches the exit gate's framing
 //! ("survives edit storms without torn output") more directly than a
 //! partial-invalidation scheme would for a v1. Non-`.gmi` asset copying
@@ -968,10 +968,13 @@ mod tests {
         assert_eq!(post_md, "# A Post\n\nBody prose.\n");
 
         // /llms.txt from the inventory, with absolute links from the base.
+        // It links the `.md` siblings written just above, not the `.html`
+        // pages: the index exists so a reader need not parse markup.
         let llms = std::fs::read_to_string(base.join("html/llms.txt")).unwrap();
         assert!(llms.starts_with("# Example\n"));
-        assert!(llms.contains("(https://example.org/index.html)"));
-        assert!(llms.contains("(https://example.org/blog/p.html)"));
+        assert!(llms.contains("(https://example.org/index.md)"));
+        assert!(llms.contains("(https://example.org/blog/p.md)"));
+        assert!(!llms.contains(".html"));
 
         // Permissive-by-doctrine robots.txt (no operator robots present).
         let robots = std::fs::read_to_string(base.join("html/robots.txt")).unwrap();
