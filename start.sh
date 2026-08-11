@@ -60,6 +60,37 @@ else
     export USV_GOPHER_LISTEN=""
 fi
 
+# Spartan, Nex and Finger follow exactly the gopher shape above: bind the
+# fixed containerPort, advertise the external one, and treat an absent
+# variable as "the admin disabled this service" by exporting an empty
+# value so the platform's switch beats anything in usv.toml.
+if [[ -n "${SPARTAN_PORT:-}" ]]; then
+    echo "==> Spartan enabled (CLEARTEXT), external port ${SPARTAN_PORT}"
+    export USV_SPARTAN_LISTEN="0.0.0.0:3000"
+    export USV_SPARTAN_ADVERTISED_PORT="${SPARTAN_PORT}"
+else
+    echo "==> Spartan disabled by platform config"
+    export USV_SPARTAN_LISTEN=""
+fi
+
+if [[ -n "${NEX_PORT:-}" ]]; then
+    echo "==> Nex enabled (CLEARTEXT), external port ${NEX_PORT}"
+    export USV_NEX_LISTEN="0.0.0.0:1900"
+    export USV_NEX_ADVERTISED_PORT="${NEX_PORT}"
+else
+    echo "==> Nex disabled by platform config"
+    export USV_NEX_LISTEN=""
+fi
+
+if [[ -n "${FINGER_PORT:-}" ]]; then
+    echo "==> Finger enabled (CLEARTEXT), external port ${FINGER_PORT}"
+    export USV_FINGER_LISTEN="0.0.0.0:7979"
+    export USV_FINGER_ADVERTISED_PORT="${FINGER_PORT}"
+else
+    echo "==> Finger disabled by platform config"
+    export USV_FINGER_LISTEN=""
+fi
+
 echo "==> Starting usv"
 # su-exec, not gosu: the base image is alpine now (see Dockerfile), and
 # su-exec is its equivalent tiny setuid-drop tool — same CLI shape.
