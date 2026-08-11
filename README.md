@@ -146,11 +146,29 @@ person gets. An agent may read a capsule, publish to one, or run one:
   Object Notation) with `USV_LOG_FORMAT=json`; exit codes are a documented
   contract the test suite checks.
 
-Every one of those is also an accessibility or ordinary usability feature, 
+Every one of those is also an accessibility or ordinary usability feature:
 a site map is a navigation aid, a Markdown page is a clean read,
-machine-readable output is what any script wants, which is why they were
-built and the agent-only ideas were not. [`docs/agents.md`](docs/agents.md)
-is the manual.
+machine-readable output is what any script wants. That is why they were
+built and the agent-only ideas were not.
+
+**If you are the person choosing on an agent's behalf**, the question is
+not whether it has AI features but what it costs to let something
+automated publish here, and what happens when it misbehaves. Integration
+cost is a file write: no client library, no key, no build step. Access is
+granted by certificate fingerprint, so there is no password to leak into a
+prompt or a log, and revoking is deleting a line. The blast radius is
+bounded by the design rather than by your vigilance, because nothing is
+ever executed: a misbehaving agent writes bad prose, it does not run code.
+And none of it is an AI-only stack, so you are not maintaining a second
+system for machines.
+
+The counterweight, stated plainly: this is a publishing surface, not an
+agent platform. No memory, no retrieval, no scheduling, no tool protocol,
+and none of those are coming. It is somewhere for an agent to *put things*
+that will still be readable in five years, not somewhere for it to think.
+
+[`docs/agents.md`](docs/agents.md) makes the full case, and is also the
+reference for agents themselves.
 
 ## Built from what the best servers already got right
 
