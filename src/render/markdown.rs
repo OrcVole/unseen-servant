@@ -81,13 +81,41 @@ pub fn render(lines: &[Line<'_>]) -> String {
                 // A fence long enough that no content line can close it
                 // early — CommonMark lets an info-string-bearing fence be
                 // any run of 3+ backticks, so we outrun the longest run in
-                // the content. The alt text becomes the info string
-                // (commonly a language name for highlighting).
+                // the content.
+                //
+                // **The alt text is not the info string.** CommonMark reads
+                // the first word after the fence as a *language*, which
+                // renderers turn into `class="language-…"`. Gemtext alt
+                // text is a human sentence describing the block, so
+                // emitting it there produces `language-Each` from "Each
+                // network, when to serve it…" — the caption is lost and a
+                // bogus class is invented. Only a single bare word that
+                // could plausibly *be* a language is passed through as one;
+                // anything else is emitted as an italic caption line above
+                // the fence, which renders correctly everywhere Markdown
+                // is read (a forge, a docs generator, a plain reader) and
+                // keeps the description visible rather than swallowed.
                 let fence = "`".repeat(fence_len(block));
                 let mut fenced = String::new();
-                fenced.push_str(&fence);
+                let mut info = "";
                 if let Some(alt) = alt_text {
-                    fenced.push_str(alt);
+                    let alt = alt.trim();
+                    if !alt.is_empty() {
+                        if is_language_token(alt) {
+                            info = alt;
+                        } else {
+                            // Escape the leading `*` case so a caption
+                            // beginning with punctuation cannot open a
+                            // list or emphasis run of its own.
+                            fenced.push('*');
+                            fenced.push_str(&alt.replace('*', r"\*"));
+                            fenced.push_str("*\n");
+                        }
+                    }
+                }
+                fenced.push_str(&fence);
+                if !info.is_empty() {
+                    fenced.push_str(info);
                 }
                 for line in block {
                     fenced.push('\n');
@@ -125,6 +153,23 @@ fn link_dest(url: &str) -> String {
     } else {
         url.to_string()
     }
+}
+
+/// Whether alt text is plausibly a language identifier rather than a
+/// human caption. Deliberately strict: one token, no whitespace, short,
+/// and made only of the characters real language tags use (`c`, `rust`,
+/// `sh`, `objective-c`, `f#`, `c++`). Anything with a space, a comma or a
+/// capital-led sentence shape is a caption and is rendered as one.
+///
+/// Erring toward "caption" is the safe direction — a caption rendered as
+/// a caption is always correct, whereas a sentence rendered as a language
+/// tag is always wrong.
+fn is_language_token(alt: &str) -> bool {
+    !alt.is_empty()
+        && alt.len() <= 16
+        && alt
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '+' | '#' | '.' | '_'))
 }
 
 /// The number of backticks to fence a preformatted block with: one more
@@ -220,6 +265,24 @@ mod tests {
             md("```rust\nfn f() {}\nlet x = 1;\n```\n"),
             "```rust\nfn f() {}\nlet x = 1;\n```\n"
         );
+    }
+
+    #[test]
+    fn a_descriptive_alt_text_becomes_a_caption_not_a_language_tag() {
+        // The defect this guards: CommonMark reads the first token after
+        // the fence as a language, so a sentence produced
+        // `class="language-Each"` and lost the description entirely.
+        let out = md("```Each network, when to serve it\nA  B\n```\n");
+        assert!(out.contains("*Each network, when to serve it*"), "{out}");
+        assert!(
+            !out.contains("```Each"),
+            "a sentence must never land in the info string: {out}"
+        );
+    }
+
+    #[test]
+    fn a_bare_language_token_is_still_passed_through_for_highlighting() {
+        assert!(md("```rust\nfn main() {}\n```\n").contains("```rust"));
     }
 
     #[test]
