@@ -23,10 +23,35 @@ pub struct Theme {
 }
 
 /// All bundled themes, in the order a picker should offer them.
-pub const THEMES: &[Theme] = &[DAYBREAK, MIDNIGHT, TOKYO_NIGHT, PAPER];
+pub const THEMES: &[Theme] = &[
+    EMBER,
+    PHOSPHOR,
+    BURROW,
+    DAYBREAK,
+    MIDNIGHT,
+    TOKYO_NIGHT,
+    PAPER,
+];
 
 /// The default theme when none is configured.
-pub const DEFAULT_THEME_NAME: &str = DAYBREAK.name;
+pub const DEFAULT_THEME_NAME: &str = EMBER.name;
+
+/// The monospace stack the three house themes use. Iosevka is the
+/// project's typeface; it is *named*, never shipped — a capsule that
+/// pushed a webfont at every visitor would be contradicting the network
+/// it serves. A reader who has Iosevka sees it, everyone else gets their
+/// own monospace, and nobody downloads anything.
+macro_rules! house_type {
+    () => {
+        r#"
+body {
+  font-family: Iosevka, "Iosevka Web", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 1rem;
+  line-height: 1.7;
+}
+"#
+    };
+}
 
 /// Look up a theme by its config name, case-insensitive. `None` for an
 /// unknown name — the caller (config validation) turns that into a
@@ -96,7 +121,116 @@ hr { border: none; border-top: 1px solid; margin: 2.5rem 0; }
     };
 }
 
-/// **Daybreak** — the default. Warm, low-contrast cream/near-black in the
+/// **Ember** — the default, and the house scheme. Ember Oxide
+/// (`#E67916`) on a near-black warm ground, with its light half
+/// ("Foolscap") reached through `prefers-color-scheme`, so a reader's own
+/// setting picks and nothing has to be chosen twice.
+///
+/// The amber is burnt down to `#9A4C05` on the light half deliberately:
+/// pure Ember Oxide manages about 2.9:1 against paper white, short of the
+/// 4.5:1 body text needs, while the darkened tone clears 6.6:1. On the
+/// dark half the pure colour clears 6.3:1 and is used as-is.
+const EMBER: Theme = Theme {
+    name: "ember",
+    description: "Ember Oxide amber on warm near-black, with a light half; monospace throughout",
+    css: concat!(
+        r#":root {
+  color-scheme: light dark;
+  --bg: #fbf9f5;
+  --fg: #1b1a17;
+  --muted: #4a4642;
+  --accent: #9a4c05;
+  --border: #c9c0b2;
+  --code-bg: #f6f0e6;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14120f;
+    --fg: #f2eee6;
+    --muted: #bdb2a2;
+    --accent: #e67916;
+    --border: #4a433a;
+    --code-bg: #241f18;
+  }
+}
+body { background: var(--bg); color: var(--fg); }
+h1, h2, h3 { color: var(--fg); }
+a { color: var(--accent); }
+blockquote { color: var(--muted); border-left-color: var(--accent); }
+figcaption { color: var(--muted); }
+pre { background: var(--code-bg); border: 1px solid var(--border); }
+hr { border-top-color: var(--border); }
+"#,
+        structure!(),
+        house_type!()
+    ),
+};
+
+/// **Phosphor** — monochrome amber CRT: `#ffb000`, the colour the actual
+/// phosphor glowed. Always dark, one hue throughout, and the most
+/// committed of the set. Shipped as a choice rather than a default
+/// because a whole site in one hue is striking for a page and tiring for
+/// an evening.
+///
+/// No scanline or bloom effect is applied to body text. Those belong on
+/// decoration nobody has to read, and a stylesheet cannot tell the
+/// difference.
+const PHOSPHOR: Theme = Theme {
+    name: "phosphor",
+    description: "Monochrome amber terminal (#ffb000) on black, always dark; monospace throughout",
+    css: concat!(
+        r#":root {
+  color-scheme: dark;
+  --bg: #0b0a06;
+  --fg: #ffb000;
+  --muted: #c08512;
+  --accent: #ffd37a;
+  --border: #4a3208;
+  --code-bg: #181203;
+}
+body { background: var(--bg); color: var(--fg); }
+h1, h2, h3 { color: var(--fg); }
+a { color: var(--accent); }
+blockquote { color: var(--muted); border-left-color: var(--border); }
+figcaption { color: var(--muted); }
+pre { background: var(--code-bg); border: 1px solid var(--border); }
+hr { border-top-color: var(--border); }
+"#,
+        structure!(),
+        house_type!()
+    ),
+};
+
+/// **Burrow** — the same amber over soil browns rather than neutral
+/// black. The gopher nod, for an operator whose capsule leans that way.
+/// Always dark.
+const BURROW: Theme = Theme {
+    name: "burrow",
+    description: "Amber over earth browns, always dark — the gopher register; monospace throughout",
+    css: concat!(
+        r#":root {
+  color-scheme: dark;
+  --bg: #1a140e;
+  --fg: #efe3d0;
+  --muted: #bfa98c;
+  --accent: #e9a85a;
+  --border: #55432e;
+  --code-bg: #2a2016;
+}
+body { background: var(--bg); color: var(--fg); }
+h1, h2, h3 { color: var(--fg); }
+a { color: var(--accent); }
+blockquote { color: var(--muted); border-left-color: var(--accent); }
+figcaption { color: var(--muted); }
+pre { background: var(--code-bg); border: 1px solid var(--border); }
+hr { border-top-color: var(--border); }
+"#,
+        structure!(),
+        house_type!()
+    ),
+};
+
+/// **Daybreak** — warm, low-contrast cream/near-black in the
 /// smolweb's understated register, with `prefers-color-scheme` support
 /// built in so a system-dark reader gets a matching (still warm, not
 /// stark) dark variant automatically. The adaptive one: pick this if you
@@ -272,8 +406,54 @@ mod tests {
     }
 
     #[test]
+    fn the_default_is_the_house_scheme() {
+        assert_eq!(DEFAULT_THEME_NAME, "ember");
+    }
+
+    #[test]
+    fn the_house_themes_set_the_house_typeface_after_the_shared_structure() {
+        // `structure!()` sets a sans stack for every theme; the house
+        // themes override it, so the override has to be concatenated
+        // *after* it or the cascade silently discards it. Assert the
+        // order rather than merely the presence.
+        for name in ["ember", "phosphor", "burrow"] {
+            let theme = find(name).expect("theme exists");
+            let sans = theme
+                .css
+                .find("BlinkMacSystemFont")
+                .expect("shared structure present");
+            let mono = theme.css.find("Iosevka").expect("house typeface present");
+            assert!(
+                mono > sans,
+                "{name}: the Iosevka rule must come after the shared sans rule to win the cascade"
+            );
+        }
+    }
+
+    #[test]
+    fn the_house_themes_carry_ember_oxide_or_its_documented_variants() {
+        // The exact tints matter: pure #e67916 fails contrast on a light
+        // ground, so the light half must use the burnt-down tone.
+        let ember = find("ember").expect("theme exists");
+        assert!(
+            ember.css.contains("#e67916"),
+            "dark half uses pure Ember Oxide"
+        );
+        assert!(
+            ember.css.contains("#9a4c05"),
+            "light half uses the burnt-down tone"
+        );
+        assert!(
+            find("phosphor")
+                .expect("theme exists")
+                .css
+                .contains("#ffb000")
+        );
+    }
+
+    #[test]
     fn always_dark_themes_do_not_offer_a_light_media_query() {
-        for name in ["midnight", "tokyo-night"] {
+        for name in ["midnight", "tokyo-night", "phosphor", "burrow"] {
             let theme = find(name).expect("theme exists");
             assert!(
                 !theme.css.contains("prefers-color-scheme"),
