@@ -66,7 +66,7 @@ fn default_profile(addr: &Addresses) -> String {
     }
 
     s.push('\n');
-    s.push_str("Same words on every one of them — one folder, rendered to each.\n");
+    s.push_str("Same words on every one of them: one folder, rendered to each.\n");
 
     // Finger is the one protocol whose page is a *profile*, so the
     // colophon proper is never served over it. Without these lines a
@@ -75,7 +75,7 @@ fn default_profile(addr: &Addresses) -> String {
     // exists to solve. Kept to four lines: finger answers are short by
     // long convention, and a wall of text here would be wrong.
     s.push('\n');
-    s.push_str("About finger: the internet's oldest status update — one command,\n");
+    s.push_str("About finger: the internet's oldest status update. One command,\n");
     s.push_str("a few lines back. Specified by RFC 1288 (1991):\n");
     s.push_str("  https://datatracker.ietf.org/doc/html/rfc1288\n");
     s.push_str("Clients: Lagrange, Bombadillo, BFG, or the finger(1) command.\n");

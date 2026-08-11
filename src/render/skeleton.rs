@@ -24,7 +24,7 @@
 pub const QUIET: &str = "\
 # Welcome to a new capsule
 
-You have reached a capsule served by Unseen Servant — freshly installed, \
+You have reached a capsule served by Unseen Servant: freshly installed, \
 and waiting for its first words. Nothing has been written here yet, so \
 for the moment there is only this page, and a quiet invitation.
 
@@ -33,7 +33,7 @@ for the moment there is only this page, and a quiet invitation.
 ## If this capsule is yours
 
 Your writing lives in one content folder, a single gemtext file per \
-page. Add a file, save it, and it appears here within moments — served \
+page. Add a file, save it, and it appears here within moments: served \
 natively to Gemini clients and rendered to the web at the same instant, \
 from the very same source. No build step. No deploy. No waiting.
 
@@ -65,7 +65,7 @@ head, which is rather the point.
 
 ## For a visitor who arrived early
 
-There is nothing here yet, and that is perfectly alright — you have \
+There is nothing here yet, and that is perfectly alright, you have \
 simply come before the first post. Wander back when there is something \
 to read, or don't; either way, thank you for looking in.
 

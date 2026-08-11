@@ -94,7 +94,7 @@ impl Protocol {
                 ("https://gopher.floodgap.com/", "Gopherspace, over the web"),
                 (
                     "https://datatracker.ietf.org/doc/html/rfc1436",
-                    "RFC 1436 — the Gopher specification (1993)",
+                    "RFC 1436, the Gopher specification (1993)",
                 ),
             ],
             Protocol::Spartan => &[(
@@ -107,7 +107,7 @@ impl Protocol {
             )],
             Protocol::Finger => &[(
                 "https://datatracker.ietf.org/doc/html/rfc1288",
-                "RFC 1288 — the Finger specification (1991)",
+                "RFC 1288, the Finger specification (1991)",
             )],
             // The web needs no introduction; the interesting links are
             // the protocols this page exists to introduce.
@@ -121,7 +121,7 @@ impl Protocol {
             Protocol::Gemini => {
                 "Gemini is a small internet protocol for documents, deliberately capped so \
                  that one person can write a client in a weekend and no vendor can make it \
-                 complicated. It has no cookies, no scripting and no tracking — not as \
+                 complicated. It has no cookies, no scripting and no tracking, not as \
                  features it declines to use, but as things it cannot do. It is the only \
                  protocol here that can authenticate a reader, which is what makes private \
                  areas and remote editing possible."
@@ -136,26 +136,26 @@ impl Protocol {
             }
             Protocol::Spartan => {
                 "Spartan is Gemini's document model with the cryptography removed. Its \
-                 argument is that mandatory TLS is ceremony for public documents — clocks \
+                 argument is that mandatory TLS is ceremony for public documents: clocks \
                  that must be right, libraries that must be maintained, hardware that must \
-                 do the maths — and that a plain document deserves a plain protocol. It \
+                 do the maths, and that a plain document deserves a plain protocol. It \
                  reads the same gemtext."
             }
             Protocol::Nex => {
                 "Nex is the smallest thing that still works: send a path, get bytes, the \
                  connection closes. No status codes, no content types, no headers. It is \
                  explicitly telnet-compatible, so you can speak it by hand, and the whole \
-                 protocol fits in your head — which is the reason people like it."
+                 protocol fits in your head, which is the reason people like it."
             }
             Protocol::Finger => {
                 "Finger is the internet's oldest status update. It answers \"what is this \
-                 person up to?\" — the .plan file, which predates blogging by decades and \
+                 person up to?\", the .plan file, which predates blogging by decades and \
                  does the same job in four lines. It does not serve documents."
             }
             Protocol::Web => {
                 "This is the web mirror of writing that also lives on the smaller, older \
                  protocols listed below. It is the same writing, rendered from the same \
-                 folder — nothing here is exclusive to the web. If any of those protocols \
+                 folder: nothing here is exclusive to the web. If any of those protocols \
                  look interesting, each is readable with one small program and no account."
             }
         }
@@ -345,7 +345,7 @@ pub fn gemtext(protocol: Protocol, addrs: &Addresses) -> String {
         format!("{name} server")
     };
     s.push_str(&format!(
-        "You are reading this at {self_url} — served to you by the Unseen Servant \
+        "You are reading this at {self_url}: served to you by the Unseen Servant \
          (usv) {role}.\n\n"
     ));
 
@@ -378,7 +378,7 @@ pub fn gemtext(protocol: Protocol, addrs: &Addresses) -> String {
             if url.starts_with("http") {
                 s.push_str(&format!("=> {url} {client}\n"));
             } else {
-                s.push_str(&format!("* {client} — {url}\n"));
+                s.push_str(&format!("* {client}: {url}\n"));
             }
         }
         s.push_str("\nClient support changes; this list was checked in August 2026.\n\n");
@@ -394,7 +394,7 @@ pub fn gemtext(protocol: Protocol, addrs: &Addresses) -> String {
         s.push_str("## The same writing, other protocols\n\n");
         s.push_str(
             "This is one folder of writing, rendered to each of these. The hostname \
-             never changes — the scheme at the front picks the protocol and the port:\n\n",
+             never changes, the scheme at the front picks the protocol and the port:\n\n",
         );
         for (p, url) in &others {
             s.push_str(&format!("* {}: {url}\n", p.name()));
@@ -422,7 +422,7 @@ pub fn plain(protocol: Protocol, addrs: &Addresses) -> String {
             if label.is_empty() {
                 out.push_str(&format!("  {url}\n"));
             } else {
-                out.push_str(&format!("  {label} — {url}\n"));
+                out.push_str(&format!("  {label}: {url}\n"));
             }
         } else if line == "```" {
             // The fence itself carries nothing; its contents do.
