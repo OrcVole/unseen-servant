@@ -1,7 +1,7 @@
 # Deploying on Cloudron
 
 Cloudron is the profile `usv` was packaged for first, but it is a target,
-not a dependency (ADR 0008) — nothing here is required to run `usv`
+not a dependency (ADR 0008): nothing here is required to run `usv`
 elsewhere.
 
 ## Installing
@@ -23,7 +23,7 @@ minutes in a real measurement. A prebuilt image on the default
 `cloudron/base` took ~26 minutes, almost all of it transferring a 2.46GB
 image whose payload was an 8.85MB binary. The current Alpine-based image
 is **20.1MB** and installs in about **1m40s**. See
-`docs/recon/cloudron-fit.md`'s 2026-08-10 addendum for the full
+`docs/internal/recon/cloudron-fit.md`'s 2026-08-10 addendum for the full
 measurement and the base-image reasoning.
 
 ## What the package sets up
@@ -34,7 +34,7 @@ measurement and the base-image reasoning.
 | Gopher port | optional, **off by default**, default 7070 |
 | HTTP port (internal) | 8000, proxied by Cloudron's nginx |
 | Health check | `/` on the HTTP surface, always 2xx |
-| Persistent data | `/app/data` (`localstorage` addon) — backed up |
+| Persistent data | `/app/data` (`localstorage` addon): backed up |
 | Content | `/app/data/content` |
 | Identity | `/app/data/certs/<hostname>/` |
 | Runs as | the unprivileged `cloudron` user |
@@ -45,7 +45,7 @@ capsule on another port is only reachable via an explicit
 
 ## Gopher, and why not port 70
 
-The gopher service is declared but disabled until an admin enables it —
+The gopher service is declared but disabled until an admin enables it, 
 switching on a cleartext protocol is a decision an operator makes, not
 one they inherit (ADR 0012 §2).
 
@@ -53,8 +53,8 @@ one they inherit (ADR 0012 §2).
 Found live on 2026-08-10: requesting external port 70 is rejected with
 `70 for GOPHER_PORT is not in permitted range in ports`. Gopher clients
 assume port 70 when none is given, so a Cloudron-hosted gopher hole is
-necessarily reached with an explicit port —
-`gopher://your.capsule:7070/` — and links to it must carry that port.
+necessarily reached with an explicit port, 
+`gopher://your.capsule:7070/`, and links to it must carry that port.
 The same constraint does not bite Gemini only because 1965 is already
 above 1024.
 
@@ -65,12 +65,12 @@ menu lines carry an absolute host and port.
 ## Editing content
 
 Use the **Files** icon on the app's tile and edit `content/`. Saving
-triggers a re-render of both surfaces within seconds — the file watcher
+triggers a re-render of both surfaces within seconds: the file watcher
 is debounced and swaps the rendered tree atomically, so a reader never
 sees a half-written site.
 
 `cloudron exec` gives you a shell with the full `usv` CLI (`usv status`,
-`usv fingerprint`, `usv check` — all read-only).
+`usv fingerprint`, `usv check`: all read-only).
 
 ## Multiple hostnames
 
@@ -97,5 +97,5 @@ it). The old keypair is kept, untouched.
 
 An external TCP port binds once per Cloudron server. A second `usv`
 install requesting 1965 fails with `409 Conflicting tcp port`. This is a
-platform constraint, not a `usv` one — use `multiDomain` + SNI for
+platform constraint, not a `usv` one: use `multiDomain` + SNI for
 multiple capsules rather than a second install.

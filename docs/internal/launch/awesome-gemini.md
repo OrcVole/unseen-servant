@@ -1,8 +1,8 @@
-DRAFT — not submitted. `awesome-gemini` (github.com/kr1sp1n/awesome-gemini).
+DRAFT, not submitted. `awesome-gemini` (github.com/kr1sp1n/awesome-gemini).
 
 A list entry, not an announcement. This is the highest-value, lowest-effort
 item in the wave and the one most likely to still be sending people in five
-years — a thread dies in a week, a list entry doesn't.
+years: a thread dies in a week, a list entry does not.
 
 **Do not submit until the repository is public.** A PR linking a private
 repo will be closed, and correctly.
@@ -10,7 +10,7 @@ repo will be closed, and correctly.
 ## Where it goes
 
 Under the servers section, in whatever order that section uses
-(alphabetical at time of writing — check, don't assume). Match the
+(alphabetical at time of writing: check, do not assume). Match the
 surrounding entries' format exactly rather than the format below;
 the house style wins.
 
@@ -20,13 +20,13 @@ the house style wins.
 - [Unseen Servant](https://forgejo.wanderingmonster.dev/WanderingMonster/unseen-servant) - Gemini and Titan server in Rust that also renders the same content tree to static HTML for the web.
 ```
 
-One line. No adjectives that can't be checked, no "blazing fast", no
+One line. No adjectives that cannot be checked, no "blazing fast", no
 feature list. The reader is scanning a list of thirty servers and wants
 the distinguishing fact, which here is the dual surface.
 
 ## PR description
 
-Keep it to a couple of sentences — maintainers of list repos review a
+Keep it to a couple of sentences: maintainers of list repos review a
 lot of these:
 
 ```

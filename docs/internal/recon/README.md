@@ -1,8 +1,8 @@
-# Phase 0 reconnaissance — index and synthesis
+# Phase 0 reconnaissance: index and synthesis
 
 **Completed 2026-08-09.** Four documents, each self-contained with dated
 sources. This index maps their findings onto the Phase 1 ADRs and lists
-every place recon corrected an assumption in `docs/BRIEF.md`.
+every place recon corrected an assumption in `docs/internal/BRIEF.md`.
 
 ## The documents
 
@@ -15,20 +15,20 @@ every place recon corrected an assumption in `docs/BRIEF.md`.
 
 ## Corrections to the brief (recon evidence vs. founding assumptions)
 
-1. **"gemax" is not a Rust building block** — it is a Go library
+1. **"gemax" is not a Rust building block**: it is a Go library
    (ninedraft/gemax); there is no such crate. titanite is real but
    immature (single-vendor, "in development"). Recorded in ADR 0001.
-2. **We are not the first Gemini server on Cloudron** — five community
+2. **We are not the first Gemini server on Cloudron**: five community
    packages exist (Agate+, Atlas, Maple, Windmark, molly-brown), but
    none reached the official App Store; the store slot is open, and
    Cloudron staff endorsed exactly our dual-surface shape in the
    Agate+ review thread.
-3. **Cloudron apps CAN read the platform's Let's Encrypt cert** via the
-   `tls` addon — contrary to ecosystem folklore. TOFU self-signed
+3. **Cloudron apps CAN read the platform's Let us Encrypt cert** via the
+   `tls` addon: contrary to ecosystem folklore. TOFU self-signed
    remains the right default (LE rotation breaks pinning); CA-signed
    becomes a legitimate opt-in. Recorded in ADR 0003.
 4. **Port 1965 is admin-remappable and disable-able** unless the
-   manifest pins it `readOnly` — so "Gemini listener off, HTTP surface
+   manifest pins it `readOnly`, so "Gemini listener off, HTTP surface
    healthy" is a mandatory code path, and the manifest decision is
    recorded in cloudron-fit.md §1.
 5. **The spec moved under the brief's feet in 2024**: META is now
@@ -56,4 +56,4 @@ every place recon corrected an assumption in `docs/BRIEF.md`.
 
 | Document | Covers | Feeds |
 |---|---|---|
-| [agent-web.md](agent-web.md) | The agentic web (2025–26) mapped to usv: identity/auth, content legibility, memory/presence, agent-to-agent discovery. Finding: usv already sits where HTTP is retrofitting toward; debts are lifecycle + HTTP-surface packaging; refusals (no A2A/MCP transport, no CA attestation, not a memory backend) are doctrine-coherent. Dated 2026-08-09. | Proposed ADR 0011 (agent identity lifecycle); management-reach + HTTP-agent-surface decisions |
+| [agent-web.md](agent-web.md) | The agentic web (2025-26) mapped to usv: identity/auth, content legibility, memory/presence, agent-to-agent discovery. Finding: usv already sits where HTTP is retrofitting toward; debts are lifecycle + HTTP-surface packaging; refusals (no A2A/MCP transport, no CA attestation, not a memory backend) are doctrine-coherent. Dated 2026-08-09. | Proposed ADR 0011 (agent identity lifecycle); management-reach + HTTP-agent-surface decisions |

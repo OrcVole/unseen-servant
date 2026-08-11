@@ -52,7 +52,7 @@
   .lede{color:var(--soft); margin:0 0 2rem; max-width:62ch; font-size:1.08rem}
 
   /* ================= decision tree =================
-     Hand-built from HTML and CSS — no diagram library, no scripts, so it
+     Hand-built from HTML and CSS: no diagram library, no scripts, so it
      renders from a file, offline, and from usv's own web mirror.
      Every label sits in its own solid-background pill: nothing is ever
      drawn on top of a connector, which is what made the first draft
@@ -162,7 +162,7 @@
   <p class="eyebrow">A decision guide · August 2026</p>
   <h1>What should you publish on, and what should serve it?</h1>
   <p class="standfirst">Two questions people ask in the wrong order. Start with the protocol your
-  readers will use — the server follows from it, and not the other way round.</p>
+  readers will use: the server follows from it, and not the other way round.</p>
 </header>
 
 <h2>One · Which protocol should carry your writing?</h2>
@@ -175,18 +175,18 @@ to reach, and add others later when you have a reason.</p>
     <span class="ask">Who do you want to be able to read this, without installing anything first?</span>
     <ul>
       <li class="u">
-        <span class="pick">Anyone at all — I will put this address on a CV or in an email</span>
+        <span class="pick">Anyone at all: I will put this address on a CV or in an email</span>
         <span class="go u">The web, mirrored <em>and keep a Gemini copy from the same folder</em></span>
       </li>
       <li class="u">
-        <span class="pick">Software, mostly — AI agents, scripts, things that index</span>
+        <span class="pick">Software, mostly: AI agents, scripts, things that index</span>
         <span class="go u">The web, plus <code>/llms.txt</code> <em>one fetch instead of a crawl; Markdown by suffix</em></span>
       </li>
       <li>
         <span class="pick">People who chose to be in a quieter place</span>
         <ul>
           <li>
-            <span class="ask">Is it a site or blog — several pages, updated over time?</span>
+            <span class="ask">Is it a site or blog: several pages, updated over time?</span>
             <ul>
               <li class="u">
                 <span class="pick">Yes, and I want feeds, replies and an audience that is growing</span>
@@ -203,7 +203,7 @@ to reach, and add others later when you have a reason.</p>
             </ul>
           </li>
           <li>
-            <span class="ask">Or is it one short thing — a status, a note, what you are up to?</span>
+            <span class="ask">Or is it one short thing: a status, a note, what you are up to?</span>
             <ul>
               <li class="m">
                 <span class="pick">A status about me, answerable in one command</span>
@@ -224,7 +224,7 @@ to reach, and add others later when you have a reason.</p>
 
 <h2>One server, seven doors</h2>
 <p class="lede">This is the same machine, the same hostname, the same folder of writing. Only the
-scheme at the front of the address changes — and with it the port, the client, and what the
+scheme at the front of the address changes, and with it the port, the client, and what the
 protocol is actually <em>good</em> at. Read down the seven and the differences stop being abstract.</p>
 
 <div class="doors">
@@ -252,7 +252,7 @@ protocol is actually <em>good</em> at. Read down the seven and the differences s
       <p class="meta">Rendered from the same file · shareable · findable</p>
     </div>
     <p class="why"><b>Best for reach.</b> The identical words for everyone who cannot open a
-    <code>gemini://</code> link — a CV, an email footer, a search result.</p>
+    <code>gemini://</code> link: a CV, an email footer, a search result.</p>
   </figure>
 
   <figure class="door a">
@@ -264,7 +264,7 @@ protocol is actually <em>good</em> at. Read down the seven and the differences s
       <p><span class="t">[TXT]</span>  certificates.txt</p>
       <p><span class="t">[BIN]</span>  usv-0.1.0.tar.gz</p>
     </div>
-    <p class="why"><b>Best for an archive you browse.</b> A filing cabinet, not an essay — and
+    <p class="why"><b>Best for an archive you browse.</b> A filing cabinet, not an essay, and
     still readable by software nobody has touched in decades.</p>
   </figure>
 
@@ -288,7 +288,7 @@ protocol is actually <em>good</em> at. Read down the seven and the differences s
       <p>no headers. no status codes. no types.</p>
       <p>you asked for a path; these are the bytes.</p>
     </div>
-    <p class="why"><b>Best for one small thing.</b> The whole protocol fits in your head — you can
+    <p class="why"><b>Best for one small thing.</b> The whole protocol fits in your head: you can
     speak it by hand over telnet.</p>
   </figure>
 
@@ -301,7 +301,7 @@ protocol is actually <em>good</em> at. Read down the seven and the differences s
       <p>Mood: patient.</p>
       <p>Last seen: this morning.</p>
     </div>
-    <p class="why"><b>Best for “what am I up to?”</b> A now-page with no page — one command, four
+    <p class="why"><b>Best for “what am I up to?”</b> A now-page with no page: one command, four
     lines back, and nothing to maintain.</p>
   </figure>
 
@@ -319,7 +319,7 @@ protocol is actually <em>good</em> at. Read down the seven and the differences s
     </div>
     <p class="why"><b>Best for an AI agent or a script.</b> A whole capsule in one request, every
     page also available as Markdown by suffix, and a certificate-gated door for agents you have
-    authorised to <em>write</em> — scoped by capability, not by API key.</p>
+    authorised to <em>write</em>: scoped by capability, not by API key.</p>
   </figure>
 
 </div>
@@ -329,15 +329,15 @@ twice, and turning any of them off is a single line of configuration.</p>
 
 <h2>Two · Which server should run it?</h2>
 <p class="lede">Five good servers, all different. What separates them is not how they serve
-files — it is everything else they will or will not do.</p>
+files: it is everything else they will or will not do.</p>
 
 <div class="tree">
 <ul>
   <li>
-    <span class="ask">Do you need the server to run code — CGI, FastCGI, scripts, dynamic pages?</span>
+    <span class="ask">Do you need the server to run code: CGI, FastCGI, scripts, dynamic pages?</span>
     <ul>
       <li>
-        <span class="pick">Yes — I want to program my capsule</span>
+        <span class="pick">Yes: I want to program my capsule</span>
         <ul>
           <li class="p"><span class="pick">In Python, with an extension ecosystem</span>
             <span class="go p">GmCapsule</span></li>
@@ -348,14 +348,14 @@ files — it is everything else they will or will not do.</p>
         </ul>
       </li>
       <li>
-        <span class="pick">No — static documents are the point</span>
+        <span class="pick">No: static documents are the point</span>
         <ul>
           <li class="u">
             <span class="pick">I want more than Gemini: the web, or Gopher, Spartan, Nex, Finger</span>
             <span class="go u">usv <em>the only one that does</em></span>
           </li>
           <li class="u">
-            <span class="pick">I want AI agents to read it cleanly — and some of them to write to it</span>
+            <span class="pick">I want AI agents to read it cleanly, and some of them to write to it</span>
             <span class="go u">usv <em>llms.txt and Markdown by default; writes scoped by capability</em></span>
           </li>
           <li>
@@ -365,7 +365,7 @@ files — it is everything else they will or will not do.</p>
                 <span class="go u">usv</span></li>
               <li class="p"><span class="pick">Yes, and I want the reference implementation</span>
                 <span class="go p">GmCapsule</span></li>
-              <li class="a"><span class="pick">No — I want the smallest, most settled thing that works</span>
+              <li class="a"><span class="pick">No: I want the smallest, most settled thing that works</span>
                 <span class="go a">Agate <em>static by policy, and proud of it</em></span>
               </li>
             </ul>
@@ -382,14 +382,14 @@ files — it is everything else they will or will not do.</p>
 
 <div class="cards">
   <div class="card u">
-    <h3>usv — Unseen Servant</h3>
+    <h3>usv: Unseen Servant</h3>
     <p class="role">The generalist</p>
     <p>One folder, served to Gemini, Titan, the web, Gopher, Spartan, Nex and Finger. The only one
     here that reaches past Geminispace without a second site.</p>
     <dl>
       <dt>Agents</dt><dd>First-class: <code>/llms.txt</code>, Markdown, gated writes</dd>
       <dt>Written in</dt><dd>Rust, <code>unsafe</code> forbidden crate-wide</dd>
-      <dt>Config</dt><dd>TOML — or none at all</dd>
+      <dt>Config</dt><dd>TOML, or none at all</dd>
       <dt>Costs you</dt><dd>Pre-1.0, and the newest here</dd>
     </dl>
   </div>
@@ -397,7 +397,7 @@ files — it is everything else they will or will not do.</p>
     <h3>Agate</h3>
     <p class="role">The minimalist</p>
     <p>Static files and nothing else, as a stated policy rather than a missing feature.
-    Feature-frozen and actively maintained — a mature combination, not a stalled one.</p>
+    Feature-frozen and actively maintained: a mature combination, not a stalled one.</p>
     <dl>
       <dt>Written in</dt><dd>Rust</dd>
       <dt>Config</dt><dd>Command-line flags</dd>
@@ -418,7 +418,7 @@ files — it is everything else they will or will not do.</p>
   <div class="card m">
     <h3>Molly Brown</h3>
     <p class="role">The classic</p>
-    <p>CGI and SCGI with certificate zones — the long-standing choice for dynamic Geminispace.
+    <p>CGI and SCGI with certificate zones: the long-standing choice for dynamic Geminispace.
     Alive and steady rather than fast-moving.</p>
     <dl>
       <dt>Written in</dt><dd>Go</dd>
@@ -448,27 +448,27 @@ decision usv did not have to make for itself, and the project that made it.</p>
     <h3>From Agate</h3>
     <p class="role">Certificates that never regenerate</p>
     <p>Auto-minted per hostname, expiring far enough out to be irrelevant, and never silently
-    reissued — because under trust-on-first-use a new key looks exactly like an attacker. usv
+    reissued, because under trust-on-first-use a new key looks exactly like an attacker. usv
     adopted this design almost wholesale.</p>
   </div>
   <div class="card g">
     <h3>From gmid</h3>
     <p class="role">Take privilege seriously</p>
     <p>gmid separates privileges across processes. usv stayed single-process but moved the lesson
-    into its systemd unit: an empty capability set, no new privileges, a read-only root — and so no
+    into its systemd unit: an empty capability set, no new privileges, a read-only root, and so no
     privileged ports, which is why Gopher defaults to 7070 rather than 70.</p>
   </div>
   <div class="card m">
     <h3>From Molly Brown</h3>
     <p class="role">Authorisation belongs to a path</p>
     <p>Certificate zones scoped by path prefix, with the 6x status family doing the talking. usv’s
-    zones — and its rule that a gated path never reaches a cleartext protocol — grow from this.</p>
+    zones, and its rule that a gated path never reaches a cleartext protocol: grow from this.</p>
   </div>
   <div class="card p">
     <h3>From GmCapsule</h3>
     <p class="role">The reference is the spec in practice</p>
     <p>usv checked its Titan behaviour against the reference implementation rather than the prose
-    alone — the fastest way to discover your reading of a specification is not the one everyone
+    alone: the fastest way to discover your reading of a specification is not the one everyone
     else implemented.</p>
   </div>
   <div class="card u">
@@ -482,16 +482,16 @@ decision usv did not have to make for itself, and the project that made it.</p>
 
 <div class="warn">
   <p><strong>Being the newest is not a feature.</strong> usv arrived in August 2026, after the other
-  four — which is why it could learn from them, and equally why it has had the least time to be
+  four, which is why it could learn from them, and equally why it has had the least time to be
   proven wrong. Agate, gmid, Molly Brown and GmCapsule have each run real capsules for years.</p>
   <p>If you need a static Gemini server and nothing more, the settled choice is the better
-  engineering decision. Choose usv for what it reaches — several protocols and two audiences from
-  one folder — not because it is recent.</p>
+  engineering decision. Choose usv for what it reaches: several protocols and two audiences from
+  one folder, not because it is recent.</p>
 </div>
 
 <footer>
   Compiled from each project’s own documentation, August 2026. Capabilities change; check the
-  source before committing. Nothing here endorses a project — all five are worth running.
+  source before committing. Nothing here endorses a project: all five are worth running.
 </footer>
 
 </div>

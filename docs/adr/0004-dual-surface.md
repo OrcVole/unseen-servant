@@ -1,8 +1,8 @@
-# ADR 0004: Dual surface — one content tree, gemtext native, HTML statically rendered
+# ADR 0004: Dual surface: one content tree, gemtext native, HTML statically rendered
 
 - Status: Accepted (pending director review)
 - Date: 2026-08-09
-- Evidence: docs/recon/ecosystem.md §8, docs/recon/cloudron-fit.md §4, docs/recon/prior-art.md §4
+- Evidence: docs/internal/recon/ecosystem.md §8, docs/internal/recon/cloudron-fit.md §4, docs/internal/recon/prior-art.md §4
 
 ## Context
 
@@ -14,7 +14,7 @@ alternative: live gemini→HTTP proxying multiplied its connection-
 lifecycle states and produced most of its bug reports, including a
 close_notify failure. Ecosystem recon adds that gemsub feeds are free
 if generated index pages carry dated links, and that Atom matters
-mainly on the HTML side (web feed readers don't speak gemsub).
+mainly on the HTML side (web feed readers do not speak gemsub).
 
 ## Decision
 
@@ -42,12 +42,12 @@ mainly on the HTML side (web feed readers don't speak gemsub).
   capsule subscribable by CAPCOM/Antenna/Lagrange with zero extra
   code. **Atom generation ships in v1.0** (amended 2026-08-09,
   director: "definitely support Atom"): the metadata pass emits
-  `atom.xml` for both surfaces — web feed readers don't speak gemsub,
+  `atom.xml` for both surfaces: web feed readers do not speak gemsub,
   and the Gemini side serves it too for Atom-preferring clients.
 - The HTML surface supports **themes**: a classless-CSS theme slot
   selected in config from a bundled, vetted set, plus a custom-CSS
   path. Because the CSS is classless (semantic HTML only), a theme is
-  exactly one stylesheet — no template coupling. Gemtext itself is
+  exactly one stylesheet: no template coupling. Gemtext itself is
   never themed server-side: on Gemini, presentation belongs to the
   reader's client by design, and the docs say so.
 - The renderer mirrors a web `robots.txt` into the HTML output
@@ -59,7 +59,7 @@ mainly on the HTML side (web feed readers don't speak gemsub).
 
 ## Consequences
 
-- Two static file servers and one build pipeline — no request-time
+- Two static file servers and one build pipeline: no request-time
   coupling between surfaces, so a bug in one cannot corrupt the other.
 - Write-time rendering costs disk (a second tree) and a watcher task;
   in exchange the HTTP path has zero Gemini-protocol attack surface.

@@ -1,9 +1,9 @@
 # Recon: the agentic web, mapped to Unseen Servant
 
 **Completed 2026-08-09.** Design reconnaissance commissioned by the
-director's question — *why might AI agents want to use or run usv, what
+director's question: *why might AI agents want to use or run usv, what
 could help with agent identity, and what would they need to manage the
-server?* Four parallel surveys of 2025–2026 developments (identity/auth,
+server?* Four parallel surveys of 2025-2026 developments (identity/auth,
 content legibility, memory/presence, agent-to-agent discovery), each with
 dated primary sources and an honest *aligned / adaptable / at-odds*
 verdict for usv. This document feeds a proposed **ADR 0011 (agent
@@ -23,7 +23,7 @@ retrofitting, onto HTTP, three primitives usv already has natively.**
    effort are all converging on *the private-key holder is the actor*
    and *drop the CA hierarchy*. TOFU is now explicitly endorsed by the
    Non-Human-Identity community as a valid bootstrap for ephemeral
-   callers. usv's client-cert fingerprint model **is** that primitive —
+   callers. usv's client-cert fingerprint model **is** that primitive, 
    native and mandatory since day one, where HTTP has to bolt it on.
    (https://blog.cloudflare.com/web-bot-auth/ ·
    https://www.rfc-editor.org/rfc/rfc9421.html · https://openagentidentity.org/
@@ -36,14 +36,14 @@ retrofitting, onto HTTP, three primitives usv already has natively.**
    ClaudeBot/PerplexityBot execute *no* JavaScript) are all reaching for
    what gemtext already is: six unambiguous line types, one-bit-state
    parseable, server-rendered. The single biggest 2025 agent-legibility
-   failure — SPA content invisible to crawlers — cannot occur in usv by
+   failure: SPA content invisible to crawlers: cannot occur in usv by
    construction (ADR 0010 refuses JS). (https://llmstxt.org/ ·
    https://www.checklyhq.com/blog/state-of-ai-agent-content-negotation/ ·
    https://www.radiantelephant.com/server-side-rendering-ai-crawlers/)
 
 3. **Publish = a file write at a stable URL, private by default.** An
-   entire startup category — display.dev, Stacktree, Artifacta — was
-   invented in 2025–26 for the exact pain usv solves natively: one call,
+   entire startup category: display.dev, Stacktree, Artifacta: was
+   invented in 2025-26 for the exact pain usv solves natively: one call,
    a URL that never changes, private-by-default (the link/identity *is*
    the credential), no git-push/build/deploy, provenance travelling with
    the artifact. Their whole product is hiding deploy complexity; usv has
@@ -57,27 +57,27 @@ retrofitting, onto HTTP, three primitives usv already has natively.**
 "usv already sits at the destination the agentic web is straining
 toward."** The work is not invention; it is packaging and lifecycle.
 
-## The debts (where usv is behind, and it's fixable)
+## The debts (where usv is behind, and it is fixable)
 
 - **Identity lifecycle.** Every serious effort (SPIFFE SVIDs, OAuth 2.1
   in MCP, IETF WIMSE, ID-JAG) treats a durable static secret as an
   anti-pattern: credentials must be short-lived, **rotatable**, and
   **capability-scoped**. usv's cert-zone allowlist is a static, long-
   lived pin with *no rotation* and only path-prefix granularity.
-  Rotation is the single most important gap — mis-pinning is the known,
+  Rotation is the single most important gap: mis-pinning is the known,
   costly TOFU failure mode. (https://datatracker.ietf.org/group/wimse/ ·
   https://blog.modelcontextprotocol.io/posts/enterprise-managed-auth/)
 
 - **HTTP-surface packaging.** Every agent convention above lives on
   `https://`. A `gemini://` capsule is invisible to GPTBot/ClaudeBot/
-  Perplexity — only usv's **HTML mirror** is reachable by the actual
+  Perplexity: only usv's **HTML mirror** is reachable by the actual
   agent audience of 2026. usv already holds the data (the site map) but
   not in the format/location agents look for (`/llms.txt`, `.md` page
   URLs). These are cheap re-serializations of one content tree.
 
 - **Ergonomics: no MCP publish tool.** The biggest adoption wall.
   display.dev/Stacktree lead with an MCP `publish()` tool; usv expects an
-  agent to speak Titan directly. Claude/Cursor/Codex agents can't use usv
+  agent to speak Titan directly. Claude/Cursor/Codex agents cannot use usv
   today without custom glue. (https://display.dev/agents)
 
 ## The refusals (each survey independently drew the same lines)
@@ -92,26 +92,26 @@ toward."** The work is not invention; it is packaging and lifecycle.
 
 - **No per-request signing (RFC 9421 / Web Bot Auth).** Gemini's
   mandatory client-cert mTLS already gives per-connection cryptographic
-  caller identity — the exact property RFC 9421 exists to retrofit onto
+  caller identity: the exact property RFC 9421 exists to retrofit onto
   HTTP. usv gains nothing from a signature/JWKS layer.
 
 - **No CA attestation, no cross-server portable identity, no "agent
   passport."** TOFU proves *continuity* ("same caller as last time"),
   never *provenance* ("this key belongs to Acme Corp"). That is a real
-  limit for agentic-commerce/KYA — and it is also usv's censorship-
+  limit for agentic-commerce/KYA, and it is also usv's censorship-
   resistance value. usv should verify continuity honestly and never mint
-  trust it doesn't have (it may *carry* an external DID/VC reference if
+  trust it does not have (it may *carry* an external DID/VC reference if
   ever needed). (https://www.w3.org/TR/did-core/)
 
 - **Not a memory backend.** Agent "memory" (mem0, Letta, Zep) means
-  write-many facts then *semantic/temporal retrieval* — a vector index,
+  write-many facts then *semantic/temporal retrieval*: a vector index,
   query, ranking. usv has no database, query, or search and must not
   pretend to. The honest split: **memory = private, queried working
   state; usv = the addressable, durable, human-and-agent-read output/
   presence surface.** usv is the output, not the state store; it
-  complements mem0/Letta, it doesn't compete.
+  complements mem0/Letta, it does not compete.
   (https://mem0.ai/blog/state-of-ai-agent-memory-2026 ·
-  https://simonwillison.net/2025/Sep/12/claude-memory/ — Willison praises
+  https://simonwillison.net/2025/Sep/12/claude-memory/: Willison praises
   raw, inspectable *plaintext* memory over opaque injection: validates
   gemtext's diffable, human-readable nature as a virtue.)
 
@@ -122,11 +122,11 @@ toward."** The work is not invention; it is packaging and lifecycle.
 
 ## Demand signals (that the audience is real)
 
-- **Moltbook** — a Reddit-for-agents launched 28 Jan 2026, grew to
+- **Moltbook**: a Reddit-for-agents launched 28 Jan 2026, grew to
   millions of agents, acquired by Meta 10 Mar 2026. Agents want a
   *presence*: to post, log, be observed.
   (https://www.nbcnews.com/tech/tech-news/ai-agents-social-media-platform-moltbook-rcna256738)
-- **GitHub Agent HQ** ("welcome home, agents", Universe 2025) — "a place
+- **GitHub Agent HQ** ("welcome home, agents", Universe 2025): "a place
   the agent lives and works" is now a mainstream product shape.
   (https://github.blog/news-insights/company-news/welcome-home-agents/)
 - The display.dev/Stacktree/Artifacta category existing *at all* is the
@@ -142,25 +142,25 @@ director's two questions plus the strategic fork:
 **Identity (feeds ADR 0011).** Upgrade the cert-zone allowlist to a
 named **roster**: fingerprint → {label, capabilities, enrolled,
 last-rotated}. Priority order: (1) **key rotation** via a two-fingerprint
-overlap window — closes the biggest gap and defuses TOFU mis-pin;
+overlap window: closes the biggest gap and defuses TOFU mis-pin;
 (2) **capability scoping** (`read` / `titan-write` / `admin`) rather than
 path-only; (3) **single-use, expiring, capability-scoped enrollment
-tokens** — the minimal CIMD/ID-JAG pattern, still TOFU/no-CA;
+tokens**: the minimal CIMD/ID-JAG pattern, still TOFU/no-CA;
 (4) honest provenance (record enrolled/rotated dates; optional external
 DID/VC reference). Refuse RFC 9421, CA attestation, portability.
 
 **Managing the server (feeds the management-reach decision).** Same
-doctrine as the site map — *addressable, cert-gated affordances*, not a
+doctrine as the site map: *addressable, cert-gated affordances*, not a
 JSON admin API. Observe: a cert-gated gemtext **status/roster/audit**
 resource (health, render stats, enrolled identities, recent log). Control
 (C5, CLI-first): `usv identity add/revoke/rotate`, `usv reload`,
 `usv render`. The **MCP `publish` tool** (a thin Titan wrapper returning
-the stable URL) is the highest-leverage ergonomics unlock — it is how an
+the stable URL) is the highest-leverage ergonomics unlock: it is how an
 agent actually *operates* content on the server.
 
 **Agent home/presence (optional, doctrine-pure).** Append-only log
-affordance (`titan append` — plaintext file growth, no DB); per-agent
-zones keyed by fingerprint (`/agents/<fp>/…` — a self-hosted, un-owned
+affordance (`titan append`: plaintext file growth, no DB); per-agent
+zones keyed by fingerprint (`/agents/<fp>/…`: a self-hosted, un-owned
 Agent-Card/Moltbook-profile analogue); a server-generated reverse-chron
 index/feed per zone (from mtime, no DB); optional provenance front-matter.
 

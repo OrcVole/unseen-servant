@@ -1,0 +1,536 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Unseen Servant: colour schemes to choose from</title>
+<link rel="icon" href="../../../assets/favicon/favicon.ico" sizes="any">
+<meta name="theme-color" content="#E67916">
+<style>
+  @font-face{
+    font-family:"Iosevka Web"; font-style:normal; font-weight:400; font-display:swap;
+    src:local("Iosevka"), url("../../../assets/fonts/Iosevka-Regular.woff2") format("woff2");
+  }
+  @font-face{
+    font-family:"Iosevka Web"; font-style:normal; font-weight:700; font-display:swap;
+    src:local("Iosevka Bold"), url("../../../assets/fonts/Iosevka-Bold.woff2") format("woff2");
+  }
+  @font-face{
+    font-family:"Iosevka Web"; font-style:italic; font-weight:400; font-display:swap;
+    src:local("Iosevka Italic"), url("../../../assets/fonts/Iosevka-Italic.woff2") format("woff2");
+  }
+
+  /* ── page chrome ───────────────────────────────────────────────────
+     The page itself wears "Ember", so the document you are reading is
+     also a specimen. Each swatch below overrides the same token names
+     locally, which is exactly how a theme would ship. */
+  :root{
+    --paper:#14120F; --card:#1E1B16; --ink:#F2EEE6; --soft:#BDB2A2;
+    --rail:#4A433A; --ember:#E67916; --code-bg:#241F18; --code-ink:#F0A353;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family:"Iosevka Web",Iosevka,ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    font-size:18px; line-height:1.65;
+  }
+  .wrap{max-width:1180px; margin:0 auto; padding:clamp(2rem,5vw,3.5rem) clamp(1rem,4vw,2.2rem) 6rem}
+  code{font-size:.94em; color:var(--code-ink); background:var(--code-bg);
+       padding:.1em .35em; border-radius:5px}
+  a{color:var(--ember)}
+
+  .eyebrow{font-size:.9rem; letter-spacing:.09em; text-transform:uppercase;
+           color:var(--ember); font-weight:700; margin:0 0 .9rem}
+  h1{font-size:clamp(2rem,5vw,3rem); line-height:1.08; margin:0 0 1rem;
+     letter-spacing:-.02em; font-weight:700}
+  .standfirst{color:var(--soft); max-width:66ch; margin:0 0 1.4rem; font-size:1.05rem}
+  h2{font-size:clamp(1.5rem,3.2vw,2rem); margin:4.5rem 0 .5rem; font-weight:700;
+     letter-spacing:-.015em}
+  .lede{color:var(--soft); max-width:64ch; margin:0 0 2rem}
+  p{max-width:70ch}
+
+  .rule{color:var(--rail); margin:2.4rem 0 0; overflow:hidden; white-space:nowrap;
+        user-select:none; font-size:.9rem}
+
+  /* ── theme specimen card ─────────────────────────────────────────── */
+  .themes{display:grid; gap:1.8rem; grid-template-columns:repeat(auto-fit,minmax(340px,1fr))}
+  .theme{border:2px solid var(--rail); border-radius:16px; overflow:hidden;
+         background:var(--card)}
+  .theme > header{padding:1rem 1.2rem .9rem; border-bottom:2px solid var(--rail)}
+  .theme h3{margin:0; font-size:1.25rem; font-weight:700; letter-spacing:-.01em}
+  .theme .why{margin:.35rem 0 0; font-size:.88rem; color:var(--soft); max-width:none}
+
+  .swatches{display:flex; flex-wrap:wrap; gap:.3rem; padding:.9rem 1.2rem;
+            border-bottom:2px solid var(--rail)}
+  .sw{width:2.1rem; height:2.1rem; border-radius:7px; border:1px solid rgba(128,128,128,.35)}
+  .sw span{position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0)}
+
+  /* The preview re-declares every token, so it renders in its own scheme
+     regardless of the page around it. */
+  .preview{padding:1.3rem 1.4rem 1.5rem; background:var(--t-paper); color:var(--t-ink);
+           font-size:.9rem}
+  .preview h4{margin:0 0 .5rem; font-size:1.05rem; color:var(--t-ink); font-weight:700}
+  .preview p{margin:0 0 .8rem; color:var(--t-ink); max-width:none}
+  .preview .dim{color:var(--t-soft)}
+  .preview a{color:var(--t-link); text-underline-offset:.2em}
+  .preview code{background:var(--t-codebg); color:var(--t-codeink); padding:.08em .3em;
+                border-radius:4px; font-size:.95em}
+  .preview pre{background:var(--t-codebg); color:var(--t-codeink); margin:.2rem 0 .9rem;
+               padding:.75rem .9rem; border-radius:9px; border:1px solid var(--t-rail);
+               overflow-x:auto; font-size:.82rem; line-height:1.55}
+  .preview pre code{background:none; padding:0}
+  .preview hr{border:0; border-top:1px solid var(--t-rail); margin:.9rem 0}
+  .preview .chip{display:inline-block; background:var(--t-chip,var(--t-ember)); color:var(--t-paper);
+                 font-size:.68rem; letter-spacing:.07em; text-transform:uppercase;
+                 font-weight:700; padding:.15rem .5rem; border-radius:99px}
+  .preview .card{background:var(--t-card); border:1px solid var(--t-rail);
+                 border-left:5px solid var(--t-ember); border-radius:9px;
+                 padding:.7rem .85rem; margin:.2rem 0 .9rem}
+  .preview .tok{display:flex; justify-content:space-between; gap:1rem;
+                border-bottom:1px solid var(--t-rail); padding:.3rem 0; font-size:.82rem}
+  .preview .tok:last-child{border-bottom:0}
+
+  /* ── the six schemes ─────────────────────────────────────────────── */
+  .t-ember{
+    --t-paper:#14120F; --t-card:#1E1B16; --t-ink:#F2EEE6; --t-soft:#BDB2A2;
+    --t-rail:#4A433A; --t-ember:#E67916; --t-codebg:#241F18; --t-codeink:#F0A353;
+    --t-link:#E67916;
+  }
+  .t-foolscap{
+    --t-paper:#FBF9F5; --t-card:#FFFFFF; --t-ink:#1B1A17; --t-soft:#4A4642;
+    --t-rail:#C9C0B2; --t-ember:#C25E08; --t-chip:#8A4408; --t-codebg:#F6F0E6; --t-codeink:#9A4C05;
+    --t-link:#9A4C05;
+  }
+  .t-phosphor{
+    --t-paper:#0B0A06; --t-card:#141005; --t-ink:#FFB000; --t-soft:#C08512;
+    --t-rail:#4A3208; --t-ember:#FFB000; --t-codebg:#181203; --t-codeink:#FFD37A;
+    --t-link:#FFD37A;
+  }
+  .t-burrow{
+    --t-paper:#1A140E; --t-card:#241C13; --t-ink:#EFE3D0; --t-soft:#BFA98C;
+    --t-rail:#55432E; --t-ember:#E67916; --t-codebg:#2A2016; --t-codeink:#E9A85A;
+    --t-link:#E9A85A;
+  }
+  .t-slate{
+    --t-paper:#12151A; --t-card:#1A1F26; --t-ink:#E8ECF1; --t-soft:#A2AEBB;
+    --t-rail:#39414C; --t-ember:#E67916; --t-codebg:#1C232B; --t-codeink:#F2A45B;
+    --t-link:#F2A45B;
+  }
+  .t-bone{
+    --t-paper:#F2EFE7; --t-card:#FAF8F3; --t-ink:#14120F; --t-soft:#55504A;
+    --t-rail:#B9B1A3; --t-ember:#B5560A; --t-chip:#7A3C07; --t-codebg:#E8E2D5; --t-codeink:#8A4408;
+    --t-link:#8A4408;
+  }
+
+  /* ── old-school devices ──────────────────────────────────────────── */
+  .devices{display:grid; gap:1.6rem; grid-template-columns:repeat(auto-fit,minmax(330px,1fr))}
+  .device{border:2px solid var(--rail); border-radius:16px; background:var(--card);
+          padding:1.2rem 1.35rem}
+  .device h3{margin:0 0 .3rem; font-size:1.1rem; font-weight:700}
+  .device > p{font-size:.87rem; color:var(--soft); margin:0 0 .9rem; max-width:none}
+  .demo{background:var(--t-paper,#14120F); color:var(--t-ink,#F2EEE6);
+        border-radius:10px; padding:.9rem 1rem; font-size:.82rem; line-height:1.5;
+        overflow-x:auto; white-space:pre; border:1px solid var(--t-rail,#4A433A)}
+  .demo.amber{--t-paper:#0B0A06; --t-ink:#FFB000; --t-rail:#4A3208}
+
+  .frame{white-space:pre; line-height:1.35}
+  .cursor{display:inline-block; width:.62em; height:1.05em; background:var(--ember);
+          vertical-align:-.18em; animation:blink 1.06s step-end infinite}
+  @keyframes blink{50%{opacity:0}}
+  @media (prefers-reduced-motion:reduce){ .cursor{animation:none} }
+
+  /* CRT: a scanline wash and a soft bloom. Purely decorative, so it sits
+     on a wrapper and never on text a reader needs. */
+  .crt{position:relative; overflow:hidden}
+  .crt::after{
+    content:""; position:absolute; inset:0; pointer-events:none;
+    background:repeating-linear-gradient(to bottom,
+      rgba(0,0,0,.22) 0 1px, rgba(0,0,0,0) 1px 3px);
+  }
+  .glow{text-shadow:0 0 6px rgba(255,176,0,.55), 0 0 18px rgba(255,176,0,.22)}
+
+  .gopher .it{color:var(--ember); font-weight:700}
+  .gopher .sel{color:var(--soft)}
+
+  .btn{display:inline-block; border:1px solid var(--ember); color:var(--ember);
+       border-radius:6px; padding:.1rem .55rem; font-size:.82rem}
+
+  .measure{border-left:1px dashed var(--rail); border-right:1px dashed var(--rail);
+           padding:0 .6rem; color:var(--soft); font-size:.8rem}
+
+  table.tokens{border-collapse:collapse; width:100%; font-size:.85rem; margin-top:1rem}
+  table.tokens th,table.tokens td{text-align:left; padding:.45rem .6rem;
+       border-bottom:1px solid var(--rail); vertical-align:top}
+  table.tokens code{white-space:nowrap}
+
+  .note{background:#2A2110; color:#F0D69C; border:2px solid #5C4820; border-radius:14px;
+        padding:1rem 1.2rem; margin:2rem 0; font-size:.92rem}
+  .note > b:first-child{display:block; margin-bottom:.25rem}
+  .note p{margin:0; max-width:none}
+
+  footer{margin-top:5rem; padding-top:1.6rem; border-top:2px solid var(--rail);
+         color:var(--soft); font-size:.85rem}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<p class="eyebrow">Pick one</p>
+<h1>Six colour schemes, all built on Ember&nbsp;Oxide</h1>
+<p class="standfirst">Every one uses the same eight tokens, so choosing is
+a matter of taste rather than of rework: swapping the scheme is swapping
+eight values. This page is itself wearing <b>Ember</b>, so you are already
+looking at one of them at full size.</p>
+
+<div class="rule">──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</div>
+
+<h2>The schemes</h2>
+<p class="lede">Each card shows the palette, then a specimen rendering the
+things that actually matter: a heading, body text, a dimmed line, a link,
+inline code, a code block, a chip and a bordered card.</p>
+
+<div class="themes">
+
+  <!-- 1 ───────────────────────────────────────────────────────────── -->
+  <section class="theme">
+    <header>
+      <h3>1 · Ember</h3>
+      <p class="why">The flagship. Near-black with a warm cast, amber where
+      the machine speaks. Closest to the mark itself.</p>
+    </header>
+    <div class="swatches">
+      <span class="sw" style="background:#14120F"></span>
+      <span class="sw" style="background:#1E1B16"></span>
+      <span class="sw" style="background:#4A433A"></span>
+      <span class="sw" style="background:#BDB2A2"></span>
+      <span class="sw" style="background:#F2EEE6"></span>
+      <span class="sw" style="background:#241F18"></span>
+      <span class="sw" style="background:#F0A353"></span>
+      <span class="sw" style="background:#E67916"></span>
+    </div>
+    <div class="preview t-ember">
+      <span class="chip">Gemini</span>
+      <h4 style="margin-top:.6rem">Serving on five networks</h4>
+      <p>One folder of writing, rendered to each. Save a file and it is
+      live within <code>300ms</code>. <span class="dim">No build step, no
+      deploy.</span></p>
+      <pre><code>usv status --json | jq .published
+{"rendered":true,"pages":12}</code></pre>
+      <div class="card">An empty allowlist refuses to start.</div>
+      <p style="margin:0"><a href="#">=&gt; Read the agent manual</a></p>
+    </div>
+  </section>
+
+  <!-- 2 ───────────────────────────────────────────────────────────── -->
+  <section class="theme">
+    <header>
+      <h3>2 · Foolscap</h3>
+      <p class="why">The light counterpart. Warm paper, ink almost black,
+      amber burnt down far enough to be legible as text.</p>
+    </header>
+    <div class="swatches">
+      <span class="sw" style="background:#FBF9F5"></span>
+      <span class="sw" style="background:#FFFFFF"></span>
+      <span class="sw" style="background:#C9C0B2"></span>
+      <span class="sw" style="background:#4A4642"></span>
+      <span class="sw" style="background:#1B1A17"></span>
+      <span class="sw" style="background:#F6F0E6"></span>
+      <span class="sw" style="background:#9A4C05"></span>
+      <span class="sw" style="background:#C25E08"></span>
+    </div>
+    <div class="preview t-foolscap">
+      <span class="chip">Gemini</span>
+      <h4 style="margin-top:.6rem">Serving on five networks</h4>
+      <p>One folder of writing, rendered to each. Save a file and it is
+      live within <code>300ms</code>. <span class="dim">No build step, no
+      deploy.</span></p>
+      <pre><code>usv status --json | jq .published
+{"rendered":true,"pages":12}</code></pre>
+      <div class="card">An empty allowlist refuses to start.</div>
+      <p style="margin:0"><a href="#">=&gt; Read the agent manual</a></p>
+    </div>
+  </section>
+
+  <!-- 3 ───────────────────────────────────────────────────────────── -->
+  <section class="theme">
+    <header>
+      <h3>3 · Phosphor</h3>
+      <p class="why">Monochrome amber CRT, <code>#FFB000</code>: the actual
+      phosphor colour. The most committed to the old-school reading, and
+      the least flexible: everything is one hue.</p>
+    </header>
+    <div class="swatches">
+      <span class="sw" style="background:#0B0A06"></span>
+      <span class="sw" style="background:#141005"></span>
+      <span class="sw" style="background:#4A3208"></span>
+      <span class="sw" style="background:#C08512"></span>
+      <span class="sw" style="background:#FFB000"></span>
+      <span class="sw" style="background:#181203"></span>
+      <span class="sw" style="background:#FFD37A"></span>
+      <span class="sw" style="background:#FFB000"></span>
+    </div>
+    <div class="preview t-phosphor crt">
+      <span class="chip">Gemini</span>
+      <h4 style="margin-top:.6rem" class="glow">Serving on five networks</h4>
+      <p>One folder of writing, rendered to each. Save a file and it is
+      live within <code>300ms</code>. <span class="dim">No build step, no
+      deploy.</span></p>
+      <pre><code>usv status --json | jq .published
+{"rendered":true,"pages":12}</code></pre>
+      <div class="card">An empty allowlist refuses to start.</div>
+      <p style="margin:0"><a href="#">=&gt; Read the agent manual</a></p>
+    </div>
+  </section>
+
+  <!-- 4 ───────────────────────────────────────────────────────────── -->
+  <section class="theme">
+    <header>
+      <h3>4 · Burrow</h3>
+      <p class="why">Earth under the amber: soil browns rather than
+      neutral black. The gopher nod, without being a costume.</p>
+    </header>
+    <div class="swatches">
+      <span class="sw" style="background:#1A140E"></span>
+      <span class="sw" style="background:#241C13"></span>
+      <span class="sw" style="background:#55432E"></span>
+      <span class="sw" style="background:#BFA98C"></span>
+      <span class="sw" style="background:#EFE3D0"></span>
+      <span class="sw" style="background:#2A2016"></span>
+      <span class="sw" style="background:#E9A85A"></span>
+      <span class="sw" style="background:#E67916"></span>
+    </div>
+    <div class="preview t-burrow">
+      <span class="chip">Gopher</span>
+      <h4 style="margin-top:.6rem">Serving on five networks</h4>
+      <p>One folder of writing, rendered to each. Save a file and it is
+      live within <code>300ms</code>. <span class="dim">No build step, no
+      deploy.</span></p>
+      <pre><code>usv status --json | jq .published
+{"rendered":true,"pages":12}</code></pre>
+      <div class="card">An empty allowlist refuses to start.</div>
+      <p style="margin:0"><a href="#">=&gt; Read the agent manual</a></p>
+    </div>
+  </section>
+
+  <!-- 5 ───────────────────────────────────────────────────────────── -->
+  <section class="theme">
+    <header>
+      <h3>5 · Slate &amp; Ember</h3>
+      <p class="why">A cool blue-grey ground so the amber reads as a signal
+      rather than as the weather. The most conventional of the six, and the
+      easiest on a long read.</p>
+    </header>
+    <div class="swatches">
+      <span class="sw" style="background:#12151A"></span>
+      <span class="sw" style="background:#1A1F26"></span>
+      <span class="sw" style="background:#39414C"></span>
+      <span class="sw" style="background:#A2AEBB"></span>
+      <span class="sw" style="background:#E8ECF1"></span>
+      <span class="sw" style="background:#1C232B"></span>
+      <span class="sw" style="background:#F2A45B"></span>
+      <span class="sw" style="background:#E67916"></span>
+    </div>
+    <div class="preview t-slate">
+      <span class="chip">Titan</span>
+      <h4 style="margin-top:.6rem">Serving on five networks</h4>
+      <p>One folder of writing, rendered to each. Save a file and it is
+      live within <code>300ms</code>. <span class="dim">No build step, no
+      deploy.</span></p>
+      <pre><code>usv status --json | jq .published
+{"rendered":true,"pages":12}</code></pre>
+      <div class="card">An empty allowlist refuses to start.</div>
+      <p style="margin:0"><a href="#">=&gt; Read the agent manual</a></p>
+    </div>
+  </section>
+
+  <!-- 6 ───────────────────────────────────────────────────────────── -->
+  <section class="theme">
+    <header>
+      <h3>6 · Bone</h3>
+      <p class="why">Light, higher contrast than Foolscap and almost
+      monochrome: amber reserved for marks. The one to pick if the site
+      should read as a document, not a terminal.</p>
+    </header>
+    <div class="swatches">
+      <span class="sw" style="background:#F2EFE7"></span>
+      <span class="sw" style="background:#FAF8F3"></span>
+      <span class="sw" style="background:#B9B1A3"></span>
+      <span class="sw" style="background:#55504A"></span>
+      <span class="sw" style="background:#14120F"></span>
+      <span class="sw" style="background:#E8E2D5"></span>
+      <span class="sw" style="background:#8A4408"></span>
+      <span class="sw" style="background:#B5560A"></span>
+    </div>
+    <div class="preview t-bone">
+      <span class="chip">Web</span>
+      <h4 style="margin-top:.6rem">Serving on five networks</h4>
+      <p>One folder of writing, rendered to each. Save a file and it is
+      live within <code>300ms</code>. <span class="dim">No build step, no
+      deploy.</span></p>
+      <pre><code>usv status --json | jq .published
+{"rendered":true,"pages":12}</code></pre>
+      <div class="card">An empty allowlist refuses to start.</div>
+      <p style="margin:0"><a href="#">=&gt; Read the agent manual</a></p>
+    </div>
+  </section>
+
+</div>
+
+<div class="note">
+  <b>All six are contrast-checked.</b>
+  <p>Measured, not estimated. Body text clears <b>10.8:1</b> against its
+  ground in the worst scheme and code text clears <b>5.4:1</b>, against
+  the 4.5:1 that normal text needs. That is why the amber in the two light
+  schemes is burnt down rather than pure: pure Ember Oxide manages only
+  about 2.9:1 on paper white. The chips in those two schemes sit on a
+  darker ground again, because small bold type needs the full ratio and
+  pure ember gave it 4.1:1.</p>
+</div>
+
+<h2>The eight tokens</h2>
+<p class="lede">A scheme is only ever these. Anything a page needs beyond
+them is a mistake in the page, not a gap in the scheme.</p>
+
+<table class="tokens">
+  <tr><th>Token</th><th>Does</th></tr>
+  <tr><td><code>--paper</code></td><td>The page ground</td></tr>
+  <tr><td><code>--card</code></td><td>Anything raised off it: panels, notes, code blocks</td></tr>
+  <tr><td><code>--rail</code></td><td>Borders and rules</td></tr>
+  <tr><td><code>--soft</code></td><td>Secondary text: ledes, captions, dimmed detail</td></tr>
+  <tr><td><code>--ink</code></td><td>Body text</td></tr>
+  <tr><td><code>--code-bg</code></td><td>The ground behind code</td></tr>
+  <tr><td><code>--code-ink</code></td><td>Code text and links</td></tr>
+  <tr><td><code>--ember</code></td><td>The brand mark: chips, accents, focus, the left rail on a card</td></tr>
+</table>
+
+<div class="rule">──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</div>
+
+<h2>Keeping the old-school in it</h2>
+<p class="lede">Devices that read as terminal and gopher without becoming
+a costume. Each is live below, not a description of one. All of them are
+plain text and CSS: nothing here needs a script, which matters for a
+project that refuses to ship any.</p>
+
+<div class="devices">
+
+  <div class="device">
+    <h3>Box-drawing frames</h3>
+    <p>Rules and panels made of <code>─ │ ┌ ┐ └ ┘</code> rather than CSS
+    borders. Costs nothing, survives copy-paste, and is the same character
+    set a gophermap uses.</p>
+    <div class="demo frame">┌──────────────────────────────────┐
+│  usv status                      │
+│                                  │
+│  hosts ............ 1            │
+│  gemini ........... 0.0.0.0:1965 │
+│  gopher ........... off          │
+│  published ........ 12 pages     │
+└──────────────────────────────────┘</div>
+  </div>
+
+  <div class="device">
+    <h3>A gophermap, shown as one</h3>
+    <p>Item-type prefix, display string, selector. Colouring the type
+    character teaches the format at a glance, and it is the one piece of
+    gopher a newcomer actually has to understand.</p>
+    <div class="demo gopher"><span class="it">i</span>Welcome to the gopherhole
+<span class="it">i</span>
+<span class="it">1</span>Phlog                    <span class="sel">/phlog</span>
+<span class="it">0</span>About this hole          <span class="sel">/about.txt</span>
+<span class="it">h</span>Also on Gemini      <span class="sel">URL:gemini://…</span>
+<span class="it">.</span></div>
+  </div>
+
+  <div class="device">
+    <h3>Gemtext link lines, left as they are</h3>
+    <p>A <code>=&gt;</code> at the head of a link is how the format
+    actually looks. Keeping it in the rendered page is a small act of
+    honesty about where the words come from.</p>
+    <div class="demo">=&gt; /smolnets.html  The five networks
+=&gt; /agents.html    Agents, read and write
+=&gt; gopher://…      The same, over gopher</div>
+  </div>
+
+  <div class="device">
+    <h3>A prompt and a live cursor</h3>
+    <p>One blinking block after a command is enough to say "terminal"
+    without a full skin. It stops blinking for anyone who has asked for
+    reduced motion.</p>
+    <div class="demo">$ usv init
+  hostname ... <span style="color:var(--ember)">example.org</span>
+  gemini ..... <span style="color:var(--ember)">on</span>
+  gopher ..... <span class="cursor"></span></div>
+  </div>
+
+  <div class="device">
+    <h3>Phosphor bloom and scanlines</h3>
+    <p>A repeating gradient and a text-shadow. Decorative only: it sits on
+    a wrapper, never on text a reader must follow, so nothing is harder to
+    read than it was.</p>
+    <div class="demo amber crt"><span class="glow">UNSEEN SERVANT v0.1.0
+READY.
+</span><span class="glow">&gt; _</span></div>
+  </div>
+
+  <div class="device">
+    <h3>A <code>.plan</code>, styled as a plan</h3>
+    <p>Finger has no site, only a person and their plan file. Rendering it
+    as a fixed-width note with its own date line respects what it is
+    instead of dressing it as a blog post.</p>
+    <div class="demo">Login: usv          Name: Unseen Servant
+Directory: /var/lib/usv
+Plan:
+
+  2026-08-11  serving five networks from one
+              folder. gemini + web up; gopher
+              on request.</div>
+  </div>
+
+  <div class="device">
+    <h3>Text controls</h3>
+    <p>Where a page needs something that looks actionable, bracket it
+    rather than build a button. It reads correctly in a text browser and
+    degrades to exactly itself.</p>
+    <div class="demo" style="white-space:normal">Protocols:  <span class="btn">[ gemini ]</span>  <span class="btn">[ gopher ]</span>  <span class="btn">[ + add ]</span></div>
+  </div>
+
+  <div class="device">
+    <h3>An honest measure</h3>
+    <p>The old networks wrap at 70-80 columns because terminals did.
+    Holding prose to the same measure is why these pages are readable, and
+    it costs one <code>max-width</code>.</p>
+    <div class="demo measure">Seventy columns is about this wide, which is
+also how wide a gophermap display string
+can be before clients start truncating it.</div>
+  </div>
+
+</div>
+
+<div class="note">
+  <b>The one to be careful with.</b>
+  <p>Scanlines and bloom are the devices most likely to age badly and the
+  most likely to hurt someone. Used on a masthead or a specimen block they
+  are charm; used behind body text they are a legibility bug. The rule
+  worth keeping: decoration goes on things nobody has to read.</p>
+</div>
+
+<h2>A recommendation, since you asked for one</h2>
+<p><b>Ember</b> as the default and <b>Foolscap</b> as its light twin, 
+they are the same scheme at two ends, so a reader's system preference
+picks between them and nothing has to be chosen twice. <b>Phosphor</b> is
+the one worth shipping as an option rather than a default: it is the most
+distinctive thing here and the least comfortable to read for long.
+<b>Burrow</b> is the best answer to "make it feel like gopher" if the
+default should carry that on its own.</p>
+
+<footer>
+  <p>Unseen Servant (usv) · set in Iosevka · Ember Oxide
+  <code>#E67916</code> · <code>docs/internal/notes/theme-options.html</code></p>
+  <p>Palettes and devices here are proposals for selection. The scheme in
+  <code>src/render/theme.rs</code> is unchanged until one is chosen.</p>
+</footer>
+
+</div>
+</body>
+</html>

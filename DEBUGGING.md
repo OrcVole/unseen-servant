@@ -1,86 +1,155 @@
 # Debugging
 
-Grows with each build phase; a section that says "arrives at Cx" is a
-placeholder on purpose, not an omission.
+**Unseen Servant**
 
-## Now (C0)
+Organised by symptom. For the agent-facing machine surfaces this uses, 
+`--json`, `USV_LOG_FORMAT`, exit codes: see
+[`docs/agents.md`](docs/agents.md).
 
-- `usv --version` / `usv --help` are the only behaviors. Smoke tests:
-  `cargo test --test smoke`.
-- Logging: `tracing` arrives in C1. From then on the server logs to
-  stdout/stderr only, controlled by `RUST_LOG` (e.g. `RUST_LOG=usv=debug`);
-  request logs are single-line and query-redacted by default.
+## First moves
 
-## Arrives at C1–C2
+```sh
+usv status                 # config, fingerprints, roster, zones, published
+usv status --json | jq .   # the same, parseable
+usv check                  # is the config valid, is the content sane
+RUST_LOG=usv=debug usv     # everything, on stderr
+USV_LOG_FORMAT=json usv    # one JSON object per log line
+```
 
-- Reading a rejection: every 59/53 maps to a layer (framing → URI →
-  authority; `src/protocol/mod.rs` documents the layering). The log line
-  names the layer and the `FramingError`/validation variant.
-- Certificate problems: `usv fingerprint` (C5) prints what's on disk; until
-  then `openssl x509 -in <state>/certs/<host>/cert.pem -noout -fingerprint
-  -sha256`.
-- The regress suite (`cargo test`) spawns the real binary on a loopback
-  port; failures print the exact wire bytes exchanged.
-- gemini-diagnostics: run `gemini-diagnostics <host> <port>` against a local
-  instance; all 27 checks and their meanings are enumerated in
-  `docs/recon/prior-art.md` §6.
+`status` and `check` never render and never write. Logs go to stderr and
+report output to stdout, so the two can always be separated.
 
-### C1 exit gate: gemini-diagnostics run (2026-08-09)
+## The app is up but Gemini is unreachable
 
-26/27 clean against a local instance (Python 3.14.6, tool from
-`michael-lazar/gemini-diagnostics`, commit at time of run). Two items are not
-usv defects; recorded here so a future run isn't re-litigated:
+Expected, if `GEMINI_PORT` is absent: that is a Cloudron admin having
+disabled the TCP (Transmission Control Protocol) port. `usv` then serves the
+HTTP (HyperText Transfer Protocol) surface only and stays healthy on purpose
+(ADR 0008). The status page and the logs both say so. It is not a bug and
+there is nothing to fix but the port setting.
 
-- **`TLSClaims` fails on this tool under Python ≥3.13**: the script calls
-  `ssl.match_hostname`, removed from the stdlib in 3.13. The certificate
-  claims it's trying to check (notBefore/notAfter, CN/SAN) were verified
-  independently via `openssl x509 -noout -subject -dates -ext
-  subjectAltName` and a modern `ssl.SSLContext` — both confirm the cert is
-  correct. Not actionable on our side; re-check if the tool patches this.
-- **`URLByIPAddress` reports `None`, not a failure.** The check's own
-  design accepts either serving the request or refusing with 53; we refuse
-  (the request's authority doesn't match a configured host), which is
-  spec-legitimate. The tool reports the choice, not a verdict.
-- **Real defect found and fixed**: `TLSRequired` initially failed because
-  rustls writes a TLS alert record to the socket before aborting a garbled
-  handshake — a real response, just not a Gemini one, and worse than
-  silence (confirms a TLS stack lives on the port before ever refusing the
-  request). Fixed in `src/server.rs` (`peek_looks_like_tls`): the first
-  byte is peeked before the TLS acceptor runs; anything that isn't a TLS
-  handshake record (0x16) is dropped with no response at all.
+Otherwise: check `usv status` for the listen addresses, and remember Gemini
+cannot be reverse-proxied: it is TLS-native but not HTTP, so the port must
+be passed through, not terminated upstream.
 
-### C7 exit gate: gemini-diagnostics run against the live deployment (2026-08-10)
+## A request is being refused and I want to know why
 
-25/27 clean against `usv.example.com:1965` — the actual Cloudron
-deployment, not a local instance, run from this workstation (a genuinely
-external vantage point, not the Cloudron host itself), satisfying the
-hard-gate wording in `docs/BUILD-PLAN.md` (C7 exit criterion). Two
-failures, both re-confirmations of already-documented non-defects, not
-new findings:
+Every rejection comes from one of three layers, documented in
+`src/protocol/mod.rs`:
 
-- **`TLSClaims`** — the same `ssl.match_hostname` removal as the C1 run,
-  now on Python 3.14.6/OpenSSL 3.5.7 here too. Still not actionable on
-  our side (see the C1 entry above).
-- **`IPv6Address`** — timed out, but traced to this specific test
-  machine, not usv or the deployment: `curl -6` to a known-good external
-  IPv6 host (`ipv6.google.com`) from here also fails outright — this
-  workstation has no IPv6 egress at all. usv itself binds `0.0.0.0:1965`
-  (IPv4-only) per `start.sh`, so IPv6 reachability was never claimed;
-  this check needs re-running from a host with real IPv6 connectivity to
-  actually exercise it, not accepted as passing.
-- `URLByIPAddress` again reported `None` for the same spec-legitimate
-  reason as the C1 run.
+| Layer | Owns | Rejects with |
+|---|---|---|
+| Framing (`protocol/request.rs`) | CRLF terminator, the 1024-byte budget, bare LF, stray CR | `59` |
+| URI validation (`protocol/uri.rs`) | RFC 3986 parse; userinfo, fragments, non-ASCII, foreign schemes | `59` |
+| Authority (`protocol/mod.rs`) | is this a host and port we serve | `53` |
 
-## Cloudron (arrives at C6)
+The log line names the layer and the specific error variant, so a `59` never
+leaves you guessing which rule fired.
 
-Per `docs/recon/cloudron-fit.md`: `cloudron logs -f` streams the app;
-`cloudron exec` opens a shell; the panel's file manager edits
-`/app/data`. A "what each panel screen means for usv" table lands here with
-the package. Until then that recon document is the reference.
+`53` on a request that looks correct usually means the authority did not
+match a configured `[[host]]`: including the case where a client connected
+by IP address rather than by hostname.
 
-## The disabled-port state (permanent fact)
+## A client refuses the certificate
 
-If `GEMINI_PORT` is absent (Cloudron admin disabled the TCP port), usv runs
-the HTTP surface only and stays healthy — by design (ADR 0008 /
-cloudron-fit hard constraints). "Gemini unreachable but app green" is that
-state, not a bug; the status page and logs both say so explicitly.
+```sh
+usv fingerprint          # what this capsule actually serves
+openssl s_client -connect host:1965 </dev/null 2>/dev/null \
+  | openssl x509 -noout -fingerprint -sha256 -dates -subject
+```
+
+If those two disagree, something in front of the server is terminating TLS
+(Transport Layer Security). If they agree and the client still complains,
+the client has an older certificate pinned, which is TOFU (trust on first
+use) working, not failing. `usv` never silently regenerates a key, so a
+changed fingerprint always has a cause worth finding before you tell anyone
+to click through.
+
+## A Titan upload is refused
+
+The status code says which check failed:
+
+| Status | Meaning |
+|---|---|
+| `60` | no client certificate presented |
+| `62` | the certificate is expired or not yet valid |
+| `61` | the certificate is valid but not authorised here |
+
+`61` has three distinct causes: the fingerprint is not in the zone, the
+identity does not hold `titan-write`, or a rotation window has closed. `usv
+zones --json` and `usv status --json` show all three: capability grants are
+enforced at request time, not at startup, so a zone may name an identity
+that no longer holds the capability.
+
+`59` on a Titan request is the request *line*: size, MIME (Multipurpose
+Internet Mail Extensions), or a malformed token, not authorisation.
+
+## Content changed but nothing was published
+
+The watcher is debounced (300 ms) and renders the whole tree into a staging
+directory before swapping it in atomically, so you see either the old tree
+or the new one, never a half-written one.
+
+```sh
+usv stats --json    # what is currently in the rendered tree
+usv render          # force one now, synchronously
+```
+
+Generated filenames (`map.gmi`, `feed.gmi`) are reserved and ignored by the
+watcher: a render that triggered itself was a real bug once, and `usv
+check` warns if you have authored a file at one of those names.
+
+## Working on the code
+
+```sh
+cargo test                                    # unit + integration
+cargo test --test wire                        # real sockets, real TLS
+cargo test --test smoke                       # the CLI and process surface
+cargo test <substring>                        # one test
+cargo clippy --all-targets -- -D warnings
+cargo fmt --check
+cargo +nightly fuzz run frame_request_line    # needs cargo-fuzz
+```
+
+The wire suite spawns the real binary on a loopback port and prints the
+exact bytes exchanged on failure, so a failing assertion tells you what went
+over the socket rather than what a mock believed. Unit tests live in the
+module they test; integration tests are in `tests/`.
+
+Every parser has a fuzz target in `fuzz/`, each with a committed regression
+corpus. A new parser lands with its fuzz target in the same change: that is
+an invariant, not a preference.
+
+## Conformance
+
+```sh
+gemini-diagnostics <host> <port>
+```
+
+27 checks. Three known results are tool or environment artifacts rather than
+defects, re-confirmed across runs in C1 and C7:
+
+| Check | Why it is not a defect |
+|---|---|
+| `TLSClaims` | The tool calls `ssl.match_hostname`, removed from Python's stdlib in 3.13. The claims it checks were verified independently with `openssl x509`. |
+| `URLByIPAddress` | Reports `None`, not a failure. The check accepts either serving or refusing with `53`; `usv` refuses, which is spec-legitimate. |
+| `IPv6Address` | Timed out from a workstation with no IPv6 egress at all (`curl -6` to a known-good host failed too). Needs re-running from a host with real IPv6 before it means anything. |
+
+One real defect this suite found is worth knowing about, because the fix is
+unusual: `TLSRequired` failed because rustls writes a TLS alert before
+aborting a garbled handshake: a response, just not a Gemini one, and worse
+than silence because it confirms a TLS stack is listening. The fix in
+`server.rs` (`peek_looks_like_tls`) peeks the first byte before the acceptor
+runs and drops anything that is not a TLS handshake record (`0x16`) with no
+response at all.
+
+## On Cloudron
+
+```sh
+cloudron logs -f --app <id>    # stream
+cloudron exec --app <id>       # shell
+```
+
+The panel's file manager edits `/app/data`, which is the state directory, 
+identity, content, rendered output and config all live there. Back that one
+directory up and you have backed up the capsule, including the certificate
+readers have pinned.

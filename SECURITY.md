@@ -22,13 +22,13 @@ This will be replaced with a real support table when v1.0 ships.
 ## Scope
 
 In scope: anything reachable over the Gemini, Titan, or web-mirror
-surfaces — request parsing, TLS handling, path traversal, certificate
+surfaces: request parsing, TLS handling, path traversal, certificate
 zone and Titan authorisation, identity handling, the render pipeline.
 Also in scope: the packaging (a `.deb`/RPM/AUR/Nix/container package that
 installs something unsafe is a security bug).
 
 Out of scope, because they are documented behaviour rather than defects
-— see [`docs/security.md`](docs/security.md) for the reasoning:
+, see [`docs/security.md`](docs/security.md) for the reasoning:
 
 - The web mirror publishes rendered content to anyone. Certificate zones
   gate the *Gemini* surface only.

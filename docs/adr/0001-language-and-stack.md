@@ -1,8 +1,8 @@
-# ADR 0001: Language and stack — Rust, tokio, rustls, clean wire implementation
+# ADR 0001: Language and stack: Rust, tokio, rustls, clean wire implementation
 
 - Status: Accepted (pending director review)
 - Date: 2026-08-09
-- Evidence: docs/recon/prior-art.md §7, docs/recon/protocol.md
+- Evidence: docs/internal/recon/prior-art.md §7, docs/internal/recon/protocol.md
 
 ## Context
 
@@ -36,17 +36,17 @@ wire protocol cleanly. **No Gemini crates as dependencies.**
 Core dependency set (each version-pinned in Cargo.toml, per the
 brief's pinning principle):
 
-- `tokio` — async runtime.
-- `rustls` + `tokio-rustls` — TLS 1.2/1.3, SNI, client-cert capture.
-- `rcgen` — certificate auto-generation (ADR 0003).
+- `tokio`: async runtime.
+- `rustls` + `tokio-rustls`: TLS 1.2/1.3, SNI, client-cert capture.
+- `rcgen`: certificate auto-generation (ADR 0003).
 - A strict, hand-rolled request parser for the request line itself
-  (the 1024-byte URI + CRLF rule and the reject-list — userinfo,
-  fragment, non-ASCII, bare LF — are diagnostics-relevant behavior we
+  (the 1024-byte URI + CRLF rule and the reject-list: userinfo,
+  fragment, non-ASCII, bare LF: are diagnostics-relevant behavior we
   want under direct test and fuzz control), delegating general URI
   parsing to `url`/`percent-encoding` where they are strict enough;
   the parser module documents exactly which crate handles which rule.
-- `serde` + `toml` — configuration (ADR 0007).
-- `tracing` — structured logging to stdout/stderr.
+- `serde` + `toml`: configuration (ADR 0007).
+- `tracing`: structured logging to stdout/stderr.
 
 Agate (Apache-2.0/MIT) is the reference prior art: we study and adapt
 its mechanisms (cert generation, response streaming) with attribution,
@@ -63,7 +63,7 @@ edge cases, and the gemtext parser used by the HTML renderer).
   including all 27 gemini-diagnostics checks and the suite's known
   gaps (prior-art.md §6).
 - No upstream Gemini crate can break, abandon, or constrain us; the
-  cost is that rustls/tokio API migrations are ours to absorb —
+  cost is that rustls/tokio API migrations are ours to absorb, 
   acceptable, as every serious Rust project bears that anyway.
 - The brief's "titanite or gemax" option is closed. If a future
   maintainer revisits, prior-art.md §7 records the 2026 state of every

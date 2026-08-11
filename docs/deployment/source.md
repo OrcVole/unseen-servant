@@ -9,8 +9,8 @@ cargo build --release          # target/release/usv
 ```
 
 The toolchain is pinned by `rust-toolchain.toml`; under `rustup` that is
-honoured automatically. For a fully static, dependency-free binary — what
-every distro package ships — build against musl instead:
+honoured automatically. For a fully static, dependency-free binary: what
+every distro package ships, build against musl instead:
 
 ```sh
 rustup target add x86_64-unknown-linux-musl
@@ -25,7 +25,7 @@ cargo build --release --target x86_64-unknown-linux-musl
 
 That is the whole setup. With no configuration file and an empty state
 directory, `usv` mints a TOFU identity, writes a starter capsule, and
-serves it (ADR 0008 — zero-configuration is a supported configuration,
+serves it (ADR 0008: zero-configuration is a supported configuration,
 not a degraded one). `usv init` walks through an interactive terminal
 wizard instead, if you would rather answer questions than write TOML.
 
@@ -67,13 +67,13 @@ that trade is paid back:
 | `ProtectSystem=strict` | Entire filesystem read-only… |
 | `ReadWritePaths=/var/lib/usv` | …except the one directory `usv` owns |
 | `NoNewPrivileges=true` | No privilege escalation, ever |
-| `CapabilityBoundingSet=` | *Empty.* Not "no extra capabilities" — none at all |
+| `CapabilityBoundingSet=` | *Empty.* Not "no extra capabilities": none at all |
 | `PrivateTmp`, `ProtectHome`, `ProtectKernelTunables`, `ProtectKernelModules`, `ProtectControlGroups` | Standard isolation for a service with no business touching any of it |
 | `RestrictSUIDSGID`, `RestrictRealtime`, `LockPersonality`, `MemoryDenyWriteExecute` | Close the usual escalation routes |
 
 The empty capability bounding set is possible because both ports (1965
 and any HTTP surface) are above 1024, so `usv` never needs
 `CAP_NET_BIND_SERVICE`. If you deliberately move `usv` to a privileged
-port, that line is the one to revisit — prefer a redirect or a proxy.
+port, that line is the one to revisit: prefer a redirect or a proxy.
 
 Verified with `systemd-analyze verify`.

@@ -1,8 +1,8 @@
-# ADR 0008: Deployment profiles — Cloudron is a target, not a dependency
+# ADR 0008: Deployment profiles: Cloudron is a target, not a dependency
 
 - Status: Accepted (director-directed, 2026-08-09)
 - Date: 2026-08-09
-- Evidence: director amendment in docs/BRIEF.md; docs/recon/cloudron-fit.md; docs/recon/prior-art.md §1
+- Evidence: director amendment in docs/internal/BRIEF.md; docs/internal/recon/cloudron-fit.md; docs/internal/recon/prior-art.md §1
 
 ## Context
 
@@ -27,13 +27,13 @@ same binary.
   (`/var/lib/usv` as system service; `$XDG_STATE_HOME/usv` as user),
   content at `${state_dir}/content`, certs at `${state_dir}/certs`
   (ADR 0003), Gemini on :1965, HTTP surface **optional and off by
-  default** standalone (a pure-Gemini operator shouldn't get a web
-  server they didn't ask for; ADR 0004's renderer can still run for
+  default** standalone (a pure-Gemini operator should not get a web
+  server they did not ask for; ADR 0004's renderer can still run for
   those who want it). `usv` with zero arguments starts a working
   capsule.
 - **Cloudron profile**: `CloudronManifest.json`, `Dockerfile`,
   `start.sh`, and a shipped `usv.toml` mapping the platform contract
-  (cloudron-fit.md's hard-constraints checklist) onto core knobs —
+  (cloudron-fit.md's hard-constraints checklist) onto core knobs, 
   /app/data paths, `GEMINI_PORT` handling including the
   disabled-port case, HTTP surface **on** (tile + health check),
   `exec gosu` handoff. The profile contains no logic the core lacks;

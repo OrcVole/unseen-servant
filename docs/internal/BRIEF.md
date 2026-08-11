@@ -4,7 +4,7 @@
 > This brief was supplied by the human director (n) on 2026-08-09 and is
 > preserved here verbatim as the project's founding document. The original
 > transmission truncated mid-sentence in ADR 0007; the truncation point is
-> marked below and the gap is recorded in docs/OPEN-QUESTIONS.md.
+> marked below and the gap is recorded in docs/internal/OPEN-QUESTIONS.md.
 
 ## Mission
 
@@ -31,7 +31,7 @@ maintenance. A human (n) reviews and directs; the AI writes and proves.
   INTEGRATIONS.md, docs/adr/NNNN-*.md. Markdown only.
 - Explicit version pinning throughout. Open formats only.
 
-## Phase 0: Reconnaissance (produce docs/recon/ before any code)
+## Phase 0: Reconnaissance (produce docs/internal/recon/ before any code)
 
 1. Protocol state. Read the official specs at geminiprotocol.net
    (protocol + gemtext). Then survey the spec development repos at
@@ -60,8 +60,8 @@ maintenance. A human (n) reviews and directs; the AI writes and proves.
    it MUST live under /app/data, survive update/restore/rebuild, and
    never be silently regenerated. httpPort remains free and SHOULD
    serve an HTML surface so the app tile is not a dead end.
-5. Output: docs/recon/protocol.md, docs/recon/ecosystem.md,
-   docs/recon/prior-art.md, docs/recon/cloudron-fit.md, each with a
+5. Output: docs/internal/recon/protocol.md, docs/internal/recon/ecosystem.md,
+   docs/internal/recon/prior-art.md, docs/internal/recon/cloudron-fit.md, each with a
    Sources section with dates.
 
 ## Phase 1: Architecture (ADRs before code)
@@ -93,7 +93,7 @@ silently.
 - ADR 0006 Titan. Design the request pipeline so Titan can be added
   without restructuring; implement only if Phase 0 shows it is the
   authoring story we want (uploads gated on client certificate).
-- ADR 0007 Config format. Single [BRIEF TRUNCATED HERE — the original
+- ADR 0007 Config format. Single [BRIEF TRUNCATED HERE: the original
   transmission ended mid-sentence; the surviving fragment also fixed
   the project name: "we will call it Unseen-Servant or
   unseen-servant". Presumed intent: a single declarative config file;
