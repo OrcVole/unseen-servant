@@ -1,6 +1,6 @@
 //! Content-tree watcher: fs events → debounce → [`super::pipeline::render_tree`].
 //!
-//! Resolves design brief §5.2 (`docs/notes/c3-render-design-brief.md`):
+//! Resolves design brief §5.2 (`docs/internal/notes/c3-render-design-brief.md`):
 //! debounce is **global**, not per-file — an edit storm across many files
 //! (a bulk content sync, a git checkout) coalesces into one rebuild pass
 //! once events go quiet for `debounce`, rather than one rebuild per file.

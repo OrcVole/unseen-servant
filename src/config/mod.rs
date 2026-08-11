@@ -38,7 +38,7 @@ pub struct Config {
     /// Gemini listener at all — the explicit `USV_LISTEN=""` (or
     /// `server.listen = []`) opt-out, not the *absence* of any listen
     /// configuration, which still means the ADR 0008 zero-config default.
-    /// Exists for docs/recon/cloudron-fit.md's hard constraint: usv must
+    /// Exists for docs/internal/recon/cloudron-fit.md's hard constraint: usv must
     /// start and pass the HTTP health check when a Cloudron admin disables
     /// the `GEMINI_PORT` tcpPorts service (`GEMINI_PORT` then absent from
     /// the environment; `start.sh` maps that to `USV_LISTEN=""`).
@@ -52,7 +52,7 @@ pub struct Config {
     /// port after binding.
     pub advertised_port: u16,
     /// Minimum TLS version. 1.3 unless the operator opts down to 1.2
-    /// (docs/recon/protocol.md "Implementation guidance" §4).
+    /// (docs/internal/recon/protocol.md "Implementation guidance" §4).
     pub tls_min: TlsMinVersion,
     /// How much of a visitor's address the request log may carry.
     /// Defaults to [`PeerLogging::Off`] (OQ-9).
@@ -77,7 +77,7 @@ pub struct Config {
     /// reader should actually use: a capsule reachable at a real hostname
     /// *and* mirrored as a Tor onion service wants its feeds to advertise
     /// the `.onion` name, not whichever `[[host]]` happens to be first
-    /// (docs/notes/integration-ideas.md "Tor / I2P"). Does not affect
+    /// (docs/internal/notes/integration-ideas.md "Tor / I2P"). Does not affect
     /// authority checking or SNI cert selection — those still key off the
     /// real `[[host]]` entries; a Tor deployment adds a `[[host]]` for the
     /// onion address like any other hostname (`validate_hostname` already
@@ -187,7 +187,7 @@ pub struct CleartextListener {
 ///
 /// Geminispace's stated norm is aggressive log minimalism — operators
 /// routinely make a point of *not* retaining visitor addresses
-/// (`docs/recon/community-wisdom.md` §3). usv's own request line was
+/// (`docs/internal/recon/community-wisdom.md` §3). usv's own request line was
 /// already query-redacted by construction, since status 10/11 input
 /// lands in the query and can contain anything a visitor types; the
 /// address was the remaining durable identifier, and the default now
@@ -595,7 +595,7 @@ impl Config {
         // An explicitly empty list — `USV_LISTEN=""`, or `server.listen = []`
         // in the file — means "no Gemini listener", not "use the default":
         // the platform-injected-facts case (ADR 0007) a Cloudron admin
-        // disabling the tcpPorts service maps onto (docs/recon/cloudron-fit.md
+        // disabling the tcpPorts service maps onto (docs/internal/recon/cloudron-fit.md
         // hard constraint: usv must still start and pass the health check,
         // HTTP-only, when the Gemini port is off). *Absence* of any listen
         // configuration anywhere still means the zero-config ADR 0008

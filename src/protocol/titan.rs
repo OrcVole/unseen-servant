@@ -2,7 +2,7 @@
 //! layer-2 validation, the upload analogue of [`super::uri`].
 //!
 //! Titan is Gemini-shaped: one request line, then exactly `size` payload
-//! bytes, then an ordinary Gemini response (docs/recon/titan.md §1). The
+//! bytes, then an ordinary Gemini response (docs/internal/recon/titan.md §1). The
 //! request line is a `titan://` URL whose **path carries a `;`-separated
 //! parameter block**: a mandatory `size`, an optional `mime` (default
 //! `text/gemini`), and an optional `token`. Example:

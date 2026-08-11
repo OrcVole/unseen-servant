@@ -116,6 +116,33 @@ lynx        Gopher, HTTP                              already on many systems
 
 Try Lagrange first if you want a window with fonts and images; Bombadillo or gelim if you live in a terminal. Nothing here is an endorsement: these are simply the clients that exist, as verified in August 2026.
 
+## Field notes
+
+A less careful way of putting it, which is often the way that lands.
+
+```The five networks, roughly sized, with the feel of each
+Gemini    a few thousand capsules       a small town with an active council
+Gopher    a few hundred gopherholes     an old lighthouse, still manned
+Spartan   a few dozen sites             a hermit's cabin, very tidy
+Nex       a handful                     a cabin the hermit forgot about
+Finger    no community, and there        a doorbell on a house nobody
+          cannot be one                  built
+```
+
+Counts are approximate and move; treat them as orders of magnitude.
+
+Gopher lost the protocol war partly because the University of Minnesota tried to charge licensing fees in 1993, which sent everyone to CERN's free offering. It is named for the university's mascot. The remaining gopherphiles have been told it is over for thirty years and are still here.
+
+Spartan is what you get by taking Gemini and removing everything that could be considered a feature. The community's main activity is admiring the minimalism and then quietly going back to Gemini.
+
+Nex is the protocol equivalent of a cover band that plays the songs better than the original, to an empty pub.
+
+Finger deserves the longest note, because the joke is structural. Building a community on Finger is like building a city on a doorbell. You ring it, a name and a short note come out, and then you are standing on the pavement again. There is no inside, no next page, no browse. It has no concept of linking or listing, so discovery is impossible by design: you must already know who to ask. If you forced it, you would need a directory of servers, a formatting convention, and a ring of .plan files pointing at one another, at which point you have invented Gopher badly and with extra steps.
+
+Every other network here is a space you can inhabit. Gemini is a room, Gopher a corridor with doors, Spartan an empty room with good lighting. Finger is a peephole. You can look through it. You cannot move in.
+
+That is why Unseen Servant serves a generated profile on Finger rather than trying to push the content tree through it.
+
 ## Before you enable any of the last four
 
 Gopher, Spartan, Nex and Finger are all cleartext.

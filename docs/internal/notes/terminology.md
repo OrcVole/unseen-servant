@@ -120,3 +120,26 @@ Accessed 2026-08-11.
   <https://tilde.team/wiki/?page=finger>: `.plan` and `.project`, and
   the tildeverse's continuing use of them.
 - <https://tilde.cafe/wiki/spartan>: Spartan users say "site".
+
+## Corrections to a circulating field guide
+
+A wry field guide to the smolnets was offered as source material for
+newcomer-facing copy on 2026-08-11. The voice was kept; four factual
+errors were not, because these are precisely the communities that check.
+
+| Claim | Correction |
+|---|---|
+| Spartan was created by Jaakko Keränen (skyjake) | **Michael Lazar** (mozz.us) created Spartan. skyjake wrote Lagrange and GmCapsule. The guide made this error twice, including calling Lagrange's author "the Spartan guy". |
+| Gemini's home is gemini.circumlunar.space | That is the historical home. The specification moved to **geminiprotocol.net** in 2023. |
+| Nex needs "netcat + hope"; a dedicated client may exist | **Lagrange, gelim, BFG and Profectus all speak Nex.** It is a good joke and a bad fact. |
+| The Gemini list is at lists.orbitalfox.eu | Unverified; orbitalfox is the old host. Check before printing. |
+
+The size figures in it (2,000-3,000 Gemini capsules, 200-500 gopherholes,
+20-50 Spartan, 5-15 Nex) are plausible and consistent with
+`recon/smolnet.md`, but no source was given, so they are published as
+orders of magnitude rather than counts.
+
+What was kept, because it is accurate and better than anything written
+here: the University of Minnesota's 1993 licensing fee driving everyone
+to CERN, and the structural observation about Finger, which matches the
+research above independently.

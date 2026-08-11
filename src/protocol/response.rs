@@ -1,6 +1,6 @@
 //! Response **emission**: the exact `XX SP META CRLF` rules.
 //!
-//! Spec basis (v0.24.1, docs/recon/protocol.md "Responses"): META is
+//! Spec basis (v0.24.1, docs/internal/recon/protocol.md "Responses"): META is
 //! mandatory for 1x (prompt), 2x (MIME type), and 3x (redirect target) —
 //! the old empty-META default died in 0.24.0. META is optional for 4x/5x/6x,
 //! and when omitted the SP separator is omitted too (`"50" CRLF`). Headers

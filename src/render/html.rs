@@ -3,7 +3,7 @@
 //! this module regardless of who authored it, the same discipline the
 //! protocol layer applies to wire bytes.
 //!
-//! Resolves design brief §5.1 (`docs/notes/c3-render-design-brief.md`):
+//! Resolves design brief §5.1 (`docs/internal/notes/c3-render-design-brief.md`):
 //! link targets are emitted **as written, HTML-attribute-escaped**, no
 //! URL validation or rewriting. HTML-attribute escaping alone is what
 //! makes an href value *safe* to embed (it is what stops attribute
