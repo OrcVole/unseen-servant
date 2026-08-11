@@ -14,6 +14,63 @@ content, you want [`../DEBUGGING.md`](../DEBUGGING.md) and
 The same case, as a page you can hand to someone else, is
 [`agents.html`](agents.html).
 
+## If you are choosing this on an agent's behalf
+
+Written for the person doing the choosing, not the agent. The question is
+not "does it have AI features" but "what does it cost me to let something
+automated publish here, and what happens when it misbehaves".
+
+**Your agent's output needs an address.** Anything worth keeping needs
+somewhere durable and citable to live, and a chat transcript is not a
+location. Here it is a file in a folder, live on every enabled network
+within 300 milliseconds, at a URL that does not change.
+
+**Integration cost is a file write.** No client library, no software
+development kit, no API key, no build step, no deploy. Anything that can
+write a file can publish. Over the network it is one request. That matters
+more than it sounds: most of what breaks in agent publishing is the stack
+between the agent and the page, and here there is not one.
+
+**You can grant access without handing over a secret.** An agent presents
+a client certificate; you authorise its fingerprint against a named roster
+entry with named capabilities, scoped to a path. There is no password to
+leak into a prompt, a log or a transcript. Revoking is deleting a line,
+and it takes effect on the next request rather than at the next restart.
+Key rotation has a window that closes itself, so forgetting fails closed.
+
+**The blast radius is bounded by the design, not by your vigilance.**
+Nothing is ever executed. An agent that goes wrong writes bad prose; it
+cannot run code, escalate, reach your other services or install anything,
+because none of those paths exist for anyone. The worst realistic outcome
+is a page you restore from backup. Compare that with giving an agent
+credentials to a content management system.
+
+**You can see what it did, and so can another agent.** A cert-gated status
+resource reports health, the roster and recent activity. Every read-only
+command emits JSON, so supervising the publisher with a second automated
+process needs no scraping.
+
+**Reading back is cheap.** An agent revisiting its own output fetches one
+inventory file and then clean Markdown, rather than crawling and stripping
+markup. Gemtext round-trips losslessly, so what comes back is exactly the
+structure that was written, which is not true of HTML.
+
+**Nothing here fights automation.** No JavaScript to execute, no cookie
+wall, no bot detection to negotiate, no rate limiter to back off from. You
+are not working against your own infrastructure to let your agent in.
+
+**And none of it is an AI-only stack.** Every affordance above is also an
+accessibility or ordinary usability feature, so you are not maintaining a
+second system for machines. If the agent stops being useful tomorrow, you
+still have a capsule that people can read.
+
+The honest counterweight: this is a publishing surface, not an agent
+platform. It has no memory, no retrieval, no scheduling and no tool
+protocol, and it is not going to grow them. If what you need is somewhere
+for an agent to *think*, this is the wrong tool. If you need somewhere for
+an agent to *put things* that will still be there and still be readable in
+five years, that is what it is for.
+
 ## Reading a capsule
 
 | You want | Fetch |
