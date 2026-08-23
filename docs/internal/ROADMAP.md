@@ -1,7 +1,15 @@
+---
+title: "Roadmap"
+description: "Plan of record. History: the original plan split a quiet v1.0 from a Titan-bearing v1.1; on 2026-08-09 the director collapsed that split, 'we will not use or announce it till it is ready."
+type: explanation
+status: decided
+last_verified: 2026-08-11
+---
+
 # Roadmap
 
 Plan of record. History: the original plan split a quiet v1.0 from a
-Titan-bearing v1.1; on 2026-08-09 the director collapsed that split, 
+Titan-bearing v1.1; on 2026-08-09 the director collapsed that split,
 "we will not use or announce it till it is ready for Titan", so v1.0 IS
 the release, and everything before it is milestones, not versions.
 
@@ -87,7 +95,7 @@ ADR 0009 once docs/internal/recon/community-wisdom.md lands.
 
 ## Later / backlog
 
-- `usv tui` (ratatui dashboard: status, live log, zones, render), 
+- `usv tui` (ratatui dashboard: status, live log, zones, render),
   extends M4's parity story.
 - Theme gallery expansion; community theme contributions; live
   theme-switcher on the project site.

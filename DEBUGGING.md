@@ -1,8 +1,8 @@
 # Debugging
 
-**Unseen Servant**
+> Unseen Servant
 
-Organised by symptom. For the agent-facing machine surfaces this uses, 
+Organised by symptom. For the agent-facing machine surfaces this uses,
 `--json`, `USV_LOG_FORMAT`, exit codes: see
 [`docs/agents.md`](docs/agents.md).
 
@@ -149,7 +149,7 @@ cloudron logs -f --app <id>    # stream
 cloudron exec --app <id>       # shell
 ```
 
-The panel's file manager edits `/app/data`, which is the state directory, 
+The panel's file manager edits `/app/data`, which is the state directory,
 identity, content, rendered output and config all live there. Back that one
 directory up and you have backed up the capsule, including the certificate
 readers have pinned.

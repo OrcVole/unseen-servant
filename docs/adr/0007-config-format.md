@@ -1,7 +1,15 @@
+---
+title: "ADR 0007: Configuration: a single TOML file, gmid semantics, env overrides for platforms"
+description: "A single TOML file: usv.toml: is the whole configuration surface."
+type: explanation
+status: decided
+last_verified: 2026-08-11
+---
+
 # ADR 0007: Configuration: a single TOML file, gmid semantics, env overrides for platforms
 
 - Status: **Accepted** (director, 2026-08-09: "one toml file is fine
-  unless there are distinct advantages to having multiple ones", 
+  unless there are distinct advantages to having multiple ones",
   evaluation of multiple files below found no distinct advantage, so
   the single file stands; OQ-1 closed)
 - Date: 2026-08-09
@@ -52,7 +60,7 @@ surface. Search order: `--config <path>` flag, then
 ## Multiple files: evaluated and declined
 
 Per the director's condition ("unless there are distinct advantages
-to having multiple ones"): the cases where projects split config, 
+to having multiple ones"): the cases where projects split config,
 secrets separation, per-vhost include files, machine-generated
 fragments: do not apply here. Secrets: usv has none in config (keys
 live as PEM files referenced by path, never inline). Per-vhost scale:

@@ -1,3 +1,11 @@
+---
+title: "Prior-Art Autopsy: Existing Gemini Servers"
+description: "Project: Unseen Servant (usv): Gemini server in Rust, targeting Cloudron deployment. Phase: 0, item 3. Date: 2026-08-09."
+type: explanation
+status: decided
+last_verified: 2026-08-11
+---
+
 # Prior-Art Autopsy: Existing Gemini Servers
 
 **Project:** Unseen Servant (`usv`): Gemini server in Rust, targeting Cloudron deployment.
@@ -21,6 +29,7 @@ A Cloudron-specific data point: a 2021-2022 Cloudron forum thread requested a mo
 **Maintenance status (2026):** Actively maintained. Latest release 3.3.22 on 2026-04-19 (security fix: escaping URLs in log output). Repo pushed 2026-08-03; 743 stars; 7 open issues. Most releases are dependency bumps: this is what a finished project looks like. Dual-licensed Apache-2.0/MIT.
 
 **Certificate lifecycle (study this closely, it is the best in class):**
+
 - On first run, Agate auto-generates a self-signed certificate and key for each configured hostname. No manual OpenSSL invocation, no setup step.
 - Expiry date is set to **4096-01-01**: effectively never, which is correct under Gemini's TOFU (trust-on-first-use) model where CA-style expiry adds churn without security.
 - Keys are **ECDSA** (it also accepts user-supplied RSA/Ed25519), stored in **DER** format (X.509), with PEM conversion documented for users bringing their own certs.
@@ -31,6 +40,7 @@ A Cloudron-specific data point: a 2021-2022 Cloudron forum thread requested a mo
 **What users ask for (issue tracker):** man pages (#425); SIGINT/SIGTERM handling in Docker (#418: container signal handling matters); directory listing refinements (#417); SNI behavior with I2P (#409); Spartan protocol support (#385, refused: scope policy holds); TLS certificate reload without restart (#412); custom certificate handling and auto-generated cert file permissions (#404, #414); migration off `ring` when its maintenance wavered (#377). Old closed issue #35 asked for CGI: refused. The dominant themes are **certificate management ergonomics and container behavior**, not features.
 
 **Adopt:**
+
 - The entire certificate lifecycle: auto-generate ECDSA per hostname on first run, expiry 4096-01-01, per-hostname cert subdirectories, accept user-supplied certs in the same slots.
 - Sidecar metadata files (`.meta`-style) for MIME overrides and per-path status presets.
 - The "dependency-bumps-are-the-changelog" maintenance posture as the long-term goal.
@@ -38,6 +48,7 @@ A Cloudron-specific data point: a 2021-2022 Cloudron forum thread requested a mo
 - Certificate/key file permission hygiene (0600) at generation time.
 
 **Refuse:**
+
 - CLI-flags-only configuration. Cloudron packaging wants a config file (or env-var) surface; flags-only makes the Dockerfile the config file.
 - The DER-only default. PEM is what every other tool produces; accept both.
 - Its refusal of dynamic content is right for Agate but Unseen Servant should decide CGI/SCGI on its own merits (see gmid/Molly Brown).
@@ -49,6 +60,7 @@ A Cloudron-specific data point: a 2021-2022 Cloudron forum thread requested a mo
 **Maintenance status (2026):** Very active. Latest release 2.1.1 (2024-08); commits through **August 2026** (punycode overflow checks, imsg API updates, sandbox improvements). Packaged in many distros. Hosted at Codeberg (op/gmid) with mirrors; releases are signify-signed.
 
 **Privilege-separated process design:** Four processes communicating over OpenBSD-style `imsg` framed pipes:
+
 - **main**: retains privileges; loads TLS certificates, handles config reload (SIGHUP) and log rotation (SIGUSR1), forks the others.
 - **logger**: the only process that touches syslog/log files.
 - **server**: accepts connections, parses requests, does FastCGI/proxying; sandboxed (pledge/unveil on OpenBSD; historically capsicum/seccomp/landlock elsewhere, dropped in 2.0 in favor of a simpler model).
@@ -65,6 +77,7 @@ A Cloudron-specific data point: a 2021-2022 Cloudron forum thread requested a mo
 **What users asked for over its history (ChangeLog archaeology):** the evolution ran CLI-flags → config file → location blocks → vhosts → macros/includes; CGI → FastCGI (CGI was removed in favor of FastCGI); proxy-protocol v1 for load-balancer fronting; IPv6 in proxy configs; OCSP stapling; EC key generation; automatic certificate renewal; per-location logging control; syslog facility selection; NUL-byte and path-validation hardening. This is the demand curve Unseen Servant will face if it succeeds.
 
 **Adopt:**
+
 - The regress-suite discipline: end-to-end tests that run the real binary against real sockets, in-tree, from day one.
 - Config semantics: named server blocks, location matching, sane defaults; SIGHUP reload of config + certs without socket drop.
 - FastCGI/SCGI as *the* dynamic-content escape hatch (rather than in-process CGI), if dynamic content is in scope at all.
@@ -72,6 +85,7 @@ A Cloudron-specific data point: a 2021-2022 Cloudron forum thread requested a mo
 - The logger/crypto boundaries re-expressed as Rust module/task boundaries as described above.
 
 **Refuse:**
+
 - Multi-process privsep and imsg. Wrong tool inside a container; single tokio process.
 - A yacc-grade custom config grammar. Use an existing serde format (TOML) with gmid's *semantics*, not its parser.
 - proxy-protocol, OCSP stapling, and reverse-proxying in v1: these are gmid's year-five features, not phase-one features.
@@ -83,6 +97,7 @@ A Cloudron-specific data point: a 2021-2022 Cloudron forum thread requested a mo
 **Maintenance status (2026):** Alive at low simmer. Latest pseudo-version published 2026-05-25 (per pkg.go.dev). Primary repo tildegit.org/solderpunk/molly-brown (behind Anubis anti-scraper; mirrors exist at LukeEmmet/molly-brown and others).
 
 **Feature set:**
+
 - TOML config (`/etc/molly.conf`): port, hostname, cert/key paths, docroot, log paths, default language, MIME defaults.
 - `~username` URL support (its pubnix heritage).
 - Auto directory listings with sort options (name/size/time), option to use first `# heading` of a .gmi file as its display name, and **`.mollyhead`** files providing a custom header block prepended to generated listings.
@@ -97,6 +112,7 @@ A Cloudron-specific data point: a 2021-2022 Cloudron forum thread requested a mo
 **What users ask for:** virtual hosting (documented as planned/absent: the one structural gap vs. Agate/gmid); the ecosystem's forks (LukeEmmet, raingloom, tallship, idiomdrottning) mostly carry small patches, indicating the core is considered done.
 
 **Adopt:**
+
 - Certificate zones exactly as designed: path-scoped SHA256 fingerprint allowlists → status 60/61.
 - Regex redirects with capture groups (30/31).
 - The whitelist model for any per-directory override file (never let content-tree files change listen addresses, docroots, or cert paths).
@@ -104,6 +120,7 @@ A Cloudron-specific data point: a 2021-2022 Cloudron forum thread requested a mo
 - CGI's 10-second hard timeout if CGI is ever implemented; prefer SCGI/FastCGI as Molly Brown itself hints.
 
 **Refuse:**
+
 - `~username` expansion and world-readable-bit semantics: pubnix concerns, meaningless in a single-tenant Cloudron container.
 - In-process CGI as a v1 feature (its own README flags the security caveat: CGI runs as the server user).
 - Its lack of vhosts; Unseen Servant should have Agate-style multi-hostname support from the start because Cloudron apps can have aliases.
@@ -175,6 +192,7 @@ A Cloudron-specific data point: a 2021-2022 Cloudron forum thread requested a mo
 27. **URLDotEscape**: `/../`-style traversal above docroot → any 5x permanent failure.
 
 **Known gaps (from its tracker and by inspection), Unseen Servant's own test suite must cover these beyond the diagnostics gate:**
+
 - **URLDotEscape has a false negative** (open issue #13): passing it does not prove traversal safety; fuzz percent-encoded (`%2e%2e`, `%2f`), double-encoded, backslash, and NUL-injected paths separately.
 - No client-certificate tests at all: nothing exercises status 60/61/62 flows, cert-zone gating, or expired/malformed client certs.
 - No redirect-chain, status-1x (input), 44 (slow down), or 4x-transient testing.
@@ -205,26 +223,26 @@ A Cloudron-specific data point: a 2021-2022 Cloudron forum thread requested a mo
 
 All URLs accessed 2026-08-09.
 
-- https://github.com/mbrubeck/agate: Agate README (features, cert lifecycle, non-goals). Repo pushed 2026-08-03; not archived; 743 stars; 7 open issues.
-- https://github.com/mbrubeck/agate/blob/master/CHANGELOG.md: release history; latest 3.3.22, 2026-04-19.
-- https://github.com/mbrubeck/agate/issues?q=is%3Aissue: user demand themes (certs, Docker signals, Spartan refusal).
-- https://gmid.omarpolo.com/: gmid homepage; version 2.1.1; bundled gg/gemexp/titan tools.
-- https://codeberg.org/op/gmid: gmid repo; privsep architecture (main/logger/server/crypto over imsg); `make regress` on ports 10965-10966; commits through August 2026.
-- https://codeberg.org/op/gmid/raw/branch/master/ChangeLog: feature-evolution history (2.0 2024-01, 2.1/2.1.1 2024-08; FastCGI, proxy-protocol, OCSP, cert auto-renewal).
-- https://tildegit.org/solderpunk/molly-brown: canonical repo (fetch blocked by Anubis anti-scraper on access date).
-- https://github.com/LukeEmmet/molly-brown/blob/master/README.md: Molly Brown feature detail (.molly whitelist, .mollyhead, CGI/SCGI, certificate zones, redirects).
-- https://pkg.go.dev/tildegit.org/solderpunk/molly-brown: latest pseudo-version published 2026-05-25; BSD-2-Clause; single TOML dependency; pledge/unveil on OpenBSD.
-- https://forum.cloudron.io/topic/5827/molly-brown-gemini-project-on-cloudron: unfulfilled Cloudron packaging request; identified hurdles list.
-- https://codeberg.org/tslocum/twins: twins repo; last commit 2025-11-20; YAML per-path config; CONFIGURATION.md / PROPOSALS.md.
-- https://codeberg.org/tslocum/twins/issues/18: proxy body-truncation bug (evidence against v1 proxying).
-- https://github.com/michael-lazar/jetforce: Jetforce; Twisted; JetforceApplication routing; pushed 2026-02-09; 217 stars; Floodgap license.
-- https://github.com/michael-lazar/gemini-diagnostics: torture-test repo; pushed 2022-07-22; 27 stars; 3 open issues.
-- https://raw.githubusercontent.com/michael-lazar/gemini-diagnostics/master/gemini-diagnostics: source of the 27 enumerated checks.
-- https://api.github.com/repos/… (agate, jetforce, gemini-diagnostics): pushed_at/archived/stars metadata, queried 2026-08-09.
-- https://crates.io/api/v1/crates/{titanite,northstar,windmark,twinstar,gemserv}, crate metadata: titanite 0.3.2 (2025-02-24); windmark 0.7.0 (2026-05-29); twinstar 0.4.0 (2022-05-02); gemserv 0.6.6 (2022-02-18); `northstar` crate name now an unrelated container runtime. `gemax` returns "does not exist."
-- https://github.com/YGGverse/titanite: titanite repo; "Project in development!"; ~37 commits; no releases.
-- https://github.com/ninedraft/gemax: gemax is a Go library, not Rust.
-- https://github.com/gemrest/windmark: windmark repo; rossweisse macro router; tokio/async-std; ~257 commits; 15 stars.
-- https://sr.ht/~int80h/gemserv/, gemserv upstream (unmaintained since 2022; forks: GreatWizard/gemserv, calacuda/gemserv).
-- https://github.com/kr1sp1n/awesome-gemini: ecosystem index used for cross-checking server list.
-- https://john.dev/posts/2020-11-02-gemini-dianostics.html: third-party account of running gemini-diagnostics (false-positive caveats).
+- <https://github.com/mbrubeck/agate>: Agate README (features, cert lifecycle, non-goals). Repo pushed 2026-08-03; not archived; 743 stars; 7 open issues.
+- <https://github.com/mbrubeck/agate/blob/master/CHANGELOG.md>: release history; latest 3.3.22, 2026-04-19.
+- <https://github.com/mbrubeck/agate/issues?q=is%3Aissue>: user demand themes (certs, Docker signals, Spartan refusal).
+- <https://gmid.omarpolo.com/>: gmid homepage; version 2.1.1; bundled gg/gemexp/titan tools.
+- <https://codeberg.org/op/gmid>: gmid repo; privsep architecture (main/logger/server/crypto over imsg); `make regress` on ports 10965-10966; commits through August 2026.
+- <https://codeberg.org/op/gmid/raw/branch/master/ChangeLog>: feature-evolution history (2.0 2024-01, 2.1/2.1.1 2024-08; FastCGI, proxy-protocol, OCSP, cert auto-renewal).
+- <https://tildegit.org/solderpunk/molly-brown>: canonical repo (fetch blocked by Anubis anti-scraper on access date).
+- <https://github.com/LukeEmmet/molly-brown/blob/master/README.md>: Molly Brown feature detail (.molly whitelist, .mollyhead, CGI/SCGI, certificate zones, redirects).
+- <https://pkg.go.dev/tildegit.org/solderpunk/molly-brown>: latest pseudo-version published 2026-05-25; BSD-2-Clause; single TOML dependency; pledge/unveil on OpenBSD.
+- <https://forum.cloudron.io/topic/5827/molly-brown-gemini-project-on-cloudron>: unfulfilled Cloudron packaging request; identified hurdles list.
+- <https://codeberg.org/tslocum/twins>: twins repo; last commit 2025-11-20; YAML per-path config; CONFIGURATION.md / PROPOSALS.md.
+- <https://codeberg.org/tslocum/twins/issues/18>: proxy body-truncation bug (evidence against v1 proxying).
+- <https://github.com/michael-lazar/jetforce>: Jetforce; Twisted; JetforceApplication routing; pushed 2026-02-09; 217 stars; Floodgap license.
+- <https://github.com/michael-lazar/gemini-diagnostics>: torture-test repo; pushed 2022-07-22; 27 stars; 3 open issues.
+- <https://raw.githubusercontent.com/michael-lazar/gemini-diagnostics/master/gemini-diagnostics>: source of the 27 enumerated checks.
+- <https://api.github.com/repos/…> (agate, jetforce, gemini-diagnostics): pushed_at/archived/stars metadata, queried 2026-08-09.
+- <https://crates.io/api/v1/crates/{titanite,northstar,windmark,twinstar,gemserv}>, crate metadata: titanite 0.3.2 (2025-02-24); windmark 0.7.0 (2026-05-29); twinstar 0.4.0 (2022-05-02); gemserv 0.6.6 (2022-02-18); `northstar` crate name now an unrelated container runtime. `gemax` returns "does not exist."
+- <https://github.com/YGGverse/titanite>: titanite repo; "Project in development!"; ~37 commits; no releases.
+- <https://github.com/ninedraft/gemax>: gemax is a Go library, not Rust.
+- <https://github.com/gemrest/windmark>: windmark repo; rossweisse macro router; tokio/async-std; ~257 commits; 15 stars.
+- <https://sr.ht/~int80h/gemserv/>, gemserv upstream (unmaintained since 2022; forks: GreatWizard/gemserv, calacuda/gemserv).
+- <https://github.com/kr1sp1n/awesome-gemini>: ecosystem index used for cross-checking server list.
+- <https://john.dev/posts/2020-11-02-gemini-dianostics.html>: third-party account of running gemini-diagnostics (false-positive caveats).

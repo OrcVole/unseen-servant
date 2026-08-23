@@ -1,3 +1,11 @@
+---
+title: "Internal working papers"
+description: "Not documentation. This is the project's own material: the research it was designed from, the plans it was built to, and drafts that have not been posted. It is kept in the repository."
+type: explanation
+status: decided
+last_verified: 2026-08-11
+---
+
 # Internal working papers
 
 Not documentation. This is the project's own material: the research it

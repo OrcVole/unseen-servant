@@ -1,3 +1,11 @@
+---
+title: "Smolnet protocols: implementation recon for gopher, Spartan, and Nex"
+description: "Date: 2026-08-09. Status: research complete; supersedes the shallow treatment in ecosystem.md §3 (whose 'ignore' verdict predates the director's decision to schedule these protocols as."
+type: explanation
+status: decided
+last_verified: 2026-08-11
+---
+
 # Smolnet protocols: implementation recon for gopher, Spartan, and Nex
 
 **Date:** 2026-08-09. **Status:** research complete; supersedes the shallow treatment in `ecosystem.md` §3 (whose "ignore" verdict predates the director's decision to schedule these protocols as optional, off-by-default listeners over the same content tree).
@@ -10,7 +18,7 @@
 
 ### 1.1 Wire format (RFC 1436 + modern practice)
 
-**Request.** Client connects (canonical port 70, IANA-assigned) and sends a selector string terminated by CRLF. An empty selector requests the root menu. Selectors are opaque server-side identifiers (RFC max 255 bytes; usv should tolerate longer but bound at ~1 KiB and reject with a type-3 error). A type-7 search request appends `TAB query` to the selector. Gopher+ clients may append `TAB +` or `TAB !` to a selector; a Gopher0 server should strip anything from the first TAB onward (unless implementing type 7) and serve normally: this is what modern servers do. Some web browsers and scanners send `GET / HTTP/1.1` to port 70; gophernicus detects the `GET ` prefix and answers with an HTML pointer page: a nice-to-have, not a requirement.
+**Request.** Client connects (canonical port 70, IANA-assigned) and sends a selector string terminated by CRLF. An empty selector requests the root menu. Selectors are opaque server-side identifiers (RFC max 255 bytes; usv should tolerate longer but bound at ~1 KiB and reject with a type-3 error). A type-7 search request appends `TAB query` to the selector. Gopher+ clients may append `TAB +` or `TAB !` to a selector; a Gopher0 server should strip anything from the first TAB onward (unless implementing type 7) and serve normally: this is what modern servers do. Some web browsers and scanners send `GET / HTTP/1.1` to port 70; gophernicus detects the `GET` prefix and answers with an HTML pointer page: a nice-to-have, not a requirement.
 
 **Menu response.** A menu (directory) is a sequence of lines, each: one item-type character, then the display string, TAB, selector, TAB, hostname, TAB, port, CRLF. The response ends with a line containing a single `.` (the "Lastline") and the server closes the connection. Display strings should stay under ~70 characters: classic clients render in 80-column terminals.
 
@@ -38,14 +46,14 @@
 - Framing: read until CRLF (tolerate bare LF), enforce selector length cap and a read timeout (a few seconds: clients send immediately), write response, half-close, full close. No keep-alive, no pipelining. One request per connection, ever.
 - Path safety: selectors map to the gopher output tree; the same traversal-proof canonicalization usv already does for Gemini paths applies (reject `..`, NUL, absolute escapes). Selectors with spaces are legal and must round-trip.
 - Errors: gopher has no status codes. Any failure is a one-line type-3 menu: `3<message> TAB fake TAB (NULL) TAB 0` + CRLF + `.` CRLF. Map usv's internal not-found/forbidden/internal-error results all onto type-3 lines with distinct messages.
-- Serve `caps.txt`; answer `URL:` selectors with the HTML redirect page; strip gopher+ TAB suffixes; optionally answer `GET ` with an HTML pointer.
+- Serve `caps.txt`; answer `URL:` selectors with the HTML redirect page; strip gopher+ TAB suffixes; optionally answer `GET` with an HTML pointer.
 
 ### 1.3 Render requirements (gemtext → gopherspace)
 
 This is a full third render target ("gophermap generation"), parallel to the existing gemtext and HTML outputs, and pre-rendering into a static gopher tree fits usv's architecture better than on-the-fly conversion (deterministic output, serve path stays a dumb byte-pump, dot-stuffing applied at serve time for type-0 only).
 
 - **Every .gmi page becomes a type-1 menu**, not a type-0 text file: that is the only way its links stay clickable. Modern servers model this the same way: gophernicus renders a directory from a `gophermap` file (tab-format, `*` to append auto-listing, `!title`, comments); geomyidae from `index.gph` (its own `[type|text|selector|host|port]` bracket syntax, plus raw-tab passthrough); Bucktooth originated the tab-format `gophermap`; pygopherd additionally understands UMN `.Links`/`.cap` legacy formats. usv emits gophermap-equivalent *wire* menus directly (or gophernicus/geomyidae-compatible source files if we ever want interop with existing daemons, not needed for our own listener).
-- **Line mapping:** gemtext text lines → `i` lines wrapped at ≤70 columns; headings → `i` lines, optionally underlined with `=`/`-` `i`-lines (community style); list items → `i` lines with `- ` prefix preserved; quotes → `i` lines with `> `; preformatted blocks → `i` lines verbatim except TAB→spaces expansion and no wrapping (long lines are the author's problem, as in terminals).
+- **Line mapping:** gemtext text lines → `i` lines wrapped at ≤70 columns; headings → `i` lines, optionally underlined with `=`/`-` `i`-lines (community style); list items → `i` lines with `-` prefix preserved; quotes → `i` lines with `>`; preformatted blocks → `i` lines verbatim except TAB→spaces expansion and no wrapping (long lines are the author's problem, as in terminals).
 - **Link mapping:** gemtext's one-link-per-line design means no inline-link extraction is ever needed: each `=>` line becomes exactly one menu item. Relative/`gopher://` links to pages → type `1`; to plain text → `0`; to images → `g`/`I`; other binaries → `9`; links to `http(s)://`, `gemini://`, `spartan://`, `nex://`, etc. → `h` with `URL:` selector (the convention supports any absolute URL; Lagrange follows all of these natively). The link label becomes the display string (truncate ~70 cols).
 - **Trees and defaults:** directories map to menus; the source tree's index page becomes the directory's menu content. Extension→item-type mapping is a small static table alongside the existing MIME table.
 - Type-0 companion copies of articles (wrapped plain text) are optional; the menu-per-page model alone is standard practice for gemtext-to-gopher mirrors (cf. gopher proxies of geminispace).
@@ -101,7 +109,7 @@ Canonical spec: `nightfall.city/nex/info/specification.txt` (m15o); also mirrore
 
 - **Request:** the client sends a path (possibly empty) terminated by a newline; the server writes the response and closes. Explicitly telnet-compatible and stateless. No host field: **no virtual hosting**, same constraint as gopher.
 - **Response:** the document content, as-is. No status line, no MIME type, no termination marker beyond connection close. Content type is inferred by the client from the path extension; extensionless = plain text.
-- **Directory convention:** an empty path or a path ending in `/` is a directory. A directory listing is plain text in which any line beginning `=> ` followed by a URL (absolute `nex://...` or relative `about.txt`, `../nexlog/`) is a link: i.e., Nex reuses gemtext's link-line syntax inside plain text. No status codes exist; "not found" is by convention just a human-readable text response (and/or closing the connection).
+- **Directory convention:** an empty path or a path ending in `/` is a directory. A directory listing is plain text in which any line beginning `=>` followed by a URL (absolute `nex://...` or relative `about.txt`, `../nexlog/`) is a link: i.e., Nex reuses gemtext's link-line syntax inside plain text. No status codes exist; "not found" is by convention just a human-readable text response (and/or closing the connection).
 
 ### 3.2 Server requirements
 
@@ -196,32 +204,32 @@ For usv's docs: recommend operators announce on the mailing list + Bongusta (if 
 
 All accessed 2026-08-09. Where content is served natively over gopher/gemini/spartan/nex, the HTTPS mirror or proxy actually fetched is listed.
 
-- https://www.rfc-editor.org/rfc/rfc1436.txt: RFC 1436, gopher wire format, item types, Lastline, dot-stuffing, encoding rules.
-- https://raw.githubusercontent.com/gophernicus/gophernicus/master/README.gophermap, gophermap conventions: tab rules, field defaulting, `i` auto-typing, `h`+`URL:` links, gophernicus extensions (`!title`, `*`, `=`, `.` etc.).
-- https://github.com/gophernicus/gophernicus: gophernicus daemon (caps.txt auto-generation, filetype table incl. `i`, `d`, `s`).
-- http://r-36.net/scm/geomyidae/file/geomyidae.8.html, geomyidae manpage: `.gph` index files, `i`-prefixing of tabless lines, raw-tab passthrough, executable gph, TLS via sticky bit (via search).
-- https://gopher-project.alioth.debian.narkive.com/aTTl0Qdp/caps-txt-complete-syntax: caps.txt syntax discussion (CapsVersion, ExpireCapsAfter, PathDelimeter, ServerSoftware) on the gopher list (via search).
-- https://dataswamp.org/~solene/2019-03-07-gopher-server-tls.html and the community GoT draft discussed in search results, gopher-over-TLS: same-port detection (first-packet CRLF = plaintext, else TLS handshake, ALPN `gopher`), client fallback and caching; `gophers://` scheme in Lagrange (via search).
-- https://datatracker.ietf.org/doc/html/draft-matavka-gopher-ii-03: Gopher-II/caps context (historical; not adopted).
-- http://portal.mozz.us/spartan/spartan.mozz.us/specification.gmi, Spartan spec: request line `host SP path SP content-length CRLF`, data block, query-string-as-upload, statuses 2/3/4/5 with payload grammar, `=:` line, port 300, UTF-8 default.
-- https://github.com/michael-lazar/spartan, Spartan spec repo (canonical homes: gemini:// and spartan://spartan.mozz.us); 3 commits, stable/finished.
-- https://sr.ht/~hedy/spartan-py/, https://github.com/marty1885/spartoi, https://pypi.org/project/sybaritic/, https://jdcard.com/SpartanClients.gmi: Spartan libraries/clients (via search).
-- https://nightfall.city/nex/info/specification.txt, Nex spec: port 1900, path request, as-is response, `=> ` link lines, trailing-slash directories, extension-based typing.
-- https://nightfall.city/nex/in/m15o/ and https://nex.nightfall.city/classifieds/2025-11-15-050547.txt: nightfall.city/m15o activity through late 2025 (via search).
-- https://github.com/dimkr/guppy-protocol (index.gmi, guppy-spec.gmi), Guppy: UDP 6775, `guppy://`, TFTP-inspired, microcontroller goal; client/server implementations list (via search).
-- https://github.com/JCLemme/misfin and https://sr.ht/~lem/misfin/, Misfin spec: TLS client-cert identities (UID/CN/SAN), TOFU, 2048-char gemtext messages, Gemini-compatible statuses (via search).
-- https://gmi.skyjake.fi/gemlog/2024-09_lagrange-1.18.gmi, Lagrange 1.18: TUI + Misfin support (via search).
-- https://fuwn.me/x/gemini.circumlunar.space/~solderpunk/gemlog/the-mercury-protocol.gmi, Mercury: TLS-less Gemini thought experiment, 14 statuses, never productized (via search).
-- https://www.rfc-editor.org/rfc/rfc1288.html: Finger protocol, TCP 79, request grammar, .plan/.project.
-- http://scrollprotocol.us.to/software/profectus/ and https://pkg.go.dev/gitlab.com/clseibold/profectus, Scroll/Profectus status: beta 1.1, scroll+gemini+nex+spartan, single-author ecosystem (via search).
-- https://supertxt.net/ (whats-sshla.html, hosting.html), SuperTXT: SSH-layer content stack, command-oriented, WA-Nine (via search).
-- http://dbohdan.sdf.org/smolnet/, "Small Internet protocol roundup" survey page (direct fetch failed on access date: SDF vhost cert mismatch; cited as the reference survey via search snippets).
-- https://apps.apple.com/us/app/lagrange-smallnet-browser/id1554714615 and https://man.uex.se/1/lagrange, Lagrange protocol list: gemini, titan, gopher, finger, spartan, nex, misfin, guppy (via search).
-- https://bombadillo.colorfield.space/ and Debian manpage, Bombadillo: gopher, gemini, finger, local first-class (via search).
+- <https://www.rfc-editor.org/rfc/rfc1436.txt>: RFC 1436, gopher wire format, item types, Lastline, dot-stuffing, encoding rules.
+- <https://raw.githubusercontent.com/gophernicus/gophernicus/master/README.gophermap>, gophermap conventions: tab rules, field defaulting, `i` auto-typing, `h`+`URL:` links, gophernicus extensions (`!title`, `*`, `=`, `.` etc.).
+- <https://github.com/gophernicus/gophernicus>: gophernicus daemon (caps.txt auto-generation, filetype table incl. `i`, `d`, `s`).
+- <http://r-36.net/scm/geomyidae/file/geomyidae.8.html>, geomyidae manpage: `.gph` index files, `i`-prefixing of tabless lines, raw-tab passthrough, executable gph, TLS via sticky bit (via search).
+- <https://gopher-project.alioth.debian.narkive.com/aTTl0Qdp/caps-txt-complete-syntax>: caps.txt syntax discussion (CapsVersion, ExpireCapsAfter, PathDelimeter, ServerSoftware) on the gopher list (via search).
+- <https://dataswamp.org/~solene/2019-03-07-gopher-server-tls.html> and the community GoT draft discussed in search results, gopher-over-TLS: same-port detection (first-packet CRLF = plaintext, else TLS handshake, ALPN `gopher`), client fallback and caching; `gophers://` scheme in Lagrange (via search).
+- <https://datatracker.ietf.org/doc/html/draft-matavka-gopher-ii-03>: Gopher-II/caps context (historical; not adopted).
+- <http://portal.mozz.us/spartan/spartan.mozz.us/specification.gmi>, Spartan spec: request line `host SP path SP content-length CRLF`, data block, query-string-as-upload, statuses 2/3/4/5 with payload grammar, `=:` line, port 300, UTF-8 default.
+- <https://github.com/michael-lazar/spartan>, Spartan spec repo (canonical homes: gemini:// and spartan://spartan.mozz.us); 3 commits, stable/finished.
+- <https://sr.ht/~hedy/spartan-py/>, <https://github.com/marty1885/spartoi>, <https://pypi.org/project/sybaritic/>, <https://jdcard.com/SpartanClients.gmi>: Spartan libraries/clients (via search).
+- <https://nightfall.city/nex/info/specification.txt>, Nex spec: port 1900, path request, as-is response, `=>` link lines, trailing-slash directories, extension-based typing.
+- <https://nightfall.city/nex/in/m15o/> and <https://nex.nightfall.city/classifieds/2025-11-15-050547.txt>: nightfall.city/m15o activity through late 2025 (via search).
+- <https://github.com/dimkr/guppy-protocol> (index.gmi, guppy-spec.gmi), Guppy: UDP 6775, `guppy://`, TFTP-inspired, microcontroller goal; client/server implementations list (via search).
+- <https://github.com/JCLemme/misfin> and <https://sr.ht/~lem/misfin/>, Misfin spec: TLS client-cert identities (UID/CN/SAN), TOFU, 2048-char gemtext messages, Gemini-compatible statuses (via search).
+- <https://gmi.skyjake.fi/gemlog/2024-09_lagrange-1.18.gmi>, Lagrange 1.18: TUI + Misfin support (via search).
+- <https://fuwn.me/x/gemini.circumlunar.space/~solderpunk/gemlog/the-mercury-protocol.gmi>, Mercury: TLS-less Gemini thought experiment, 14 statuses, never productized (via search).
+- <https://www.rfc-editor.org/rfc/rfc1288.html>: Finger protocol, TCP 79, request grammar, .plan/.project.
+- <http://scrollprotocol.us.to/software/profectus/> and <https://pkg.go.dev/gitlab.com/clseibold/profectus>, Scroll/Profectus status: beta 1.1, scroll+gemini+nex+spartan, single-author ecosystem (via search).
+- <https://supertxt.net/> (whats-sshla.html, hosting.html), SuperTXT: SSH-layer content stack, command-oriented, WA-Nine (via search).
+- <http://dbohdan.sdf.org/smolnet/>, "Small Internet protocol roundup" survey page (direct fetch failed on access date: SDF vhost cert mismatch; cited as the reference survey via search snippets).
+- <https://apps.apple.com/us/app/lagrange-smallnet-browser/id1554714615> and <https://man.uex.se/1/lagrange>, Lagrange protocol list: gemini, titan, gopher, finger, spartan, nex, misfin, guppy (via search).
+- <https://bombadillo.colorfield.space/> and Debian manpage, Bombadillo: gopher, gemini, finger, local first-class (via search).
 - Offpunk protocol list (gemini, gopher, http/https, spartan, mailto, file): via awesome-gemini and project docs (via search).
-- https://codeberg.org/luxferre/BFG, BFG client: gopher, finger, nex, spartan, gemini (via search).
-- https://portal.mozz.us/about, Smolnet Portal history: gemini + gopher proxying, 2023 rename (via search).
-- https://lists.debian.org/gopher-project/ and https://gopher-project.alioth.debian.narkive.com/MsgvhbvV/gopher-mailing-list-moved: gopher mailing list current home and move history (via search).
-- https://alexschroeder.ch/view/2018-01-29_Bongusta, https://www.oddnugget.com/oddgopherpage/gopher.black:70/phlogs: Bongusta phlog aggregator and current phlog rolls referencing it (via search).
-- https://gopher.floodgap.com/overbite/: Overbite project and Floodgap ecosystem (Veronica-2, server lists) (via search).
-- https://communitywiki.org/static/SmolNet.html, https://kevinboone.me/web-adjacent.html, https://wiki.archiveteam.org/index.php/SmolNet: community definitions of the smolnet (finger+gopher+gemini) and guides (via search).
+- <https://codeberg.org/luxferre/BFG>, BFG client: gopher, finger, nex, spartan, gemini (via search).
+- <https://portal.mozz.us/about>, Smolnet Portal history: gemini + gopher proxying, 2023 rename (via search).
+- <https://lists.debian.org/gopher-project/> and <https://gopher-project.alioth.debian.narkive.com/MsgvhbvV/gopher-mailing-list-moved>: gopher mailing list current home and move history (via search).
+- <https://alexschroeder.ch/view/2018-01-29_Bongusta>, <https://www.oddnugget.com/oddgopherpage/gopher.black:70/phlogs>: Bongusta phlog aggregator and current phlog rolls referencing it (via search).
+- <https://gopher.floodgap.com/overbite/>: Overbite project and Floodgap ecosystem (Veronica-2, server lists) (via search).
+- <https://communitywiki.org/static/SmolNet.html>, <https://kevinboone.me/web-adjacent.html>, <https://wiki.archiveteam.org/index.php/SmolNet>: community definitions of the smolnet (finger+gopher+gemini) and guides (via search).

@@ -1,6 +1,6 @@
 # How usv compares
 
-**Unseen Servant**
+> Unseen Servant
 
 Geminispace already has good servers. Facts below come from each project's
 own docs and changelogs as of 2026-08; the research is in
@@ -68,7 +68,7 @@ platform, runs as a GmCapsule module.
 
 ## Choose something else when
 
-- **You want the simplest possible thing that will never grow a feature**, 
+- **You want the simplest possible thing that will never grow a feature**,
   **Agate**. usv will always have more moving parts.
 - **You need FastCGI, reverse proxying, or many vhosts with a real config
   language**: **gmid**. usv does no proxying at all.

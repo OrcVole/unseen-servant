@@ -1,3 +1,11 @@
+---
+title: "FOUNDATION BRIEF: Gemini server, AI-forward, Cloudron-native"
+description: "Codename: Unseen Servant (binary/package name: unseen-servant). > This brief was supplied by the human director (n) on 2026-08-09 and is > preserved here verbatim as the project's founding."
+type: explanation
+status: decided
+last_verified: 2026-08-11
+---
+
 # FOUNDATION BRIEF: Gemini server, AI-forward, Cloudron-native
 
 > Codename: **Unseen Servant** (binary/package name: `unseen-servant`).

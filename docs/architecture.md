@@ -1,6 +1,14 @@
+---
+title: "Architecture"
+description: "One content tree, rendered at write time to every surface, served as static files."
+type: reference
+status: decided
+last_verified: 2026-08-11
+---
+
 # Architecture
 
-**Unseen Servant**
+> Unseen Servant
 
 ## The one idea
 
@@ -11,7 +19,7 @@ Almost everything else follows. A gemtext file changes; a debounced watcher
 notices; the whole tree is re-rendered into a staging directory and swapped
 atomically; Gemini clients and the web mirror both read the result. There is
 no per-request conversion, so there is no request-time code path to attack,
-nothing to cache-invalidate, and the rendered tree is portable on its own, 
+nothing to cache-invalidate, and the rendered tree is portable on its own,
 `usv export` hands you a folder that works with no server behind it (which
 is what makes an OnionShare mirror trivial).
 
@@ -21,7 +29,7 @@ opposite deliberately.
 
 ## Shape
 
-```
+```text
                     ┌─ gemtext ─→ Gemini clients (1965, own TLS)
 content/*.gmi ─→ render ─┤
                     └─ HTML/Atom/gemsub/sitemap/llms.txt ─→ web mirror

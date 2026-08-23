@@ -1,6 +1,14 @@
+---
+title: "What we learned from the other servers"
+description: "Usv is not a first attempt at this problem. Every small network already has a server that solved something well, and the design started by reading them rather than by starting from scratch.."
+type: explanation
+status: decided
+last_verified: 2026-08-11
+---
+
 # What we learned from the other servers
 
-**Unseen Servant**
+> Unseen Servant
 
 `usv` is not a first attempt at this problem. Every small network already
 has a server that solved something well, and the design started by reading
@@ -143,7 +151,7 @@ it converts gemtext to HTML per request.
 **Taken:** the idea that one content tree can honestly serve two audiences.
 
 **Declined:** doing the conversion per request. `usv` renders the whole tree
-at write time instead, which makes the web mirror trivially cacheable and, 
+at write time instead, which makes the web mirror trivially cacheable and,
 the part that matters: makes the rendered output a portable folder that
 works with no server behind it at all. That is what `usv export` hands you.
 

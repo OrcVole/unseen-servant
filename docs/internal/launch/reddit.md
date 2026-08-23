@@ -1,3 +1,11 @@
+---
+title: "Reddit"
+description: "DRAFT, not posted. r/geminiprotocol (and possibly r/selfhosted for the packaging angle, which is a different post: see the bottom)."
+type: reference
+status: decided
+last_verified: 2026-08-11
+---
+
 DRAFT, not posted. r/geminiprotocol (and possibly r/selfhosted for the
 packaging angle, which is a different post: see the bottom).
 

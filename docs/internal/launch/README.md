@@ -1,3 +1,11 @@
+---
+title: "Launch pack"
+description: "Drafts for the announcement wave (docs/internal/ROADMAP.md M6). Nothing here has been posted, and nothing here may be posted without the director saying so. These are copy held in escrow,."
+type: reference
+status: decided
+last_verified: 2026-08-11
+---
+
 # Launch pack
 
 Drafts for the announcement wave (`docs/internal/ROADMAP.md` M6). **Nothing here
@@ -33,7 +41,7 @@ checked, cut it.
 
 ### When v1.1 lands
 
-If the announcement waits for Gopher (the director's stated hope, 
+If the announcement waits for Gopher (the director's stated hope,
 "supporting gopher etc when we eventually release"), then at that point:
 update `../protocols.md` **first**, re-run this gate, and only then edit
 the drafts. The protocol table is the authority; the drafts follow it.
@@ -51,7 +59,7 @@ small, opinionated, and values craft and human scale.
 the short posts. Two reasons, one principled and one practical: people
 are entitled to that information before they run it on their server, and
 being upfront invites a fair argument whereas being *discovered* later
-converts a disagreement about tooling into a question about honesty, 
+converts a disagreement about tooling into a question about honesty,
 which is unrecoverable.
 
 Do not argue the point in the announcement. State it plainly, link the

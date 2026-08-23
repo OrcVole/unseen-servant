@@ -1,3 +1,11 @@
+---
+title: "ADR 0008: Deployment profiles: Cloudron is a target, not a dependency"
+description: "The core binary usv is a general-purpose Gemini server with no knowledge of Cloudron baked into its defaults."
+type: explanation
+status: decided
+last_verified: 2026-08-11
+---
+
 # ADR 0008: Deployment profiles: Cloudron is a target, not a dependency
 
 - Status: Accepted (director-directed, 2026-08-09)
@@ -33,7 +41,7 @@ same binary.
   capsule.
 - **Cloudron profile**: `CloudronManifest.json`, `Dockerfile`,
   `start.sh`, and a shipped `usv.toml` mapping the platform contract
-  (cloudron-fit.md's hard-constraints checklist) onto core knobs, 
+  (cloudron-fit.md's hard-constraints checklist) onto core knobs,
   /app/data paths, `GEMINI_PORT` handling including the
   disabled-port case, HTTP surface **on** (tile + health check),
   `exec gosu` handoff. The profile contains no logic the core lacks;

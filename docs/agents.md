@@ -1,6 +1,14 @@
+---
+title: "Agents"
+description: "Usv treats an AI agent as an ordinary user of the capsule, not as a crawler to be managed. Everything below is on by default, addressable by URL (uniform resource locator), and identical to."
+type: reference
+status: decided
+last_verified: 2026-08-11
+---
+
 # Agents
 
-**Unseen Servant**
+> Unseen Servant
 
 `usv` treats an AI agent as an ordinary user of the capsule, not as a
 crawler to be managed. Everything below is on by default, addressable by URL
@@ -110,7 +118,7 @@ window, so you can enroll a new key and prove control from the old one
 without losing the label or its capabilities. The window must carry an
 expiry date; it closes itself.
 
-**Capabilities** are server-wide grants that compose with zone membership, 
+**Capabilities** are server-wide grants that compose with zone membership,
 both are required. There are three: `read`, `titan-write`, `admin`.
 
 ## Operating a server

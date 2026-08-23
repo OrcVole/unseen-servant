@@ -1,3 +1,11 @@
+---
+title: "Smolnet community wisdom: interaction, theming, and feature culture"
+description: "Date: 2026-08-09. Status: research complete. Feeds the planned 'responses' feature (likes + visitor messages on gemlog posts), theme support, and the general feature roadmap."
+type: explanation
+status: decided
+last_verified: 2026-08-11
+---
+
 # Smolnet community wisdom: interaction, theming, and feature culture
 
 **Date:** 2026-08-09. **Status:** research complete. Feeds the planned
@@ -42,7 +50,7 @@ github.com/michael-lazar/astrobotany.
 **Identity.** One TLS client certificate = one account. Registration is
 two routes: `/app/register-new` (asks for a username via status 10 INPUT;
 rate-limited to 2 registrations per 4 hours) and `/app/register-existing`
-(links an additional cert to an account via username + password prompts, 
+(links an additional cert to an account via username + password prompts,
 status 10 INPUT then 11 SENSITIVE INPUT). Users can list and revoke linked
 certs under `/app/settings/certificates`. Everything under `/app/`
 requires the cert; a `/public/[user_id]` view exposes any plant
@@ -82,7 +90,7 @@ color". A paginated public message board (delete-your-own within 24 h), a
 private postcard mailbox with item attachments, badges worn before your
 username, CSV leaderboards, even a per-plant step sequencer
 (`/app/synth`) that renders your plant's song to OGG. The User model has
-a `karma` field, but no earning mechanism is visible in the models file, 
+a `karma` field, but no earning mechanism is visible in the models file,
 **unverified**: community lore says petting/watering others raised karma;
 treat the exact mechanism as unconfirmed.
 
@@ -126,7 +134,7 @@ capsules with their own response channels over one big forum.
 ### 1.3 Gemlog reply culture: "Re:", Antenna, mentions
 
 - **The "Re:" convention.** The native comment system of Geminispace: you
-  reply to a gemlog post by publishing "Re: <post title>" *on your own
+  reply to a gemlog post by publishing "Re: `<post title>`" *on your own
   capsule* and letting discovery do the rest. Replies are first-class
   posts: signed, owned, moderated by their author.
 - **Antenna** (gemini://warmedal.se/~antenna/, Björn Wärmedal) is the
@@ -142,7 +150,7 @@ capsules with their own response channels over one big forum.
   to the mentioned post before accepting (the linkback check is the spam
   gate). Proof-of-concept in <100 lines of bash; a Go implementation
   (GGM) exists. Adoption stayed niche: discussion on the mailing list
-  (2023-01) raised spam/abuse concerns and it never became universal, 
+  (2023-01) raised spam/abuse concerns and it never became universal,
   but it is the community's considered design for "notify the author
   without hosting the comment."
 - **bacardi55's position** (bacardi55.io, "No interactions / UGC to see
@@ -353,7 +361,7 @@ Geminispace lives entirely in the *content stream*:
   convention on a single page.
 - **Server-side theme help is meaningfully wanted at the *template*
   level**: static-site generators for Gemini (kiln, gloggery, bore for
-  gopher) exist because people want consistent headers/footers/indexes, 
+  gopher) exist because people want consistent headers/footers/indexes,
   i.e., the demand is for templating and partials (mastheads, footers,
   feed/index generation), not for presentation control. usv themes
   should therefore be: gemtext template sets + matching HTML/CSS for the
@@ -385,7 +393,7 @@ practice distills to:
   stand alone (gemtext link labels already satisfy this).
 - No layout tables; data tables only, with `<th>` and `<caption>`
   (w3m renders tables well, lynx linearizes them).
-- Forms: plain `<label>` + `<input>`/`<textarea>` + submit button, 
+- Forms: plain `<label>` + `<input>`/`<textarea>` + submit button,
   lynx and w3m handle basic forms fine, which is exactly what the
   responses POST form needs. No JS requirement anywhere; `<noscript>`
   irrelevant because there is no script.
@@ -421,43 +429,49 @@ practice distills to:
 ## Sources (all accessed 2026-08-09)
 
 Interaction platforms:
-- https://github.com/michael-lazar/astrobotany (+ raw `src/astrobotany/views.py`, `src/astrobotany/models.py`: route and mechanics detail)
-- https://astrobotany.mozz.us/ (landing page)
-- https://martinrue.com/station/
-- https://git.skyjake.fi/gemini/bubble ; https://gmi.skyjake.fi/bubble/ ; skyjake's Bubble announcement/retrospective posts (gmi.skyjake.fi; one-year retrospective seen only as headline: user-count claims omitted)
-- https://github.com/makew0rld/gemlikes (archived)
+
+- <https://github.com/michael-lazar/astrobotany> (+ raw `src/astrobotany/views.py`, `src/astrobotany/models.py`: route and mechanics detail)
+- <https://astrobotany.mozz.us/> (landing page)
+- <https://martinrue.com/station/>
+- <https://git.skyjake.fi/gemini/bubble> ; <https://gmi.skyjake.fi/bubble/> ; skyjake's Bubble announcement/retrospective posts (gmi.skyjake.fi; one-year retrospective seen only as headline: user-count claims omitted)
+- <https://github.com/makew0rld/gemlikes> (archived)
 
 Reply/mention culture:
-- https://bacardi55.io/2024/03/01/no-interactions-/-ugc-to-see-here/
-- https://codeberg.org/bacardi55/gemini-mentions-rfc
-- https://bacardi55.io/gemlog/ (post index; mentions-discussion posts 2023-01)
-- https://warmedal.se/~bjorn/posts/announcing-antenna.html (fetch failed this session; Antenna mechanics corroborated via lemmy.ml/post/86236, smallweb.space gemlog posts, and awesome-gemini)
-- https://sr.ht/~lem/misfin/ ; https://github.com/JCLemme/misfin ; https://pkg.go.dev/gitlab.com/clseibold/misfin-server
-- https://gmi.skyjake.fi/gemlog/2024-09_lagrange-1.18.gmi (Lagrange 1.18: TUI + misfin; gemini-only, details corroborated via codeberg.org/skyjake/lagrange README and search snippets)
+
+- <https://bacardi55.io/2024/03/01/no-interactions-/-ugc-to-see-here/>
+- <https://codeberg.org/bacardi55/gemini-mentions-rfc>
+- <https://bacardi55.io/gemlog/> (post index; mentions-discussion posts 2023-01)
+- <https://warmedal.se/~bjorn/posts/announcing-antenna.html> (fetch failed this session; Antenna mechanics corroborated via lemmy.ml/post/86236, smallweb.space gemlog posts, and awesome-gemini)
+- <https://sr.ht/~lem/misfin/> ; <https://github.com/JCLemme/misfin> ; <https://pkg.go.dev/gitlab.com/clseibold/misfin-server>
+- <https://gmi.skyjake.fi/gemlog/2024-09_lagrange-1.18.gmi> (Lagrange 1.18: TUI + misfin; gemini-only, details corroborated via codeberg.org/skyjake/lagrange README and search snippets)
 
 Web comments / anti-spam:
-- https://deployn.de/en/blog/self-hosted-comment-systems/
-- https://www.oopspam.com/blog/open-source-comment-systems-their-anti-spam-capabilities
-- https://theorangeone.net/posts/commenting-with-comentario/
-- https://remark42.com/
-- https://vibecodingwithfred.com/blog/honeypot-spam-protection ; https://kiwee.eu/blog/stop-form-spam-robots-honeypot/
+
+- <https://deployn.de/en/blog/self-hosted-comment-systems/>
+- <https://www.oopspam.com/blog/open-source-comment-systems-their-anti-spam-capabilities>
+- <https://theorangeone.net/posts/commenting-with-comentario/>
+- <https://remark42.com/>
+- <https://vibecodingwithfred.com/blog/honeypot-spam-protection> ; <https://kiwee.eu/blog/stop-form-spam-robots-honeypot/>
 
 Community/ecosystem:
-- https://github.com/kr1sp1n/awesome-gemini
-- https://news.ycombinator.com/item?id=44578143 ("Six Years of Gemini")
-- https://news.ycombinator.com/item?id=23287267 (Astrobotany HN thread: rate-limited this session, not summarized; cited for existence only)
-- https://indieweb.org/Gemini_protocol ; https://www.glukhov.org/post/2025/10/gemini-protocol/ (capsule counts, ecosystem stats)
-- http://techrights.org/o/2022/01/29/privacy-in-geminispace/ (logging norms)
-- https://www.freshports.org/net/gmid/ ; https://gmi.skyjake.fi/gmcapsule/
+
+- <https://github.com/kr1sp1n/awesome-gemini>
+- <https://news.ycombinator.com/item?id=44578143> ("Six Years of Gemini")
+- <https://news.ycombinator.com/item?id=23287267> (Astrobotany HN thread: rate-limited this session, not summarized; cited for existence only)
+- <https://indieweb.org/Gemini_protocol> ; <https://www.glukhov.org/post/2025/10/gemini-protocol/> (capsule counts, ecosystem stats)
+- <http://techrights.org/o/2022/01/29/privacy-in-geminispace/> (logging norms)
+- <https://www.freshports.org/net/gmid/> ; <https://gmi.skyjake.fi/gmcapsule/>
 
 Theming / text-browser HTML:
-- https://smolweb.org/ and https://smolweb.org/specs/
-- https://geminiprotocol.net/docs/gemtext-specification.gmi ; https://geminiprotocol.net/docs/gemtext.gmi
-- https://github.com/someodd/bore ; https://github.com/gophernicus/gophernicus (gophermap/banner conventions; gopher.zone unreachable this session: 67-column banner rule via search excerpt of gopher.zone/how-to-gophermap/)
+
+- <https://smolweb.org/> and <https://smolweb.org/specs/>
+- <https://geminiprotocol.net/docs/gemtext-specification.gmi> ; <https://geminiprotocol.net/docs/gemtext.gmi>
+- <https://github.com/someodd/bore> ; <https://github.com/gophernicus/gophernicus> (gophermap/banner conventions; gopher.zone unreachable this session: 67-column banner rule via search excerpt of gopher.zone/how-to-gophermap/)
 
 TUI:
-- https://github.com/bacardi55/gtl
-- https://codeberg.org/skyjake/lagrange (clagrange/SEALCurses build notes)
+
+- <https://github.com/bacardi55/gtl>
+- <https://codeberg.org/skyjake/lagrange> (clagrange/SEALCurses build notes)
 
 **Unverified/marked claims:** Astrobotany karma-earning mechanism (field
 exists, mechanism not found in models.py); Bubble one-year user numbers

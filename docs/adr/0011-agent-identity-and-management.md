@@ -1,3 +1,11 @@
+---
+title: "ADR 0011: Agent identity lifecycle, management reach, and the HTTP agent surface"
+description: "### 1. Upgrade the cert allowlist to a named identity roster."
+type: explanation
+status: decided
+last_verified: 2026-08-11
+---
+
 # ADR 0011: Agent identity lifecycle, management reach, and the HTTP agent surface
 
 - Status: **Proposed** (director-decided 2026-08-10; awaiting review)

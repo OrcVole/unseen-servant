@@ -1,3 +1,11 @@
+---
+title: "Arch Linux (AUR)"
+description: "Not published to the AUR yet (pre-release). The PKGBUILD lives at packaging/aur/PKGBUILD and can be built directly:."
+type: howto
+status: decided
+last_verified: 2026-08-11
+---
+
 # Arch Linux (AUR)
 
 **Not published to the AUR yet** (pre-release). The `PKGBUILD` lives at

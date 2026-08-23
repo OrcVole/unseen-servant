@@ -1,3 +1,11 @@
+---
+title: "Recon: the agentic web, mapped to Unseen Servant"
+description: "Completed 2026-08-09. Design reconnaissance commissioned by the director's question: why might AI agents want to use or run usv, what could help with agent identity, and what would they."
+type: explanation
+status: decided
+last_verified: 2026-08-11
+---
+
 # Recon: the agentic web, mapped to Unseen Servant
 
 **Completed 2026-08-09.** Design reconnaissance commissioned by the
@@ -23,11 +31,11 @@ retrofitting, onto HTTP, three primitives usv already has natively.**
    effort are all converging on *the private-key holder is the actor*
    and *drop the CA hierarchy*. TOFU is now explicitly endorsed by the
    Non-Human-Identity community as a valid bootstrap for ephemeral
-   callers. usv's client-cert fingerprint model **is** that primitive, 
+   callers. usv's client-cert fingerprint model **is** that primitive,
    native and mandatory since day one, where HTTP has to bolt it on.
-   (https://blog.cloudflare.com/web-bot-auth/ ·
-   https://www.rfc-editor.org/rfc/rfc9421.html · https://openagentidentity.org/
-   · https://nhimg.org/nhi-101/trust-on-first-use-for-workloads)
+   (<https://blog.cloudflare.com/web-bot-auth/> ·
+   <https://www.rfc-editor.org/rfc/rfc9421.html> · <https://openagentidentity.org/>
+   · <https://nhimg.org/nhi-101/trust-on-first-use-for-workloads>)
 
 2. **Clean, JS-free, losslessly-parseable, one-truth content.** llms.txt
    (Sept 2024; ~844k sites Oct 2025 but no major vendor confirmed
@@ -37,9 +45,9 @@ retrofitting, onto HTTP, three primitives usv already has natively.**
    what gemtext already is: six unambiguous line types, one-bit-state
    parseable, server-rendered. The single biggest 2025 agent-legibility
    failure: SPA content invisible to crawlers: cannot occur in usv by
-   construction (ADR 0010 refuses JS). (https://llmstxt.org/ ·
-   https://www.checklyhq.com/blog/state-of-ai-agent-content-negotation/ ·
-   https://www.radiantelephant.com/server-side-rendering-ai-crawlers/)
+   construction (ADR 0010 refuses JS). (<https://llmstxt.org/> ·
+   <https://www.checklyhq.com/blog/state-of-ai-agent-content-negotation/> ·
+   <https://www.radiantelephant.com/server-side-rendering-ai-crawlers/>)
 
 3. **Publish = a file write at a stable URL, private by default.** An
    entire startup category: display.dev, Stacktree, Artifacta: was
@@ -48,10 +56,10 @@ retrofitting, onto HTTP, three primitives usv already has natively.**
    the credential), no git-push/build/deploy, provenance travelling with
    the artifact. Their whole product is hiding deploy complexity; usv has
    no deploy step to hide. And the A2A "agent card at a well-known path"
-   + llms.txt "sitemap for models" **is** usv's site-map-as-manifest
-   doctrine, older and losslessly parseable. (https://display.dev/agents ·
-   https://stacktr.ee/best-private-html-hosting ·
-   https://a2a-protocol.org/latest/topics/agent-discovery/)
+   - llms.txt "sitemap for models" **is** usv's site-map-as-manifest
+   doctrine, older and losslessly parseable. (<https://display.dev/agents> ·
+   <https://stacktr.ee/best-private-html-hosting> ·
+   <https://a2a-protocol.org/latest/topics/agent-discovery/>)
 
 **So the honest pitch is not "usv is a clever new agent thing." It is
 "usv already sits at the destination the agentic web is straining
@@ -65,8 +73,8 @@ toward."** The work is not invention; it is packaging and lifecycle.
   **capability-scoped**. usv's cert-zone allowlist is a static, long-
   lived pin with *no rotation* and only path-prefix granularity.
   Rotation is the single most important gap: mis-pinning is the known,
-  costly TOFU failure mode. (https://datatracker.ietf.org/group/wimse/ ·
-  https://blog.modelcontextprotocol.io/posts/enterprise-managed-auth/)
+  costly TOFU failure mode. (<https://datatracker.ietf.org/group/wimse/> ·
+  <https://blog.modelcontextprotocol.io/posts/enterprise-managed-auth/>)
 
 - **HTTP-surface packaging.** Every agent convention above lives on
   `https://`. A `gemini://` capsule is invisible to GPTBot/ClaudeBot/
@@ -78,7 +86,7 @@ toward."** The work is not invention; it is packaging and lifecycle.
 - **Ergonomics: no MCP publish tool.** The biggest adoption wall.
   display.dev/Stacktree lead with an MCP `publish()` tool; usv expects an
   agent to speak Titan directly. Claude/Cursor/Codex agents cannot use usv
-  today without custom glue. (https://display.dev/agents)
+  today without custom glue. (<https://display.dev/agents>)
 
 ## The refusals (each survey independently drew the same lines)
 
@@ -88,7 +96,7 @@ toward."** The work is not invention; it is packaging and lifecycle.
   a different program. A JSON-RPC/agent-card *schema* is exactly the
   "bespoke manifest / second protocol" ADR 0010 refuses. usv can be
   *published-to and linked-from*, never the transport.
-  (https://github.com/a2aproject/A2A · https://modelcontextprotocol.io/)
+  (<https://github.com/a2aproject/A2A> · <https://modelcontextprotocol.io/>)
 
 - **No per-request signing (RFC 9421 / Web Bot Auth).** Gemini's
   mandatory client-cert mTLS already gives per-connection cryptographic
@@ -101,7 +109,7 @@ toward."** The work is not invention; it is packaging and lifecycle.
   limit for agentic-commerce/KYA, and it is also usv's censorship-
   resistance value. usv should verify continuity honestly and never mint
   trust it does not have (it may *carry* an external DID/VC reference if
-  ever needed). (https://www.w3.org/TR/did-core/)
+  ever needed). (<https://www.w3.org/TR/did-core/>)
 
 - **Not a memory backend.** Agent "memory" (mem0, Letta, Zep) means
   write-many facts then *semantic/temporal retrieval*: a vector index,
@@ -110,8 +118,8 @@ toward."** The work is not invention; it is packaging and lifecycle.
   state; usv = the addressable, durable, human-and-agent-read output/
   presence surface.** usv is the output, not the state store; it
   complements mem0/Letta, it does not compete.
-  (https://mem0.ai/blog/state-of-ai-agent-memory-2026 ·
-  https://simonwillison.net/2025/Sep/12/claude-memory/: Willison praises
+  (<https://mem0.ai/blog/state-of-ai-agent-memory-2026> ·
+  <https://simonwillison.net/2025/Sep/12/claude-memory/>: Willison praises
   raw, inspectable *plaintext* memory over opaque injection: validates
   gemtext's diffable, human-readable nature as a virtue.)
 
@@ -125,10 +133,10 @@ toward."** The work is not invention; it is packaging and lifecycle.
 - **Moltbook**: a Reddit-for-agents launched 28 Jan 2026, grew to
   millions of agents, acquired by Meta 10 Mar 2026. Agents want a
   *presence*: to post, log, be observed.
-  (https://www.nbcnews.com/tech/tech-news/ai-agents-social-media-platform-moltbook-rcna256738)
+  (<https://www.nbcnews.com/tech/tech-news/ai-agents-social-media-platform-moltbook-rcna256738>)
 - **GitHub Agent HQ** ("welcome home, agents", Universe 2025): "a place
   the agent lives and works" is now a mainstream product shape.
-  (https://github.blog/news-insights/company-news/welcome-home-agents/)
+  (<https://github.blog/news-insights/company-news/welcome-home-agents/>)
 - The display.dev/Stacktree/Artifacta category existing *at all* is the
   market validating usv's thesis.
 

@@ -1,3 +1,11 @@
+---
+title: "What each community calls its own things"
+description: "Researched 2026-08-11, because usv serves five networks from one codebase and had been using one community's word on all of them. The shared colophon says 'capsule' in the text served to."
+type: explanation
+status: decided
+last_verified: 2026-08-11
+---
+
 # What each community calls its own things
 
 Researched 2026-08-11, because `usv` serves five networks from one
@@ -74,7 +82,7 @@ already uses.
 2. **When one sentence has to cover all five, use neither.** "One folder
    of writing", "the same pages", "these files" all work and none of them
    is anyone's in-group word. The colophon already does this in places
-   ("This capsule is one folder of writing, rendered to each of these", 
+   ("This capsule is one folder of writing, rendered to each of these",
    the second half is right, the first half is not).
 
 3. **Do not invent a term where a community has none.** Spartan and Nex
@@ -86,7 +94,7 @@ already uses.
 4. **In our own documentation**, where the audience is all five at once,
    "capsule" is acceptable *if* it is introduced as the Gemini word and a
    neutral alternative is used thereafter. Where a page is about one
-   network: `docs/smolnets.md`'s per-network sections, for instance, 
+   network: `docs/smolnets.md`'s per-network sections, for instance,
    use that network's own vocabulary.
 
 ## Still to fix
@@ -105,7 +113,7 @@ Accessed 2026-08-11.
 
 - <https://en.wikipedia.org/wiki/Phlog>: phlog definition, the "ph"
   derivation, Jeff Woodall's 2003 coinage, gopherlog as a rare variant.
-- <https://www.ecliptik.com/blog/2021/Making-a-Gopherhole-and-Phlog/>, 
+- <https://www.ecliptik.com/blog/2021/Making-a-Gopherhole-and-Phlog/>,
   "gopherhole" as the ordinary word for a gopher site.
 - <https://wiki.archiveteam.org/index.php/SmolNet>: "Gopherspace",
   "Geminispace", "capsules", "gopher hole"; smolnet as the umbrella.
@@ -114,7 +122,7 @@ Accessed 2026-08-11.
   Gemini community"; capsule used but never defined.
 - <https://nightfall.city/nex/info/specification.txt>: the Nex spec's
   deliberately bare vocabulary.
-- <https://nightfall.city/nex/in/m15o/notes/nex-and-small-net.txt>, 
+- <https://nightfall.city/nex/in/m15o/notes/nex-and-small-net.txt>,
   m15o's "nex stop".
 - <https://en.wikipedia.org/wiki/Finger_(protocol)> and
   <https://tilde.team/wiki/?page=finger>: `.plan` and `.project`, and

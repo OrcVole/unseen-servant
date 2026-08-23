@@ -1,3 +1,11 @@
+---
+title: "Cloudron Fit: Constraints Recon for Unseen Servant (usv)"
+description: "Phase 0, item 4. Researched 2026-08-09 against the live Cloudron documentation (docs.cloudron.io), the Cloudron forum, and the house cloudron-app-packaging skill. This document is the."
+type: explanation
+status: decided
+last_verified: 2026-08-11
+---
+
 # Cloudron Fit: Constraints Recon for Unseen Servant (usv)
 
 **Phase 0, item 4.** Researched 2026-08-09 against the live Cloudron documentation (docs.cloudron.io), the Cloudron forum, and the house `cloudron-app-packaging` skill. This document is the single source for writing `CloudronManifest.json` and the cert-lifecycle ADR. Everything stated here was verified against a cited source on the access date; where the house skill and the live docs disagreed, the live docs win and the disagreement is noted.
@@ -12,8 +20,8 @@ Semantics, per the manifest reference ([docs.cloudron.io/packaging/manifest/](ht
 
 - `tcpPorts` is an object whose **keys are environment variable names** (alphanumeric + underscore). Each value is an object with `title`, `description`, `defaultValue`, `containerPort`, `portCount`, `readOnly`, and `enabledByDefault`.
 - `defaultValue` is the **recommended external port** pre-filled in the install UI. `containerPort` is the port the app actually listens on inside the container; if omitted, external and internal ports are the same. `portCount` allocates N sequential ports (max 1000) and additionally exposes `VARNAME_COUNT`; we need `portCount: 1` (or omit it).
-- **The env var contains the external, user-chosen port, not the container port.** Docs example (verbatim): "Should the user choose to expose the SSH server on port 6000, then the value of `SSH_PORT` is 6000." The docs state: "The Cloudron runtime will _bridge_ the user chosen external port with the app specific `containerPort`." The app must use the env var value when constructing user-visible URLs.
-- **The port is user-remappable** at install time and afterwards: the user can accept the default, choose an alternate external port, or disable the service entirely, unless the manifest sets `readOnly: true`, which locks the port so the user cannot change it. When the user disables the service, the env var is **absent** at runtime: "Apps _must_ detect this on start up and disable these services."
+- **The env var contains the external, user-chosen port, not the container port.** Docs example (verbatim): "Should the user choose to expose the SSH server on port 6000, then the value of `SSH_PORT` is 6000." The docs state: "The Cloudron runtime will *bridge* the user chosen external port with the app specific `containerPort`." The app must use the env var value when constructing user-visible URLs.
+- **The port is user-remappable** at install time and afterwards: the user can accept the default, choose an alternate external port, or disable the service entirely, unless the manifest sets `readOnly: true`, which locks the port so the user cannot change it. When the user disables the service, the env var is **absent** at runtime: "Apps *must* detect this on start up and disable these services."
 - Reference manifest shape for usv:
 
 ```json
@@ -218,19 +226,19 @@ same non-root execution, same logging. Only the base image did.
 
 ## Sources (all accessed 2026-08-09, addendum sources accessed 2026-08-10)
 
-- https://docs.cloudron.io/packaging/manifest/: manifest fields; tcpPorts semantics, env var = external port, bridge to containerPort, disabled-port behavior, readOnly, portCount; httpPort/healthCheckPath/memoryLimit/multiDomain.
-- https://docs.cloudron.io/packaging/addons/: tls addon cert paths and renewal restart; localstorage semantics.
-- https://docs.cloudron.io/packaging/cheat-sheet/, read-only rootfs, writable dirs, cloudron user, logging, start.sh/exec, base image `cloudron/base:5.1.0@sha256:1c0666c…`.
-- https://docs.cloudron.io/apps/: update/relocate "no data loss", uninstall removes all data, archive, App Import, recovery mode.
-- https://docs.cloudron.io/backups/: backup contents (database + app user data only), restore reverts code to backup-time version, clone = replica from backup, whole-server migration = exact clone.
-- https://forum.cloudron.io/topic/14082/agate-dual-protocol-server-to-serve-gemini-http-from-one-source/32, Agate+ packaging thread: no SNI routing for TCP, 1965 proxy workaround, TOFU wildcard certs, staff review checklist, store status.
-- https://forum.cloudron.io/topic/14656/failed-to-install-app-409-message-conflicting-tcp-port-7473-409 conflicting tcp port on duplicate external port.
-- https://forum.cloudron.io/topic/14094/tcpport-routing, TCP routed by port only, 1:1 mapping, no hostname routing.
-- https://forum.cloudron.io/topic/14046/agate-a-simple-gemini-server, https://forum.cloudron.io/topic/14036/trying-to-package-agate-a-gemini-server: Agate packaging threads.
-- https://forum.cloudron.io/topic/9051/atlas-on-cloudron-full-featured-gemini-protocol-self-hosted-server-for-gemlogs: Atlas.
-- https://forum.cloudron.io/topic/7823/maple-on-cloudon-gemini-server: Maple.
-- https://forum.cloudron.io/topic/8166/windmark-on-cloudron-gemini-protocol-server: Windmark.
-- https://forum.cloudron.io/topic/5827/molly-brown-gemini-project-on-cloudron: molly-brown.
+- <https://docs.cloudron.io/packaging/manifest/>: manifest fields; tcpPorts semantics, env var = external port, bridge to containerPort, disabled-port behavior, readOnly, portCount; httpPort/healthCheckPath/memoryLimit/multiDomain.
+- <https://docs.cloudron.io/packaging/addons/>: tls addon cert paths and renewal restart; localstorage semantics.
+- <https://docs.cloudron.io/packaging/cheat-sheet/>, read-only rootfs, writable dirs, cloudron user, logging, start.sh/exec, base image `cloudron/base:5.1.0@sha256:1c0666c…`.
+- <https://docs.cloudron.io/apps/>: update/relocate "no data loss", uninstall removes all data, archive, App Import, recovery mode.
+- <https://docs.cloudron.io/backups/>: backup contents (database + app user data only), restore reverts code to backup-time version, clone = replica from backup, whole-server migration = exact clone.
+- <https://forum.cloudron.io/topic/14082/agate-dual-protocol-server-to-serve-gemini-http-from-one-source/32>, Agate+ packaging thread: no SNI routing for TCP, 1965 proxy workaround, TOFU wildcard certs, staff review checklist, store status.
+- <https://forum.cloudron.io/topic/14656/failed-to-install-app-409-message-conflicting-tcp-port-7473-409> conflicting tcp port on duplicate external port.
+- <https://forum.cloudron.io/topic/14094/tcpport-routing>, TCP routed by port only, 1:1 mapping, no hostname routing.
+- <https://forum.cloudron.io/topic/14046/agate-a-simple-gemini-server>, <https://forum.cloudron.io/topic/14036/trying-to-package-agate-a-gemini-server>: Agate packaging threads.
+- <https://forum.cloudron.io/topic/9051/atlas-on-cloudron-full-featured-gemini-protocol-self-hosted-server-for-gemlogs>: Atlas.
+- <https://forum.cloudron.io/topic/7823/maple-on-cloudon-gemini-server>: Maple.
+- <https://forum.cloudron.io/topic/8166/windmark-on-cloudron-gemini-protocol-server>: Windmark.
+- <https://forum.cloudron.io/topic/5827/molly-brown-gemini-project-on-cloudron>: molly-brown.
 - House skill `cloudron-app-packaging` (local, /home/boat/.claude/skills/cloudron-app-packaging/): packaging conventions; its base-image pin (5.0.0) is superseded by the live docs' 5.1.0.
-- https://docs.cloudron.io/packaging/cheat-sheet/, re-fetched 2026-08-10 specifically to check for a `cloudron/base` mandate: confirmed there is not one; it is a recommended convenience image, not a requirement.
-- https://docs.cloudron.io/packaging/, re-fetched 2026-08-10: no formal "conformance"/quality/validation checklist page exists; the manifest + cheat-sheet technical contract is the whole of it.
+- <https://docs.cloudron.io/packaging/cheat-sheet/>, re-fetched 2026-08-10 specifically to check for a `cloudron/base` mandate: confirmed there is not one; it is a recommended convenience image, not a requirement.
+- <https://docs.cloudron.io/packaging/>, re-fetched 2026-08-10: no formal "conformance"/quality/validation checklist page exists; the manifest + cheat-sheet technical contract is the whole of it.

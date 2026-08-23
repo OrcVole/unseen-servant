@@ -22,7 +22,7 @@ web. You write a page once. A reader opens it in Lagrange, in a Gopher
 client from 1994, in lynx, or in Chrome, and it is the same page, from the
 same file, updated within seconds of you saving it.
 
-```
+```text
                         ┌─ gemtext ────────→ Gemini · Spartan · Nex
 content/*.gmi ─→ render ─┼─ menus ──────────→ Gopher
                         ├─ profile ────────→ Finger
@@ -241,7 +241,7 @@ editing over Titan: [`docs/titan.md`](docs/titan.md). Common questions:
 ## Project
 
 Written in Rust: about 11,000 lines of code across 40 files, with 622 tests
-and a fuzz target for every parser. Not independently audited, and pre-1.0, 
+and a fuzz target for every parser. Not independently audited, and pre-1.0,
 Agate and gmid have years of production hardening it does not.
 
 **AI Forward.** `usv` is written end to end by an AI, directed and reviewed

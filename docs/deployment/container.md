@@ -1,3 +1,11 @@
+---
+title: "Plain container image (OCI)"
+description: "Distinct from the Cloudron image at the repository root: that one carries Cloudron's platform integration, this one carries none and is smaller for it. Standalone is a first-class profile,."
+type: howto
+status: decided
+last_verified: 2026-08-11
+---
+
 # Plain container image (OCI)
 
 Distinct from the Cloudron image at the repository root: that one carries
