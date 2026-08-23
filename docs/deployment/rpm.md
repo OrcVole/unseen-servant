@@ -1,3 +1,11 @@
+---
+title: "Fedora, RHEL and openSUSE (RPM)"
+description: "No RPM repository exists yet (pre-release). Build the package from the source tree:."
+type: howto
+status: decided
+last_verified: 2026-08-11
+---
+
 # Fedora, RHEL and openSUSE (RPM)
 
 **No RPM repository exists yet** (pre-release). Build the package from

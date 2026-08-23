@@ -1,3 +1,11 @@
+---
+title: "Nix"
+description: "A flake is provided at the repository root."
+type: howto
+status: decided
+last_verified: 2026-08-11
+---
+
 # Nix
 
 A flake is provided at the repository root.

@@ -1,6 +1,14 @@
+---
+title: "Security"
+description: "Usv is a network-facing service that terminates its own TLS (Transport Layer Security). This page describes what it does, and what it does not do."
+type: reference
+status: decided
+last_verified: 2026-08-11
+---
+
 # Security
 
-**Unseen Servant**
+> Unseen Servant
 
 `usv` is a network-facing service that terminates its own TLS (Transport
 Layer Security). This page describes what it does, and what it does not do.
@@ -27,7 +35,7 @@ decision below follows from three choices:
 
 ## Reporting a vulnerability
 
-Please do not open a public issue. Email **most+claude@alba.win** with
+Please do not open a public issue. Email **<most+claude@alba.win>** with
 "unseen-servant" in the subject. See [`../SECURITY.md`](../SECURITY.md) for
 supported versions and disclosure handling.
 
@@ -95,7 +103,7 @@ The small internet uses TOFU (trust on first use): a reader's client pins
 your certificate the first time it connects, and warns only if that
 certificate later changes: the same model as SSH.
 
-The certificate is minted once per hostname and never silently regenerated, 
+The certificate is minted once per hostname and never silently regenerated,
 not on restart, update, restore, or migration. Corrupt or half-present key
 material is a loud error, never a quiet regeneration, because silently
 minting a new key is indistinguishable from an impersonation to a client

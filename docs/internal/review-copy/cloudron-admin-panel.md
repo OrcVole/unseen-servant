@@ -1,3 +1,11 @@
+---
+title: "Cloudron admin panel"
+description: "One folder of writing, published to several places at once. The hostname never changes, you change the bit before the ://, and that alone decides which protocol you get and which port you."
+type: reference
+status: decided
+last_verified: 2026-08-11
+---
+
 ## Your capsule is live
 
 One folder of writing, published to several places at once. **The

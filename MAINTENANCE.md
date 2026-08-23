@@ -4,7 +4,7 @@
 
 ## Posture
 
-**Finished software, actively watched.** Agate's own maintenance model, 
+**Finished software, actively watched.** Agate's own maintenance model,
 "dependency bumps are the changelog": made explicit here so a quiet commit
 history reads as intended, not as a stalled project. usv's scope is fixed
 by design (`docs/internal/BRIEF.md`, `docs/internal/ROADMAP.md`); new protocol features are
@@ -45,7 +45,7 @@ silently doing less than the operator wrote down.
   re-runnable at any time the Cloudron package or platform contract
   changes; it is the fastest way to catch a maintenance regression before
   an operator does.
-- `UPGRADING.md`'s survival table is a live claim, not an aspiration, 
+- `UPGRADING.md`'s survival table is a live claim, not an aspiration,
   each row has been exercised against a real Cloudron instance (fresh
   install, package update, backup/restore, clone to a new domain) with the
   certificate fingerprint checked byte-for-byte before and after.

@@ -1,3 +1,11 @@
+---
+title: "Integration ideas: Cloudron panel, Tor/I2P, wizard"
+description: "Working notes (2026-08-09) feeding INTEGRATIONS.md and the v1.1/v1.2 designs. Directed by the director's 2026-08-09 message."
+type: explanation
+status: decided
+last_verified: 2026-08-11
+---
+
 # Integration ideas: Cloudron panel, Tor/I2P, wizard
 
 Working notes (2026-08-09) feeding INTEGRATIONS.md and the v1.1/v1.2
@@ -37,7 +45,7 @@ Cloudron gives every app a set of platform UIs for free. usv should be
    fingerprint command, and a 3-line quickstart.
 6. **Our own HTML surface complements the panel**: a status/about page
    showing the capsule's cert fingerprint (lets visitors verify their
-   client's TOFU pin over an independently-certified HTTPS channel, 
+   client's TOFU pin over an independently-certified HTTPS channel,
    cheap and genuinely useful), feed URLs, and theme name. No
    authenticated admin UI in v1: the panel + file manager already
    cover administration, and an admin surface is attack surface.
@@ -47,7 +55,7 @@ Cloudron gives every app a set of platform UIs for free. usv should be
 
 ## Tor / I2P
 
-**Shipped in C5 (2026-08-10), ahead of the v1.1 schedule noted below, 
+**Shipped in C5 (2026-08-10), ahead of the v1.1 schedule noted below,
 all three affordances landed, and the Tor path was live-verified against
 a real onion service. See `INTEGRATIONS.md` for the current recipe
 (including a real `advertised_port` gotcha the live test caught) and
@@ -62,7 +70,7 @@ the original design record.**
   already authenticates, which docs should explain); tolerance for
   no-SNI connections (Tor clients may omit it); bind-address config
   (127.0.0.1) so the onion is the only path if desired. Client side:
-  Lagrange and Amfora reach onion capsules via SOCKS proxy settings, 
+  Lagrange and Amfora reach onion capsules via SOCKS proxy settings,
   verify exact Lagrange steps when writing the doc.
 - **I2P**: same shape via an I2P server tunnel to the b32 address;
   same usv affordances cover it. (Agate's tracker shows I2P users
@@ -85,11 +93,12 @@ costs nothing: the Gemini port can already be disabled (mandatory
 code path per cloudron-fit recon), the HTTP surface stands alone, and
 the themed first-run skeleton just needs to be *gorgeous by default*.
 Consequences to carry into M2/M5:
+
 - The default content skeleton is a lovely single page (theme-aware,
   charming copy, offer a few stock moods: "nothing here yet",
   "under construction", a minimal card), not a techy test page.
 - Store/docs positioning names the use case explicitly: "also the
-  nicest 'nothing here yet' page you can install on a bare domain", 
+  nicest 'nothing here yet' page you can install on a bare domain",
   a wide, low-commitment install funnel; some of those users later
   flip the Gemini port on and discover the capsule. The tile is never
   a dead end in either direction.
@@ -108,6 +117,7 @@ future usv-authored TUI, the same way the theme/skeleton work treated
 ## Responses anti-spam (director Q 2026-08-09; feeds ADR 0009)
 
 Layered, all self-hosted, no external services ever:
+
 - **Layer 0 (the guarantee): moderation-first**: nothing publishes
   unapproved; bounded pending queue (over cap → polite refusal). Spam
   can only annoy the operator, never readers.
@@ -129,12 +139,13 @@ Layered, all self-hosted, no external services ever:
 
 The like mechanism is a *page you visit*, not a form you submit:
 each post's rendered page carries a link (`=> /like/<post> ♥ Leave a
-like`); visiting it counts the like and the page answers "thank you, 
+like`); visiting it counts the like and the page answers "thank you,
 your like is counted" with the running tally (and, for cert-bearing
 visitors, "you already liked this" on revisit via fingerprint
 dedupe). Post pages show the count as of last render
 (dynamic-write/static-read holds). Guards against accidental
 inflation:
+
 - Gemini: spec forbids clients from auto-fetching links, and
   robots.txt disallows /like/ for the indexer/archiver/researcher
   virtual agents: well-behaved crawlers never touch it.
@@ -155,6 +166,7 @@ equivalent exists. And the smolnet is explicitly allergic to
 dopamine metrics (bacardi55), so counters are *quiet by default*:
 the tally lives on the like page itself; putting counts on post
 pages is a per-site opt-in.
+
 - **Refused**: spam APIs, email verification, CAPTCHAs, mandatory-JS
   proof-of-work.
 
@@ -164,6 +176,7 @@ Server-side log aggregation only: no beacons, no JS, no cookies, no
 third party. Gemini requests carry nothing but URL (+ optional cert),
 so log aggregation is the *only possible* analytics there anyway; the
 web surface uses the same method for symmetry and privacy.
+
 - Collect: per-path daily hit counts; approximate uniques via
   salted-daily-rotating IP hashes (raw IPs never stored for stats);
   status breakdown; **feed-fetch counts** (Atom/gemsub polls ≈

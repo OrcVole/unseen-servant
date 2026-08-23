@@ -1,3 +1,11 @@
+---
+title: "Debian and Ubuntu (`.deb`)"
+description: "No APT repository exists yet (pre-release), so there is nothing to apt install by name. Build the package from the source tree:."
+type: howto
+status: decided
+last_verified: 2026-08-11
+---
+
 # Debian and Ubuntu (`.deb`)
 
 **No APT repository exists yet** (pre-release), so there is nothing to

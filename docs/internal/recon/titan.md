@@ -1,3 +1,11 @@
+---
+title: "Titan Recon: Implementation-Grade Survey for usv v1.1"
+description: "Date: 2026-08-09. Follow-up to docs/internal/recon/ecosystem.md §1; evidentiary basis for the v1.1 Titan implementation plan (ADR 0006)."
+type: explanation
+status: decided
+last_verified: 2026-08-11
+---
+
 # Titan Recon: Implementation-Grade Survey for usv v1.1
 
 **Date:** 2026-08-09. Follow-up to `docs/internal/recon/ecosystem.md` §1; evidentiary basis for the v1.1 Titan implementation plan (ADR 0006).
@@ -23,7 +31,7 @@ The server may reject the request after reading the URL and **before** the paylo
 
 Parameters are appended **to the path**, separated from it and from each other by semicolons, as `key=value` pairs. They are explicitly *not* query parameters: the spec states there is no question mark before them; a normal `?query` may still follow after the parameter block, distinct from the Titan parameters.
 
-```
+```text
 titan://example.org/wiki/page;token=hello;mime=text/plain;size=10
 ```
 
@@ -167,27 +175,27 @@ A Titan write in usv is not a file write: it is a **source-tree mutation followe
 
 Canonical (gemini://-only, read via the portal.mozz.us HTTP proxy; paraphrased, not verbatim):
 
-- Titan wiki front page, https://portal.mozz.us/gemini/transjovian.org/titan (canonical: gemini://transjovian.org/titan)
-- "The Titan Specification", https://portal.mozz.us/gemini/transjovian.org/titan/The%2520Titan%2520Specification
-- "Authentication & Authorisation", https://portal.mozz.us/gemini/transjovian.org/titan/Authentication%2520&%2520Authorisation
-- "Titan history", https://portal.mozz.us/gemini/transjovian.org/titan/Titan%2520history
+- Titan wiki front page, <https://portal.mozz.us/gemini/transjovian.org/titan> (canonical: gemini://transjovian.org/titan)
+- "The Titan Specification", <https://portal.mozz.us/gemini/transjovian.org/titan/The%2520Titan%2520Specification>
+- "Authentication & Authorisation", <https://portal.mozz.us/gemini/transjovian.org/titan/Authentication%2520&%2520Authorisation>
+- "Titan history", <https://portal.mozz.us/gemini/transjovian.org/titan/Titan%2520history>
 - Wiki change logs, `/titan/changes` and `/titan/do/changes` under the same proxy: both Gemini 51 Not Found (error text shows static-file serving from `/srv/transjovian/www/wiki/titan/`)
 
 Clients:
 
-- Lagrange help (Titan section), https://raw.githubusercontent.com/skyjake/lagrange/dev/res/about/help.gmi
-- titan(1) man page (gmid-bundled client), https://gmid.omarpolo.com/titan.1.html
-- Perl titan client, https://metacpan.org/pod/titan (direct fetch returned HTTP 402 on 2026-08-09; details cited from search-index excerpts, marked [partially unverified])
+- Lagrange help (Titan section), <https://raw.githubusercontent.com/skyjake/lagrange/dev/res/about/help.gmi>
+- titan(1) man page (gmid-bundled client), <https://gmid.omarpolo.com/titan.1.html>
+- Perl titan client, <https://metacpan.org/pod/titan> (direct fetch returned HTTP 402 on 2026-08-09; details cited from search-index excerpts, marked [partially unverified])
 
 Servers:
 
-- GmCapsule user manual, https://geminispace.org/gmcapsule/gmcapsule.html (repo: https://codeberg.org/skyjake/gmcapsule)
-- gmid issue #19 "Titan support?", https://github.com/omar-polo/gmid/issues/19 (opened 2023-06-24; open, milestone 2.2)
-- gmid site and man pages, https://gmid.omarpolo.com/ (gmid.8.html, gmid.conf.5.html: no titan directives); releases, https://github.com/omar-polo/gmid/releases (2.0, 2024-01-11: "added titan(1), a simple titan client")
+- GmCapsule user manual, <https://geminispace.org/gmcapsule/gmcapsule.html> (repo: <https://codeberg.org/skyjake/gmcapsule>)
+- gmid issue #19 "Titan support?", <https://github.com/omar-polo/gmid/issues/19> (opened 2023-06-24; open, milestone 2.2)
+- gmid site and man pages, <https://gmid.omarpolo.com/> (gmid.8.html, gmid.conf.5.html: no titan directives); releases, <https://github.com/omar-polo/gmid/releases> (2.0, 2024-01-11: "added titan(1), a simple titan client")
 
 Stewardship/roadmap checks:
 
-- Official Gemini news feed, https://geminiprotocol.net/news/ (no Titan mentions 2024-2026; newest item 2026-06-20)
-- gitlab.com/gemini-specification (Protocol project), https://gitlab.com/gemini-specification/protocol (no Titan/upload issues found via web search)
-- Alex Schroeder's site, https://alexschroeder.ch/view/2020-06-04_Gemini_Upload, https://alexschroeder.ch/view/2020-06-14_Using_Titan_to_edit_a_Gemini_wiki (all Titan posts date to 2020)
-- Gemini mailing list (2020 origin thread mirror), https://lists.sr.ht/~adnano/gemini/%3C20200613053926.GH11281@brevard.conman.org%3E ("Uploading Gemini content", June 2020). Current list host lists.geminiprotocol.net: DNS did not resolve on 2026-08-09 [2024-2026 list traffic unverified]
+- Official Gemini news feed, <https://geminiprotocol.net/news/> (no Titan mentions 2024-2026; newest item 2026-06-20)
+- gitlab.com/gemini-specification (Protocol project), <https://gitlab.com/gemini-specification/protocol> (no Titan/upload issues found via web search)
+- Alex Schroeder's site, <https://alexschroeder.ch/view/2020-06-04_Gemini_Upload>, <https://alexschroeder.ch/view/2020-06-14_Using_Titan_to_edit_a_Gemini_wiki> (all Titan posts date to 2020)
+- Gemini mailing list (2020 origin thread mirror), <https://lists.sr.ht/~adnano/gemini/%3C20200613053926.GH11281@brevard.conman.org%3E> ("Uploading Gemini content", June 2020). Current list host lists.geminiprotocol.net: DNS did not resolve on 2026-08-09 [2024-2026 list traffic unverified]

@@ -1,3 +1,11 @@
+---
+title: "Open questions for the director (n)"
+description: "Questions the AI cannot resolve from the brief, recon, or sensible defaults. Answered items move to the relevant ADR with the answer recorded."
+type: explanation
+status: decided
+last_verified: 2026-08-11
+---
+
 # Open questions for the director (n)
 
 Questions the AI cannot resolve from the brief, recon, or sensible
@@ -8,7 +16,7 @@ recorded.
 
 - Raised: 2026-08-09
 - Status: **resolved (director, 2026-08-09): one TOML file confirmed**
-  ("unless there are distinct advantages to having multiple ones", 
+  ("unless there are distinct advantages to having multiple ones",
   ADR 0007 now records the multiple-file evaluation: no distinct
   advantage at usv's scale; single file stands).
 

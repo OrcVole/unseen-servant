@@ -1,3 +1,11 @@
+---
+title: "ADR 0004: Dual surface: one content tree, gemtext native, HTML statically rendered"
+description: "One source tree: ${contentdir} (/app/data/content on Cloudron). Authors write gemtext plus static assets."
+type: explanation
+status: decided
+last_verified: 2026-08-11
+---
+
 # ADR 0004: Dual surface: one content tree, gemtext native, HTML statically rendered
 
 - Status: Accepted (pending director review)
@@ -34,7 +42,7 @@ mainly on the HTML side (web feed readers do not speak gemsub).
   rules as strictly as the Gemini side.
 - The renderer's gemtext parser is the same fuzzed parser module used
   everywhere (ADR 0001); generated pages conform to the v0.24.1
-  gemtext ABNF (`* ` with space, ≤3 heading levels, no unfenceable
+  gemtext ABNF (`*` with space, ≤3 heading levels, no unfenceable
   content).
 - Shared CSS is minimal and **classless**, so rendered HTML stays
   semantic and the styling surface stays reviewable.

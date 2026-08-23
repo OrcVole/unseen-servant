@@ -1,3 +1,11 @@
+---
+title: "ADR 0001: Language and stack: Rust, tokio, rustls, clean wire implementation"
+description: "Rust (latest stable, edition pinned), implementing the Gemini v0.24.1 wire protocol cleanly."
+type: explanation
+status: decided
+last_verified: 2026-08-11
+---
+
 # ADR 0001: Language and stack: Rust, tokio, rustls, clean wire implementation
 
 - Status: Accepted (pending director review)
@@ -63,7 +71,7 @@ edge cases, and the gemtext parser used by the HTML renderer).
   including all 27 gemini-diagnostics checks and the suite's known
   gaps (prior-art.md §6).
 - No upstream Gemini crate can break, abandon, or constrain us; the
-  cost is that rustls/tokio API migrations are ours to absorb, 
+  cost is that rustls/tokio API migrations are ours to absorb,
   acceptable, as every serious Rust project bears that anyway.
 - The brief's "titanite or gemax" option is closed. If a future
   maintainer revisits, prior-art.md §7 records the 2026 state of every

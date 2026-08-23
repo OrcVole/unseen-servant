@@ -1,7 +1,15 @@
+---
+title: "C3 design brief: dual render (gemtext → HTML/Atom/feeds)"
+description: "Prepared 2026-08-09 as groundwork ahead of C3, so a future session can start building instead of re-deriving the grammar and module shape. Not an ADR, open questions in §5 need the."
+type: explanation
+status: decided
+last_verified: 2026-08-11
+---
+
 # C3 design brief: dual render (gemtext → HTML/Atom/feeds)
 
 Prepared 2026-08-09 as groundwork ahead of C3, so a future session can start
-building instead of re-deriving the grammar and module shape. Not an ADR, 
+building instead of re-deriving the grammar and module shape. Not an ADR,
 open questions in §5 need the director's read before code lands on them.
 
 ## 1. Proposed module layout for `src/render/`
@@ -11,7 +19,7 @@ layered framing → validation → authority) and `handler/`'s pattern of a
 `mod.rs` that states the ADR, the trait/type shape, and what is deliberately
 *not* here:
 
-```
+```text
 src/render/
   mod.rs          // ADR 0004 pointer, layering doc, re-exports, RenderError
   gemtext.rs      // layer 1: line-type parser (fuzzed). &str -> Vec<Line>.
@@ -85,11 +93,11 @@ most first three characters" spec framing):
 | Preformatted | anything else | verbatim preformatted text (`<pre>`, never re-parsed) |
 | Normal | `=>` | link-line |
 | Normal | `#`, `##`, or `###` | heading-line (level = run length, capped at 3: a 4th+ `#` is still level 3, extra `#`s become leading text) |
-| Normal | `* ` (asterisk + space) | list-item: **`*` without the following space is NOT a list item**, falls through to text-line |
+| Normal | `*` (asterisk + space) | list-item: **`*` without the following space is NOT a list item**, falls through to text-line |
 | Normal | `>` | quote-line (no space check) |
 | Normal | (fallback) | text-line |
 
-Normative details not to lose: heading/list/quote support is *optional*, 
+Normative details not to lose: heading/list/quote support is *optional*,
 a renderer that does not implement one MUST render that line as plain text,
 never error or drop it. Whitespace after `=>` and heading `#`s may be
 spaces or tabs (0.24.1). Non-ASCII text in text lines is legal UTF-8.
@@ -104,7 +112,7 @@ content must never need it.
   "zero lines" and "one empty text line" readings for a zero-byte file)
 - A single blank line, and multiple consecutive blank lines (must not collapse)
 - `*text` (no trailing space): must render as text-line, not list-item
-- `*` alone, or `* ` with empty text
+- `*` alone, or `*` with empty text
 - `>text` vs `> text`: both are quote-line
 - Heading with tab instead of space; heading with no whitespace (`#Title`)
 - 4, 5+ consecutive `#`: must degrade to heading level 3, not error
@@ -138,7 +146,7 @@ none codified in the core spec, but two things anchor the design: the
 CAPCOM/Antenna/Lagrange), and community norm (not spec-mandated) of
 treating the first `#` heading as the page title.
 
-- **Title**: first level-1 `# ` heading found (fallback: filename-derived,
+- **Title**: first level-1 `#` heading found (fallback: filename-derived,
   e.g. `about.gmi` → "About", since HTML needs a non-empty `<title>` even
   for heading-less pages).
 - **Date**: no core-spec per-page convention exists. The only spec-adjacent
@@ -183,7 +191,7 @@ treating the first `#` heading as the page title.
 5. **Date-convention choice** (from §4): gemsub-link-date-only vs. a
    usv-specific in-page convention: blocks both the metadata pass and
    the Atom emitter's `<updated>` field.
-6. **Heading-as-title fallback chain** when no heading exists, 
+6. **Heading-as-title fallback chain** when no heading exists,
    filename-derived vs. configured per-directory default vs. empty
    `<title>` (probably unacceptable for the "beautiful default skeleton"
    exit-gate goal).

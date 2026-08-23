@@ -1,3 +1,11 @@
+---
+title: "Build plan: phased coding of usv"
+description: "2026-08-09. The coding companion to ROADMAP.md: phases C0: C7 map onto release milestones M1: M6. Each phase has an exit gate; a phase is not left until its gate passes. Test-first."
+type: explanation
+status: decided
+last_verified: 2026-08-11
+---
+
 # Build plan: phased coding of usv
 
 2026-08-09. The coding companion to ROADMAP.md: phases C0: C7 map onto
@@ -20,7 +28,7 @@ real binary against real sockets, gmid-style).
 
 Config loader (single TOML, deny-unknown-fields, env overrides,
 reserved `[titan]`/`[responses]` sections erroring helpfully); strict
-request parser (1024-byte URI + CRLF window, full reject-list, 
+request parser (1024-byte URI + CRLF window, full reject-list,
 userinfo, fragment, non-ASCII, bare LF: as a fuzzed module);
 response writer (exact `XX SP META CRLF` emission rules); TLS layer
 (rustls: SNI resolver, client-cert capture, TLS 1.3 default with 1.2

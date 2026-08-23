@@ -1,3 +1,11 @@
+---
+title: "ADR 0003: Certificate lifecycle: Agate's model, deployment-aware, never silently regenerated"
+description: "Auto-generate on first run: ECDSA P-256, self-signed, notAfter 4096-01-01 (Agate's convention: expiry churn adds nothing under TOFU), CN/SAN = configured hostname, key file mode 0600."
+type: explanation
+status: decided
+last_verified: 2026-08-11
+---
+
 # ADR 0003: Certificate lifecycle: Agate's model, deployment-aware, never silently regenerated
 
 - Status: Accepted (pending director review)

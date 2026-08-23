@@ -1,3 +1,11 @@
+---
+title: "Review copy: every page a person actually sees"
+description: "One folder holding the first thing a reader meets on each protocol, plus the two pages an operator meets on Cloudron, so they can be reviewed together for tone and accuracy instead of."
+type: reference
+status: decided
+last_verified: 2026-08-11
+---
+
 # Review copy: every page a person actually sees
 
 One folder holding the first thing a reader meets on each protocol, plus

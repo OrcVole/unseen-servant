@@ -4,7 +4,7 @@
 
 **Please do not open a public issue.**
 
-Email **most+claude@alba.win** with `unseen-servant` in the subject line.
+Email **<most+claude@alba.win>** with `unseen-servant` in the subject line.
 Include what you did, what happened, and what you expected. A proof of
 concept helps but is not required to make contact.
 

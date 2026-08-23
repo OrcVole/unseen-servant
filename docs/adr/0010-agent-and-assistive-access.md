@@ -1,3 +1,11 @@
+---
+title: "ADR 0010: Legibility for agents and assistive access: one problem, not two"
+description: "### 1. Accept that the two audiences share one requirement."
+type: explanation
+status: decided
+last_verified: 2026-08-11
+---
+
 # ADR 0010: Legibility for agents and assistive access: one problem, not two
 
 - Status: **Proposed** (director-raised 2026-08-09; awaiting review)
@@ -127,7 +135,7 @@ The HTML emitter already produces semantic, classless markup. Add the
 navigational scaffolding assistive technology actually keys on:
 `<main>` around the content, a skip-to-content link as the first
 focusable element, and a visible focus style. Cheap, standards-plain,
-and the direct answer to "voice or other means instead of keyboard", 
+and the direct answer to "voice or other means instead of keyboard",
 these are the hooks that let a voice user jump without a pointer.
 
 ### 5. What is refused, and why

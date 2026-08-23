@@ -1,3 +1,11 @@
+---
+title: "Phase 0 reconnaissance: index and synthesis"
+description: "Completed 2026-08-09. Four documents, each self-contained with dated sources. This index maps their findings onto the Phase 1 ADRs and lists every place recon corrected an assumption in."
+type: explanation
+status: decided
+last_verified: 2026-08-11
+---
+
 # Phase 0 reconnaissance: index and synthesis
 
 **Completed 2026-08-09.** Four documents, each self-contained with dated
