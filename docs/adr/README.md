@@ -1,3 +1,11 @@
+---
+title: "Architecture Decision Records"
+description: "Numbered, never renumbered; superseded ADRs are amended in place with a pointer, not deleted. Format: Status / Date / Evidence header, then Context, Decision, Consequences."
+type: explanation
+status: decided
+last_verified: 2026-08-11
+---
+
 # Architecture Decision Records
 
 Numbered, never renumbered; superseded ADRs are amended in place with

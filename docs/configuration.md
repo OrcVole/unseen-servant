@@ -1,6 +1,14 @@
+---
+title: "Configuration"
+description: "One TOML (Tom's Obvious Minimal Language) file (ADR 0007), read from the state directory as usv.toml. It does not need to exist. Every setting has a working default, and a capsule with no."
+type: reference
+status: decided
+last_verified: 2026-08-11
+---
+
 # Configuration
 
-**Unseen Servant**
+> Unseen Servant
 
 One TOML (Tom's Obvious Minimal Language) file (ADR 0007), read from the
 state directory as `usv.toml`. **It does not need to exist.** Every setting
@@ -139,7 +147,7 @@ Rotation windows close themselves. `superseded` without `superseded_until`
 is a startup error, so there is no way to leave an old key valid forever by
 forgetting about it.
 
-`usv` records *when* a key was enrolled, never *who* it belongs to, 
+`usv` records *when* a key was enrolled, never *who* it belongs to,
 continuity, not attestation.
 
 ## Environment variables

@@ -1,3 +1,11 @@
+---
+title: "ADR 0009: Responses: likes and messages, dynamic write / static read"
+description: "Opt-in per site (responses config section; absent = feature fully off, no endpoints exist)."
+type: explanation
+status: decided
+last_verified: 2026-08-11
+---
+
 # ADR 0009: Responses: likes and messages, dynamic write / static read
 
 - Status: Proposed (drafted 2026-08-09; awaiting director's OQ-8
@@ -36,6 +44,7 @@ approval. This walks through the internal-handler door ADR 0005
 reserved; it is not CGI and executes nothing.
 
 **Likes, "visiting the like page":**
+
 - Each enabled post's rendered page links `/like/<post>`. Visiting
   it counts the like and the page answers with thanks and the tally
   ("you already liked this" on cert revisit).
@@ -52,6 +61,7 @@ reserved; it is not CGI and executes nothing.
   director's OQ-8 answer).
 
 **Messages:**
+
 - Gemini side: status 10 input, one line (Astrobotany message-board
   shape), per-fingerprint rate limits; certificate required.
 - Web side: plain no-JS form with the layered anti-spam from
@@ -69,7 +79,7 @@ reserved; it is not CGI and executes nothing.
   bacardi55 warns about.
 
 **Storage**: flat files under `${state_dir}/responses/` (pending/ and
-approved/ trees, one file per response, content-addressed names), 
+approved/ trees, one file per response, content-addressed names),
 no database, file-manager-editable, backed up with everything else.
 
 **Refused**: anonymous Gemini likes (against universal idiom;
@@ -84,11 +94,11 @@ external anti-spam/analytics services; public aggregate metrics
 - The render pipeline's re-entrancy (already required for Titan)
   gains a second consumer; approval = a write event like any other.
 - The Astrobotany-style playful direction (growable things, verbs
-  beyond "like") stays open: the primitives this ADR introduces, 
-  cert identity, link-verbs, input lines, per-route rate limits, 
+  beyond "like") stays open: the primitives this ADR introduces,
+  cert identity, link-verbs, input lines, per-route rate limits,
   are exactly Astrobotany's vocabulary, so future whimsy is
   configuration of existing machinery, not new architecture.
 - Release version: **recommendation v1.2** (after v1.0 launch and
   the v1.1 smolnet release), so the announcement ships a hardened
-  core and responses ship with the attention they deserve, 
+  core and responses ship with the attention they deserve,
   director may promote it (OQ-8).

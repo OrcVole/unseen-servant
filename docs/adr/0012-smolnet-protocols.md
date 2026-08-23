@@ -1,3 +1,11 @@
+---
+title: "ADR 0012: The smolnet protocols: one plaintext listener kind, opt-in, and a hard wall against leaking gated content"
+description: "### 1. One PlaintextListener abstraction, parameterised."
+type: explanation
+status: decided
+last_verified: 2026-08-11
+---
+
 # ADR 0012: The smolnet protocols: one plaintext listener kind, opt-in, and a hard wall against leaking gated content
 
 - Status: **Proposed** (v1.1 scope; ADR precedes code per docs/internal/ROADMAP.md)
@@ -36,7 +44,7 @@ Rejected: four bespoke listeners. The lifecycle is genuinely identical
 and duplicating it would mean fixing every slowloris-class bug four
 times.
 
-### 2. Off by default. Always.
+### 2. Off by default. Always
 
 Every plaintext listener is opt-in per capsule, and a capsule that says
 nothing gets none of them. A plaintext service is a decision an operator
@@ -50,7 +58,7 @@ warning to be silenced: a statement of what was just switched on.
 ### 3. Non-privileged default ports
 
 Ports 70 (gopher), 79 (finger) and 300 (spartan) are privileged; 1900
-(nex) is not. Defaults are non-privileged: 7070, 7979, 3000, 1900, 
+(nex) is not. Defaults are non-privileged: 7070, 7979, 3000, 1900,
 preserving ADR 0002's empty `CapabilityBoundingSet`, which is only
 possible while every port is above 1024.
 
@@ -77,7 +85,7 @@ emitters rather than growing request-time logic.
 targets, because neither protocol can express a redirect. That is a
 pipeline requirement, not a listener one.
 
-### 5. Spartan uploads are refused. Permanently.
+### 5. Spartan uploads are refused. Permanently
 
 Spartan's upload path is unauthenticated by construction. `usv` has a
 Titan implementation that is cert-gated precisely because writable
@@ -181,7 +189,7 @@ change, and the failure is silent disclosure of content the operator
 believed was gated.
 
 **TLS on the smolnet listeners (`gophers`).** Deferred, not refused. It
-exists, adoption is thin, and it does not solve client authentication, 
+exists, adoption is thin, and it does not solve client authentication,
 so it changes none of the reasoning above. Revisit if it gains traction.
 
 **Privileged ports by default.** Rejected: it would cost the empty

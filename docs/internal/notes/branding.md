@@ -1,3 +1,11 @@
+---
+title: "Branding"
+description: "Settled 2026-08-11 by the director. This note is the authority; the earlier direction (a phosphor-green dot-mesh figure, concept 1 of six) is recorded at the bottom because the reasoning."
+type: explanation
+status: decided
+last_verified: 2026-08-11
+---
+
 # Branding
 
 Settled 2026-08-11 by the director. This note is the authority; the
@@ -9,7 +17,7 @@ though the palette moved.
 
 A standing human figure assembled from glowing ones and zeros, lettered
 `USV` at the chest, wordmark "Unseen Servant" beneath, on a near-black
-ground. A servant made of data: present, useful, and not quite there, 
+ground. A servant made of data: present, useful, and not quite there,
 the picture and the name are the same idea, which is what a mark should
 do.
 

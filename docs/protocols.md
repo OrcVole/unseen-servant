@@ -1,6 +1,14 @@
+---
+title: "Protocol support"
+description: "The single source of truth for what usv speaks today. Everything outward-facing: the README's compatibility table, the project capsule, release notes, announcement copy: must agree with."
+type: reference
+status: decided
+last_verified: 2026-08-11
+---
+
 # Protocol support
 
-**Unseen Servant**
+> Unseen Servant
 
 The single source of truth for what `usv` speaks today. Everything
 outward-facing: the README's compatibility table, the project capsule,
@@ -8,7 +16,7 @@ release notes, announcement copy: must agree with this page, and this page
 must agree with the code. If they ever disagree, the code wins and this page
 is the bug.
 
-**Status labels used here**
+## Status labels used here
 
 | Label | Means |
 |---|---|
@@ -69,7 +77,7 @@ Certificate-gated and Titan-gated paths are therefore excluded from every
 cleartext tree, structurally, at the point the tree is built (ADR 0012 §6).
 All four are off unless the operator enables them.
 
-Choosing between them, with clients, homepages and the philosophy of each, 
+Choosing between them, with clients, homepages and the philosophy of each,
 is [`smolnets.md`](smolnets.md).
 
 ## The rule that got us here

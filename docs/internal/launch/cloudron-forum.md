@@ -1,3 +1,11 @@
+---
+title: "Cloudron forum"
+description: "DRAFT, not posted. Cloudron forum (forum.cloudron.io)."
+type: reference
+status: decided
+last_verified: 2026-08-11
+---
+
 DRAFT, not posted. Cloudron forum (forum.cloudron.io).
 
 Different audience from every other venue here: they do not care about

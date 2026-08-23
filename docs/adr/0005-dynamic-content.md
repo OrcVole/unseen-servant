@@ -1,3 +1,11 @@
+---
+title: "ADR 0005: Dynamic content: CGI refused"
+description: "Usv does not execute content. CGI is refused permanently, not deferred: no fork/exec of tree-resident programs, ever."
+type: explanation
+status: decided
+last_verified: 2026-08-11
+---
+
 # ADR 0005: Dynamic content: CGI refused
 
 - Status: Accepted (pending director review)
@@ -11,7 +19,7 @@ lesson: in-process or forked CGI is the wrong shape. gmid removed CGI
 in favor of FastCGI; Molly Brown's own README flags CGI's security
 caveat and hints at SCGI; Agate refused CGI outright and its scope
 freeze is why it is finished software. Meanwhile the one dynamic-
-adjacent feature users demonstrably need: certificate-gated zones, 
+adjacent feature users demonstrably need: certificate-gated zones,
 does not require executing anything (ecosystem.md §2: fingerprint
 allowlists are pure server logic).
 

@@ -1,3 +1,11 @@
+---
+title: "Fediverse"
+description: "DRAFT, not posted. Fediverse, #gemini (and #smallweb / #smolnet)."
+type: reference
+status: decided
+last_verified: 2026-08-11
+---
+
 DRAFT, not posted. Fediverse, `#gemini` (and `#smallweb` / `#smolnet`).
 
 Short. One image. The image is `assets/mascot.png`: the dot-mesh
@@ -12,7 +20,7 @@ having a mirror is that this is no longer a problem.
 
 ## Main post (fits comfortably under 500 characters)
 
-```
+```text
 Unseen Servant: a Gemini server that publishes the same folder of
 gemtext twice: natively on 1965, and as plain static HTML for
 everyone else. One source, no build step.
@@ -31,7 +39,7 @@ https://unseen-servant.wanderingmonster.dev/
 
 **Alt text** (write it in full; do not skip):
 
-```
+```yaml
 A human figure drawn as a mesh of small glowing green characters and
 dots on a black background, in the style of an old phosphor terminal
 display: present, but only just visible.
@@ -44,7 +52,7 @@ display: present, but only just visible.
 Only if the first post gets traction. Keeps the disclosures visible to
 anyone who boosts the top post.
 
-```
+```text
 Two things worth saying plainly:
 
 It logs no visitor addresses by default: the peer field is a dash,

@@ -1,3 +1,11 @@
+---
+title: "ADR 0006: Titan: committed for v1.0"
+description: "No Titan in v1."
+type: explanation
+status: decided
+last_verified: 2026-08-11
+---
+
 # ADR 0006: Titan: committed for v1.0
 
 - Status: Accepted, amended 2026-08-09 twice (director directives)

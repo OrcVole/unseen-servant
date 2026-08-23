@@ -1,3 +1,11 @@
+---
+title: "From source, and running under systemd"
+description: "Sh git clone <repository-url> unseen-servant cd unseen-servant cargo build --release # target/release/usv."
+type: howto
+status: decided
+last_verified: 2026-08-11
+---
+
 # From source, and running under systemd
 
 ## Building

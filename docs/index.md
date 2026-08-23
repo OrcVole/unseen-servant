@@ -1,6 +1,14 @@
+---
+title: "Documentation"
+description: "Start at the README(../README.md). This is the manual."
+type: reference
+status: decided
+last_verified: 2026-08-11
+---
+
 # Documentation
 
-**Unseen Servant**
+> Unseen Servant
 
 Start at the [README](../README.md). This is the manual.
 

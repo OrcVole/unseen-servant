@@ -1,3 +1,11 @@
+---
+title: "Awesome gemini"
+description: "DRAFT, not submitted. awesome-gemini (github.com/kr1sp1n/awesome-gemini)."
+type: reference
+status: decided
+last_verified: 2026-08-11
+---
+
 DRAFT, not submitted. `awesome-gemini` (github.com/kr1sp1n/awesome-gemini).
 
 A list entry, not an announcement. This is the highest-value, lowest-effort
@@ -29,7 +37,7 @@ the distinguishing fact, which here is the dual surface.
 Keep it to a couple of sentences: maintainers of list repos review a
 lot of these:
 
-```
+```text
 Adds Unseen Servant, a Gemini + Titan server written in Rust. Its
 distinguishing feature is that it renders the same gemtext tree to
 static HTML at write time, so a capsule is readable both natively and

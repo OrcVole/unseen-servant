@@ -1,3 +1,11 @@
+---
+title: "ADR 0002: Process and privilege model: single process, capability-shaped module boundaries"
+description: "Single process, multiple tokio tasks, capability-shaped module boundaries:."
+type: explanation
+status: decided
+last_verified: 2026-08-11
+---
+
 # ADR 0002: Process and privilege model: single process, capability-shaped module boundaries
 
 - Status: Accepted (pending director review)

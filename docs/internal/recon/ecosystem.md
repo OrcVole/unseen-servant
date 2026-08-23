@@ -1,3 +1,11 @@
+---
+title: "Ecosystem Recon: Companion and Adjacent Specs for Unseen Servant"
+description: "Date: 2026-08-09. Phase 0, item 2 of the project brief."
+type: explanation
+status: decided
+last_verified: 2026-08-11
+---
+
 # Ecosystem Recon: Companion and Adjacent Specs for Unseen Servant
 
 **Date:** 2026-08-09. Phase 0, item 2 of the project brief.
@@ -93,29 +101,29 @@ A framing observation that recurs throughout: most of the "ecosystem" is content
 
 All URLs accessed 2026-08-09. Canonical gemini:// resources were accessed via HTTPS mirrors or the portal.mozz.us proxy where noted.
 
-- https://geminiprotocol.net/docs/: official spec index (protocol spec, gemtext spec, companion specs). Accessed 2026-08-09.
-- https://geminiprotocol.net/docs/protocol-specification.gmi: Gemini network protocol spec; status 60/61/62, cert scoping, TOFU. Accessed 2026-08-09.
-- https://geminiprotocol.net/docs/companion/: companion spec index; confirms only robots + subscription are blessed. Accessed 2026-08-09.
-- https://geminiprotocol.net/docs/companion/robots.gmi: robots.txt for Gemini; virtual agents archiver/indexer/researcher/webproxy. Accessed 2026-08-09.
-- https://geminiprotocol.net/docs/companion/subscription.gmi: "Subscribing to Gemini pages" (gemsub) companion spec. Accessed 2026-08-09.
-- https://geminiprotocol.net/news/2023_04_16.gmi, CAPCOM overhaul: gemsub support, SQLite feed management. Dated 2023-04-16; accessed 2026-08-09.
-- gemini://transjovian.org/titan via https://portal.mozz.us/gemini/transjovian.org/titan: Titan wiki front page (spec, auth, history links). Accessed 2026-08-09; note: the specification subpages 404 over the HTTP mirror as of this date; canonical home remains gemini://transjovian.org/titan.
-- https://metacpan.org/pod/titan: Perl Titan CLI client; request format with token/mime/size URL parameters, cert options (fetched via search snippets; direct fetch was paywalled/blocked on access date). Accessed 2026-08-09.
-- https://github.com/omar-polo/gmid/issues/19, gmid's Titan stance: validate and delegate to FastCGI/proxy rather than implement in core. Accessed 2026-08-09 (via search).
-- https://gmi.skyjake.fi/gmcapsule/: GmCapsule Gemini/Titan server; Titan handlers via CGI/modules, client cert fingerprint in REMOTE_IDENT / req.identity.fp_cert. Accessed 2026-08-09.
-- https://github.com/skyjake/lagrange/issues/279 and /issues/415: Lagrange Titan upload (v1.6, 2021) and "Edit Page with Titan" (v1.10). Accessed 2026-08-09 (via search).
-- https://gmi.skyjake.fi/gemlog/2021-07_lagrange-1.6.gmi: Lagrange 1.6 announcement (Titan). Dated 2021-07; accessed 2026-08-09 (via search).
-- https://github.com/LukeEmmet/molly-brown: Molly Brown README; certificate zones with SHA256 fingerprint allowlists, CGI cert env vars. Accessed 2026-08-09 (via search).
-- https://github.com/michael-lazar/spartan: Spartan protocol specification repo. Accessed 2026-08-09 (via search).
-- https://nightfall.city/nex/info/specification.txt: Nex protocol specification (plain TCP, port 1900, no TLS). Accessed 2026-08-09.
-- http://scrollprotocol.us.to/software/profectus/: Profectus client (scroll/gemini/nex/spartan); Scroll protocol devlog home. Accessed 2026-08-09 (via search).
-- https://sr.ht/~hedy/gelim/: gelim multi-protocol client (gemini/spartan/nex). Accessed 2026-08-09 (via search).
-- https://portal.mozz.us/gemini/mozz.us/files/rfc_gemini_favicon.gmi: favicon.txt RFC; marked DRAFT, dated 2020-06-03, motivation updated 2021-02. Accessed 2026-08-09.
-- https://github.com/skyjake/lagrange/issues/140: Lagrange favicon discussion (feature contested/deprecated in practice). Accessed 2026-08-09 (via search).
-- https://codeberg.org/bacardi55/gemini-tinylog-rfc: TinyLog community RFC. Accessed 2026-08-09 (via search).
-- https://github.com/bacardi55/gtl: gtl TUI tinylog reader. Accessed 2026-08-09 (via search).
-- https://codeberg.org/oppenlab/gempub: GemPub spec repo; application/gpub+zip. Accessed 2026-08-09 (via search).
-- https://github.com/skyjake/lagrange/issues/255: Lagrange GemPub support (v1.4, 2021-05). Accessed 2026-08-09 (via search).
-- https://gemini.circumlunar.space/capcom/: CAPCOM aggregator. Accessed 2026-08-09 (via search).
-- https://warmedal.se/~bjorn/posts/announcing-antenna.html: Antenna announcement; submission-queue model. Accessed 2026-08-09 (via search).
-- https://wiki.archiveteam.org/index.php/SmolNet: SmolNet protocol overview (gemini/gopher/spartan/nex/scroll landscape). Accessed 2026-08-09 (via search).
+- <https://geminiprotocol.net/docs/>: official spec index (protocol spec, gemtext spec, companion specs). Accessed 2026-08-09.
+- <https://geminiprotocol.net/docs/protocol-specification.gmi>: Gemini network protocol spec; status 60/61/62, cert scoping, TOFU. Accessed 2026-08-09.
+- <https://geminiprotocol.net/docs/companion/>: companion spec index; confirms only robots + subscription are blessed. Accessed 2026-08-09.
+- <https://geminiprotocol.net/docs/companion/robots.gmi>: robots.txt for Gemini; virtual agents archiver/indexer/researcher/webproxy. Accessed 2026-08-09.
+- <https://geminiprotocol.net/docs/companion/subscription.gmi>: "Subscribing to Gemini pages" (gemsub) companion spec. Accessed 2026-08-09.
+- <https://geminiprotocol.net/news/2023_04_16.gmi>, CAPCOM overhaul: gemsub support, SQLite feed management. Dated 2023-04-16; accessed 2026-08-09.
+- gemini://transjovian.org/titan via <https://portal.mozz.us/gemini/transjovian.org/titan>: Titan wiki front page (spec, auth, history links). Accessed 2026-08-09; note: the specification subpages 404 over the HTTP mirror as of this date; canonical home remains gemini://transjovian.org/titan.
+- <https://metacpan.org/pod/titan>: Perl Titan CLI client; request format with token/mime/size URL parameters, cert options (fetched via search snippets; direct fetch was paywalled/blocked on access date). Accessed 2026-08-09.
+- <https://github.com/omar-polo/gmid/issues/19>, gmid's Titan stance: validate and delegate to FastCGI/proxy rather than implement in core. Accessed 2026-08-09 (via search).
+- <https://gmi.skyjake.fi/gmcapsule/>: GmCapsule Gemini/Titan server; Titan handlers via CGI/modules, client cert fingerprint in REMOTE_IDENT / req.identity.fp_cert. Accessed 2026-08-09.
+- <https://github.com/skyjake/lagrange/issues/279> and /issues/415: Lagrange Titan upload (v1.6, 2021) and "Edit Page with Titan" (v1.10). Accessed 2026-08-09 (via search).
+- <https://gmi.skyjake.fi/gemlog/2021-07_lagrange-1.6.gmi>: Lagrange 1.6 announcement (Titan). Dated 2021-07; accessed 2026-08-09 (via search).
+- <https://github.com/LukeEmmet/molly-brown>: Molly Brown README; certificate zones with SHA256 fingerprint allowlists, CGI cert env vars. Accessed 2026-08-09 (via search).
+- <https://github.com/michael-lazar/spartan>: Spartan protocol specification repo. Accessed 2026-08-09 (via search).
+- <https://nightfall.city/nex/info/specification.txt>: Nex protocol specification (plain TCP, port 1900, no TLS). Accessed 2026-08-09.
+- <http://scrollprotocol.us.to/software/profectus/>: Profectus client (scroll/gemini/nex/spartan); Scroll protocol devlog home. Accessed 2026-08-09 (via search).
+- <https://sr.ht/~hedy/gelim/>: gelim multi-protocol client (gemini/spartan/nex). Accessed 2026-08-09 (via search).
+- <https://portal.mozz.us/gemini/mozz.us/files/rfc_gemini_favicon.gmi>: favicon.txt RFC; marked DRAFT, dated 2020-06-03, motivation updated 2021-02. Accessed 2026-08-09.
+- <https://github.com/skyjake/lagrange/issues/140>: Lagrange favicon discussion (feature contested/deprecated in practice). Accessed 2026-08-09 (via search).
+- <https://codeberg.org/bacardi55/gemini-tinylog-rfc>: TinyLog community RFC. Accessed 2026-08-09 (via search).
+- <https://github.com/bacardi55/gtl>: gtl TUI tinylog reader. Accessed 2026-08-09 (via search).
+- <https://codeberg.org/oppenlab/gempub>: GemPub spec repo; application/gpub+zip. Accessed 2026-08-09 (via search).
+- <https://github.com/skyjake/lagrange/issues/255>: Lagrange GemPub support (v1.4, 2021-05). Accessed 2026-08-09 (via search).
+- <https://gemini.circumlunar.space/capcom/>: CAPCOM aggregator. Accessed 2026-08-09 (via search).
+- <https://warmedal.se/~bjorn/posts/announcing-antenna.html>: Antenna announcement; submission-queue model. Accessed 2026-08-09 (via search).
+- <https://wiki.archiveteam.org/index.php/SmolNet>: SmolNet protocol overview (gemini/gopher/spartan/nex/scroll landscape). Accessed 2026-08-09 (via search).

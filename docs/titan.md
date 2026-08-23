@@ -1,6 +1,14 @@
+---
+title: "Titan uploads"
+description: "Titan is the community's companion protocol for writing to a capsule. Same TLS (Transport Layer Security), same port, same client certificates as Gemini: only the URL (uniform resource."
+type: reference
+status: decided
+last_verified: 2026-08-11
+---
+
 # Titan uploads
 
-**Unseen Servant**
+> Unseen Servant
 
 Titan is the community's companion protocol for *writing* to a capsule. Same
 TLS (Transport Layer Security), same port, same client certificates as
@@ -46,7 +54,7 @@ default.
 From Lagrange: open the page, *Edit Page with Titan*, save. From the command
 line, `titan` (shipped with gmid) or any Titan-capable client.
 
-```
+```text
 titan://example.org/uploads/hello.gmi;mime=text/gemini;size=42
 ```
 
@@ -98,7 +106,7 @@ usv check          # config validation + content lint
 
 ## Why native rather than delegated
 
-gmid validates Titan requests and forwards them to a FastCGI backend, 
+gmid validates Titan requests and forwards them to a FastCGI backend,
 reasonable for a server whose extension model is FastCGI, but `usv` has no
 dynamic-content tier to delegate to (ADR 0005) and adding one purely for
 uploads would reintroduce the whole class of risk that decision removed.

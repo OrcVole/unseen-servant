@@ -1,3 +1,11 @@
+---
+title: "Deploying on Cloudron"
+description: "Cloudron is the profile usv was packaged for first, but it is a target, not a dependency (ADR 0008): nothing here is required to run usv elsewhere."
+type: howto
+status: decided
+last_verified: 2026-08-11
+---
+
 # Deploying on Cloudron
 
 Cloudron is the profile `usv` was packaged for first, but it is a target,
@@ -45,7 +53,7 @@ capsule on another port is only reachable via an explicit
 
 ## Gopher, and why not port 70
 
-The gopher service is declared but disabled until an admin enables it, 
+The gopher service is declared but disabled until an admin enables it,
 switching on a cleartext protocol is a decision an operator makes, not
 one they inherit (ADR 0012 §2).
 
@@ -53,7 +61,7 @@ one they inherit (ADR 0012 §2).
 Found live on 2026-08-10: requesting external port 70 is rejected with
 `70 for GOPHER_PORT is not in permitted range in ports`. Gopher clients
 assume port 70 when none is given, so a Cloudron-hosted gopher hole is
-necessarily reached with an explicit port, 
+necessarily reached with an explicit port,
 `gopher://your.capsule:7070/`, and links to it must carry that port.
 The same constraint does not bite Gemini only because 1965 is already
 above 1024.

@@ -31,7 +31,7 @@ a real hostname and a Tor mirror.
 and reached over the live Tor network from a separate client process
 through the real onion service, not a simulated handshake. Recipe:
 
-```
+```text
 # torrc
 HiddenServiceDir /var/lib/tor/usv/
 HiddenServicePort 1965 127.0.0.1:1965

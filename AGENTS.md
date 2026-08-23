@@ -1,6 +1,19 @@
+---
+title: "AGENTS.md — Unseen Servant (usv)"
+description: "A security-first server for the small networks — Gemini, Gopher, Spartan, Nex and Finger — publishing one content tree to all of them and mirroring it to the web. Phase C7, pre-launch."
+type: reference
+status: decided
+project: unseen-servant
+tier: A
+lifecycle: active
+visibility: private
+theme: terminal
+last_verified: 2026-08-23
+---
+
 # AGENTS.md: operating manual for maintainers (AI or human)
 
-Unseen Servant (`usv`): a security-first server for the small networks, 
+Unseen Servant (`usv`): a security-first server for the small networks,
 Gemini, Gopher, Spartan, Nex and Finger: that publishes one content tree to
 all of them and mirrors it to the web. Written end to end by an AI, directed
 and reviewed by a human (the director). This file is the entry point and

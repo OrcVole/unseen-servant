@@ -1,6 +1,14 @@
+---
+title: "The small networks"
+description: "The smolnet: the 'small internet': is a loose family of protocols that deliberately cannot do most of what the web does. No scripting, no tracking, no advertising, no layout engine. A page."
+type: explanation
+status: decided
+last_verified: 2026-08-11
+---
+
 # The small networks
 
-**Unseen Servant**
+> Unseen Servant
 
 The smolnet: the "small internet": is a loose family of protocols that
 deliberately cannot do most of what the web does. No scripting, no tracking,
