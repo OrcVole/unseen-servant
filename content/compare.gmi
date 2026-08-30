@@ -31,6 +31,6 @@ The extensibility flagship and the reference Titan implementation. Its real stre
 
 Write-time rendering, not request-time: the whole content tree renders to a static output tree on every change, and both the Gemini and HTML surfaces come from that same pass: no per-request conversion, and the output tree is portable on its own. Titan lives on the same listener as Gemini from day one, not delegated to a backend. And the packaging surface is the actual point of usv existing: none of the other four servers ship a Cloudron package, and the niche has sat open on the Cloudron forum since 2021.
 
-usv is pre-release. Agate and gmid both have years of production hardening usv does not have yet: if uptime-critical serving is the goal today, that maturity gap is real and worth weighing.
+usv is at its first release. Agate and gmid both have years of production hardening usv does not have yet: if uptime-critical serving is the goal today, that maturity gap is real and worth weighing.
 
 => index.gmi Back to the front page
