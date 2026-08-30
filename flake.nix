@@ -1,5 +1,5 @@
 {
-  description = "Unseen Servant (usv) — a security-first Gemini capsule server";
+  description = "Unseen Servant (usv) — a security-first server for the small networks";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";

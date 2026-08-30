@@ -42,8 +42,8 @@ port 1965) and, optionally, to the web as statically rendered classless
 HTML. TOFU-native identity, Titan uploads, and a terminal setup wizard.
 .
 Statically linked (musl) — no runtime dependencies beyond a Linux kernel.
-Pre-release software; see docs/BUILD-PLAN.md on the project's own repo
-for the current phase.
+Also serves Gopher, Spartan, Nex and Finger from the same content tree,
+each off unless enabled.
 
 %prep
 # nothing to unpack — Source0 is the finished binary
@@ -81,5 +81,8 @@ exit 0
 %doc %{_docdir}/%{name}/README.md
 
 %changelog
+* Sun Aug 30 2026 Wandering Monster <most+claude@alba.win> - 1.0.0-1
+- First release
+
 * Mon Aug 10 2026 Wandering Monster <most+claude@alba.win> - 0.1.0-1
 - Initial packaging (pre-release)
