@@ -297,6 +297,36 @@ impl Addresses {
 /// entering it by hand. The operator's own file at this path always
 /// wins — the colophon fills a gap, it does not occupy a slot.
 pub const PATH: &str = "/usv";
+/// Whether a link target in authored content points at the colophon.
+///
+/// Content links are written as an author types them — `/usv`,
+/// `usv.gmi`, `./usv`, or an absolute `gemini://host/usv` — so this
+/// normalises the shapes that mean "this capsule's colophon" before
+/// asking [`matches`]. An absolute URL to *another* host is not a link
+/// to this capsule's colophon and is not counted.
+///
+/// Used by `usv check` to tell an operator whose content did not come
+/// from the default skeleton that nothing links the page explaining
+/// what a visitor is reading.
+pub fn links_colophon(url: &str) -> bool {
+    let path = match url.split_once("://") {
+        // Absolute: take the path after the authority. A link to another
+        // host's colophon says nothing about this capsule.
+        Some((_, rest)) => match rest.split_once('/') {
+            Some((_, p)) => format!("/{p}"),
+            None => return false,
+        },
+        None => {
+            let trimmed = url.trim_start_matches("./");
+            if trimmed.starts_with('/') {
+                trimmed.to_string()
+            } else {
+                format!("/{trimmed}")
+            }
+        }
+    };
+    matches(path.split(['?', '#']).next().unwrap_or(&path))
+}
 
 /// Whether `path` is asking for the colophon.
 ///
@@ -437,6 +467,45 @@ pub fn plain(protocol: Protocol, addrs: &Addresses) -> String {
         }
     }
     out
+}
+
+#[cfg(test)]
+mod colophon_link_tests {
+    use super::links_colophon;
+
+    #[test]
+    fn the_shapes_an_author_actually_writes_are_recognised() {
+        for url in [
+            "/usv", "usv", "./usv", "usv.gmi", "/usv.gmi", "/usv/", "usv.txt",
+        ] {
+            assert!(links_colophon(url), "{url} should count as a colophon link");
+        }
+    }
+
+    #[test]
+    fn an_absolute_link_to_this_capsule_counts() {
+        assert!(links_colophon("gemini://example.com/usv"));
+        assert!(links_colophon("gopher://example.com:1024/usv.gmi"));
+    }
+
+    #[test]
+    fn unrelated_links_do_not_count() {
+        for url in [
+            "/about.gmi",
+            "/usvx",
+            "usvsomething.gmi",
+            "gemini://example.com/",
+            "",
+        ] {
+            assert!(!links_colophon(url), "{url} must not count");
+        }
+    }
+
+    #[test]
+    fn query_and_fragment_do_not_defeat_it() {
+        assert!(links_colophon("/usv#why"));
+        assert!(links_colophon("usv.gmi?x=1"));
+    }
 }
 
 #[cfg(test)]
