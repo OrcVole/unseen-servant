@@ -8,7 +8,7 @@
 
 [package]
 name = "unseen-servant"
-version = "1.0.0"
+version = "1.0.1"
 edition = "2024"
 rust-version = "1.93"
 license = "MIT"

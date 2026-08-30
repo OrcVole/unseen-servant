@@ -5,7 +5,7 @@
   "packagerName": "Wandering Monster",
   "description": "file://DESCRIPTION.md",
   "tagline": "One folder of writing, served to Gemini, Gopher, Spartan, Nex, Finger and the web",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "healthCheckPath": "/",
   "httpPort": 8000,
   "addons": {
