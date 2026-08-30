@@ -3,7 +3,7 @@
 # never has to compile ~130 crates from scratch inside the install itself.
 #
 # WHY THIS EXISTS (found live, 2026-08-10): installing usv on a busy,
-# shared Cloudron (example.com, ~50 other apps) via the normal
+# shared Cloudron (dozens of other apps) via the normal
 # no-image `cloudron install` path took many minutes longer than a typical
 # community app — the repo-root Dockerfile pulls the full `rust:1.93.1`
 # dev image and compiles the entire dependency tree from scratch, on the

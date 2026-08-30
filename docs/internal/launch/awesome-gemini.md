@@ -3,7 +3,7 @@ title: "Awesome gemini"
 description: "DRAFT, not submitted. awesome-gemini (github.com/kr1sp1n/awesome-gemini)."
 type: reference
 status: decided
-last_verified: 2026-08-11
+last_verified: 2026-08-30
 ---
 
 DRAFT, not submitted. `awesome-gemini` (github.com/kr1sp1n/awesome-gemini).
@@ -25,7 +25,7 @@ the house style wins.
 ## The entry
 
 ```markdown
-- [Unseen Servant](https://forgejo.wanderingmonster.dev/WanderingMonster/unseen-servant) - Gemini and Titan server in Rust that also renders the same content tree to static HTML for the web.
+- [Unseen Servant](https://forgejo.wanderingmonster.dev/WanderingMonster/unseen-servant) - Gemini and Titan server in Rust that renders the same content tree to static HTML for the web and can serve it over Gopher, Spartan, Nex and Finger.
 ```
 
 One line. No adjectives that cannot be checked, no "blazing fast", no
@@ -41,7 +41,8 @@ lot of these:
 Adds Unseen Servant, a Gemini + Titan server written in Rust. Its
 distinguishing feature is that it renders the same gemtext tree to
 static HTML at write time, so a capsule is readable both natively and
-in a browser from one source.
+in a browser from one source; optional Gopher, Spartan, Nex and Finger
+listeners serve the same tree.
 
 MIT licensed. Note for transparency: the project is AI-authored under
 human direction, which is stated prominently in its README.

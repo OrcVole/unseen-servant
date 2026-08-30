@@ -22,7 +22,7 @@
     },
     "GOPHER_PORT": {
       "title": "Gopher Port",
-      "description": "Public TCP port for the Gopher protocol (v1.1). Gopher clients assume port 70, but Cloudron refuses privileged ports in tcpPorts (verified live 2026-08-10: 70 is rejected with 'not in permitted range'), so a Cloudron-hosted gopher hole is reached at gopher://host:PORT/ with an explicit port. CLEARTEXT: gopher offers no encryption, no integrity and no way to authenticate a reader, so certificate-gated content is never served over it. Leave disabled unless you want a gopher hole.",
+      "description": "Public TCP port for the Gopher protocol. Gopher clients assume port 70, but Cloudron refuses privileged ports in tcpPorts (verified live 2026-08-10: 70 is rejected with 'not in permitted range'), so a Cloudron-hosted gopher hole is reached at gopher://host:PORT/ with an explicit port. CLEARTEXT: gopher offers no encryption, no integrity and no way to authenticate a reader, so certificate-gated content is never served over it. Leave disabled unless you want a gopher hole.",
       "defaultValue": 7070,
       "containerPort": 7070,
       "readOnly": false,

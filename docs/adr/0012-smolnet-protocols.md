@@ -8,7 +8,7 @@ last_verified: 2026-08-11
 
 # ADR 0012: The smolnet protocols: one plaintext listener kind, opt-in, and a hard wall against leaking gated content
 
-- Status: **Proposed** (v1.1 scope; ADR precedes code per docs/internal/ROADMAP.md)
+- Status: **Accepted** (director, 2026-08-30, as implemented and shipped in v1.0; written 2026-08-10 as v1.1 scope, ADR preceding code per docs/internal/ROADMAP.md)
 - Date: 2026-08-10
 - Evidence: docs/internal/recon/smolnet.md (wire formats, server/render requirements, effort ranking, venues); docs/internal/recon/ecosystem.md; ADR 0004 (dual surface), ADR 0005 (no dynamic content), ADR 0002 (process model); director 2026-08-09 ("include finger"), director 2026-08-10 ("we hope we will be supporting gopher etc when we eventually release")
 

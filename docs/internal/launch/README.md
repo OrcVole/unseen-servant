@@ -3,7 +3,7 @@ title: "Launch pack"
 description: "Drafts for the announcement wave (docs/internal/ROADMAP.md M6). Nothing here has been posted, and nothing here may be posted without the director saying so. These are copy held in escrow,."
 type: reference
 status: decided
-last_verified: 2026-08-11
+last_verified: 2026-08-30
 ---
 
 # Launch pack
@@ -23,31 +23,40 @@ claiming things that were true when it was drafted, or that were hoped
 for and never landed. Walk this list against the code, not against
 memory, on the day of sending.
 
-| Claim | Verify by | True on 2026-08-10 |
+| Claim | Verify by | True on 2026-08-30 |
 |---|---|---|
-| Protocols supported | [`../../protocols.md`](../../protocols.md): must match its table exactly | Gemini, Titan, web mirror |
-| **Gopher / Spartan / Nex / Finger** | Is there a listener in `src/`? | **No. v1.1, unwritten** |
-| Packaging available | Does a *published* package exist, or only a build script? | Build scripts only; no repositories |
-| A release exists | `git tag` | No tags |
-| Repo is public | Forgejo repo settings | **Private** |
-| Capsule is live | Visit it | Yes: `unseen-servant.wanderingmonster.dev` |
-| `gemini-diagnostics` result | Re-run it; quote the real number | 25/27, two documented non-defects |
+| Protocols supported | [`../../protocols.md`](../../protocols.md): must match its table exactly | Gemini, Titan, web mirror, **Gopher, Spartan, Nex, Finger**: all seven with a named client |
+| Cleartext protocols are off by default and carry no gated content | `docs/protocols.md` §Cleartext, ADR 0012 §6 | Yes; say so wherever a cleartext protocol is named |
+| Packaging available | Does a *published* package exist, or only a build script? | Build scripts only (`packaging/`); no repositories, no release artefacts |
+| A release exists | `git tag` | **No tags.** Version 0.1.0 |
+| Repo is public | Forgejo repo settings; anonymous `GET /api/v1/repos/...` | **Private** (404 anonymously); no GitHub mirror yet |
+| Capsule is live | Visit it | Yes: `unseenservant.dev`, all six surfaces (1965, 443, 1024, 3300, 1900, 7979) |
+| `gemini-diagnostics` result | Re-run it; quote the real number **and the three names** | 25/27; the three non-passes are documented artefacts in `DEBUGGING.md` §Conformance (`TLSClaims`, `URLByIPAddress`, `IPv6Address`), the last still owed a re-run from a host with IPv6 |
+| Fuzz targets | `ls fuzz/fuzz_targets` | **Eight** (gopher selector added with ADR 0012) |
+| Themes | `src/render/theme.rs` | **Three**: Ember (default), Phosphor, Burrow |
 | Version / v1.0 status | `Cargo.toml`, `docs/internal/ROADMAP.md` | 0.1.0, pre-1.0 |
-| Test/LOC figures | [`../../architecture.md`](../../architecture.md) | 415 test fns; 10.9k code lines |
+| Test/LOC figures | `cargo test` and [`../../architecture.md`](../../architecture.md) | 632 tests; about 11,000 code lines |
 
 **The rule:** if a line of copy names a protocol, a package repository,
 or a version, it must be checkable in under a minute. If it cannot be
 checked, cut it.
 
-### When v1.1 lands
+### The smolnet protocols (was "When v1.1 lands")
 
-If the announcement waits for Gopher (the director's stated hope,
-"supporting gopher etc when we eventually release"), then at that point:
-update `../protocols.md` **first**, re-run this gate, and only then edit
-the drafts. The protocol table is the authority; the drafts follow it.
-Never the reverse. Gopher also unlocks a second venue set that does not
-apply today: gopher-project mailing list, Bongusta, Floodgap/Veronica-2,
-`#gopher` on Libera: enumerated in `../recon/smolnet.md` §6.
+This section used to say: *if the announcement waits for Gopher, update
+`../protocols.md` first, re-run this gate, and only then edit the drafts.*
+That happened in the other order from the one feared: the four protocols
+shipped on 2026-08-10 and 2026-08-11, `protocols.md` was updated with
+them, and the drafts sat for nineteen days still saying "no Gopher yet".
+Corrected 2026-08-30. The rule stands and is now proven from both sides:
+the protocol table is the authority; the drafts follow it. Never the
+reverse.
+
+Gopher unlocks a second venue set: gopher-project mailing list, Bongusta,
+Floodgap/Veronica-2, `#gopher` on Libera: enumerated in
+`../recon/smolnet.md` §6. **No drafts exist for them yet**; that is owed
+before the second wave, and the copy must use gopher's own vocabulary
+(a gopherhole, not a capsule: `../notes/terminology.md`).
 
 ## The AI disclosure question
 

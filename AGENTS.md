@@ -8,7 +8,7 @@ tier: A
 lifecycle: active
 visibility: private
 theme: terminal
-last_verified: 2026-08-23
+last_verified: 2026-08-30
 ---
 
 # AGENTS.md: operating manual for maintainers (AI or human)
@@ -47,6 +47,17 @@ conformance run against the live deployment from an external vantage point,
 the documentation overhaul, and the agent-facing machine surfaces (`--json`,
 `USV_LOG_FORMAT`, the exit-code contract).
 
+**What C7 still owes (2026-08-30):** the conformance re-run from a host
+with IPv6 and the gate wording settled; hours-long fuzz campaigns with
+committed corpora; E1-E10 re-run against the digest that ships as
+v1.0.0; a `test/secret-scan.sh` and host-detail sweep before the
+repository goes public; then release engineering and the launch
+checklist. The gate table is in `docs/internal/BUILD-PLAN.md` §Where the
+gates stand; the nine decisions the director owns are
+`docs/internal/OPEN-QUESTIONS.md` OQ-10; the phased plan is round
+material in the workspace above this repository,
+`phase-notes/PLAN-TO-PUBLIC-2026-08-30.md`.
+
 Update this section when a gate passes. The gates are in
 `docs/internal/BUILD-PLAN.md`; the blow-by-blow is in git history.
 
@@ -57,8 +68,11 @@ Violating any of these needs an ADR amendment first.
 - `unsafe_code = "forbid"`: the ADR 0002 security argument rests on it.
 - Every parser is fuzzed. A new parser lands with its fuzz target in the
   same change.
-- The `gemini-diagnostics` suite must pass clean before any public exposure.
-  A hard gate, not advice.
+- The `gemini-diagnostics` suite must pass before any public exposure:
+  27/27, or a documented, spec-legitimate non-pass for each check that
+  does not (`DEBUGGING.md` §Conformance names the three). A hard gate,
+  not advice. Wording settled by the director 2026-08-30; "clean" had
+  been untrue as written since the first live run.
 - **Nothing is announced, linked or listed publicly before v1.0 passes its
   gates**: including forum posts, store submissions and awesome-list pull
   requests.
@@ -83,7 +97,7 @@ Violating any of these needs an ADR amendment first.
 ## Commands
 
 ```sh
-cargo test                                   # 622 tests: unit + integration
+cargo test                                   # 632 tests: unit + integration
 cargo clippy --all-targets -- -D warnings    # warnings are errors
 cargo fmt --check
 cargo +nightly fuzz run frame_request_line   # needs cargo-fuzz
@@ -126,10 +140,10 @@ publishable.
 
 - Estate doctrine root: `../../../estate/`. Round workflow:
   `starter/START-HERE.md`.
-- Hosts: `the build workstation` is the build workstation and hosts the proving-ground
-  virtual machine (labs Cloudron, RFC1918, never public). `production` is the
-  production Cloudron and is load-saturated: **gates run on the proving
-  grounds, never on production**.
+- Hosts: the build workstation also hosts the proving-ground virtual
+  machine (a private Cloudron on an RFC1918 address, never public). The
+  production Cloudron is load-saturated: **gates run on the proving
+  grounds, never on production**. Host names live in the estate, not here.
 - Secrets: the `secret` helper reads OpenBao (folders: github, forgejo, ai,
   apps, dns, infra).
 - Base image truth: `cloudron/base:5.1.0` per live docs (2026-08-09). The
