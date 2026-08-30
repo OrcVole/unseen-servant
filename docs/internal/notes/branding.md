@@ -75,6 +75,33 @@ plus light/medium/semibold and their italics).
   §6); derive it from `assets/logo-512.png` rather than the 4096px
   original.
 
+## Partly revived: green returns as a theme (2026-08-30)
+
+The director asked that the project site's colours resemble
+`assets/mascot.png` — the green of the superseded direction below —
+rather than the amber. That is a reversal of the 2026-08-11 decision
+this note records, and it is recorded here rather than applied
+silently, because this file is the authority for the brand.
+
+What was done, and what deliberately was not:
+
+- **Done:** a bundled theme, `cathode`, carrying the green sampled from
+  the mascot itself (`#3afb26` on `#050a04`, contrast measured), and the
+  project's own deployment set to use it. A theme is configuration; any
+  operator can pick another, and the change is one line to undo.
+- **Not done:** the mark, favicons and the 16-colour PNGs are still
+  Ember Oxide amber, and the mark is what a reader sees in a browser
+  tab and on the Fediverse. **The assets and the site now disagree.**
+  Repainting them is a brand decision, not a theme decision, and it
+  would mean amending everything above rather than appending here.
+
+**Open for the director:** either repaint the mark green and rewrite
+this note's authority section, or keep the amber mark and accept a
+green site around it. The launch image in
+[`../launch/fediverse.md`](../launch/fediverse.md) is `mascot.png`,
+which is green, so the announcement currently leads with the green and
+links to a green site under an amber tab icon.
+
 ## Superseded: the phosphor-green direction (2026-08-09)
 
 The first review picked concept 1 of six: a CRT-phosphor-green terminal

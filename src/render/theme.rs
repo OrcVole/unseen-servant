@@ -26,6 +26,7 @@ pub struct Theme {
 pub const THEMES: &[Theme] = &[
     EMBER,
     PHOSPHOR,
+    CATHODE,
     BURROW,
     DAYBREAK,
     MIDNIGHT,
@@ -201,6 +202,44 @@ hr { border-top-color: var(--border); }
     ),
 };
 
+/// **Cathode** — the green CRT, and the mascot's own glow. `#3afb26`
+/// sampled from `assets/mascot.png`, which is the phosphor-green
+/// direction the brand began with before the amber mark superseded it
+/// (`docs/internal/notes/branding.md`). Always dark, one hue throughout,
+/// the green sibling of Phosphor's amber.
+///
+/// The body green clears 14.3:1 against the ground and the dimmer
+/// `--muted` clears 7.6:1, both measured rather than assumed. Links
+/// carry a *lighter* green (`#9dff8e`) that is only 1.1:1 against body
+/// text by luminance, which is deliberate and safe here only because
+/// the structural rules give every link a border-bottom on hover and
+/// focus: colour is never the sole cue. Do not lower that.
+const CATHODE: Theme = Theme {
+    name: "cathode",
+    description: "Monochrome green terminal (#3afb26) on black, always dark — the mascot's glow; monospace throughout",
+    css: concat!(
+        r#":root {
+  color-scheme: dark;
+  --bg: #050a04;
+  --fg: #3afb26;
+  --muted: #29b81c;
+  --accent: #9dff8e;
+  --border: #123c0d;
+  --code-bg: #0a1a08;
+}
+body { background: var(--bg); color: var(--fg); }
+h1, h2, h3 { color: var(--fg); }
+a { color: var(--accent); }
+blockquote { color: var(--muted); border-left-color: var(--border); }
+figcaption { color: var(--muted); }
+pre { background: var(--code-bg); border: 1px solid var(--border); }
+hr { border-top-color: var(--border); }
+"#,
+        structure!(),
+        house_type!()
+    ),
+};
+
 /// **Burrow** — the same amber over soil browns rather than neutral
 /// black. The gopher nod, for an operator whose capsule leans that way.
 /// Always dark.
@@ -358,6 +397,22 @@ mod tests {
     use super::*;
 
     #[test]
+    fn cathode_carries_the_mascot_green() {
+        // The whole point of this theme is that it matches the mark in
+        // assets/mascot.png. If the palette is retuned, sample the image
+        // again rather than nudging the hex by eye.
+        let cathode = find("cathode").expect("theme exists");
+        assert!(
+            cathode.css.contains("#3afb26"),
+            "cathode must carry the sampled mascot green"
+        );
+        assert!(
+            cathode.css.contains("color-scheme: dark"),
+            "cathode is always dark"
+        );
+    }
+
+    #[test]
     fn every_theme_defines_color_scheme() {
         for theme in THEMES {
             assert!(
@@ -416,7 +471,7 @@ mod tests {
         // themes override it, so the override has to be concatenated
         // *after* it or the cascade silently discards it. Assert the
         // order rather than merely the presence.
-        for name in ["ember", "phosphor", "burrow"] {
+        for name in ["ember", "phosphor", "cathode", "burrow"] {
             let theme = find(name).expect("theme exists");
             let sans = theme
                 .css

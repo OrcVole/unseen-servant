@@ -503,3 +503,140 @@ fn the_default_log_format_is_unchanged_by_the_json_option() {
     );
     assert!(first.contains("INFO"), "log line was: {first:?}");
 }
+
+/// Every internal link the render pass writes must resolve to a file the
+/// render pass also wrote.
+///
+/// Regression test for a defect found on 2026-08-30 by fetching the live
+/// site rather than by reading the code: the HTML mirror linked
+/// `about.gmi`, the source's name, while the file beside it was
+/// `about.html`. Every internal link on every page was a 404. Nothing in
+/// the emitter looked wrong — the markup was valid and the hrefs were
+/// well-formed — so no unit test on the emitter's output would have
+/// caught it. Only following a link does, which is what this does.
+///
+/// The `.md` siblings had the identical defect and are checked with the
+/// same walk, because they were written by the same rule.
+#[test]
+fn every_internal_link_in_the_rendered_tree_resolves_to_a_file() {
+    let dir = std::env::temp_dir().join(format!("usv-smoke-links-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let content = dir.join("content");
+    std::fs::create_dir_all(content.join("docs")).expect("mkdir");
+    std::fs::write(
+        content.join("index.gmi"),
+        "# Home\n\n=> about.gmi About\n=> docs/deep.gmi Deeper\n\
+         => about.gmi#section A fragment\n=> gemini://example.com/x.gmi Another capsule\n\
+         => https://example.com/ The web\n",
+    )
+    .expect("write index");
+    std::fs::write(content.join("about.gmi"), "# About\n\n=> index.gmi Home\n")
+        .expect("write about");
+    std::fs::write(
+        content.join("docs/deep.gmi"),
+        "# Deep\n\n=> ../about.gmi Back up\n",
+    )
+    .expect("write deep");
+
+    let cfg = dir.join("usv.toml");
+    std::fs::write(
+        &cfg,
+        "[server]\nlisten = [\"127.0.0.1:0\"]\nhttp_listen = \"127.0.0.1:0\"\n\
+         [[host]]\nname = \"links.example\"\n",
+    )
+    .expect("write config");
+
+    let out = usv()
+        .arg("render")
+        .arg("--config")
+        .arg(&cfg)
+        .env("USV_STATE_DIR", &dir)
+        .output()
+        .expect("binary runs");
+    assert!(
+        out.status.success(),
+        "render failed: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+
+    let html_root = dir.join("html");
+    let mut checked = 0usize;
+    let mut broken: Vec<String> = Vec::new();
+    let mut stack = vec![html_root.clone()];
+    while let Some(entry) = stack.pop() {
+        for item in std::fs::read_dir(&entry).expect("read rendered dir") {
+            let path = item.expect("dir entry").path();
+            if path.is_dir() {
+                stack.push(path);
+                continue;
+            }
+            let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
+            if ext != "html" && ext != "md" {
+                continue;
+            }
+            let body = std::fs::read_to_string(&path).expect("read rendered page");
+            for target in link_targets(&body, ext) {
+                // Absolute URLs point off this tree; a bare fragment
+                // points inside the page it is on.
+                if target.contains("://") || target.starts_with('#') {
+                    continue;
+                }
+                let cleaned = target
+                    .split(['#', '?'])
+                    .next()
+                    .unwrap_or(&target)
+                    .to_string();
+                if cleaned.is_empty() {
+                    continue;
+                }
+                let base = if cleaned.starts_with('/') {
+                    html_root.clone()
+                } else {
+                    path.parent().expect("page has a parent").to_path_buf()
+                };
+                let resolved = base.join(cleaned.trim_start_matches('/'));
+                checked += 1;
+                if !resolved.exists() {
+                    broken.push(format!("{} -> {target}", path.display()));
+                }
+            }
+        }
+    }
+
+    let _ = std::fs::remove_dir_all(&dir);
+    assert!(
+        checked >= 8,
+        "the walk found only {checked} internal links, so it is not exercising the tree"
+    );
+    assert!(
+        broken.is_empty(),
+        "internal links resolve to nothing: {broken:#?}"
+    );
+}
+
+/// Link targets in a rendered page: `href="..."` for HTML, `](...)` for
+/// Markdown. Deliberately small and literal — this is a test helper, and
+/// a real parser here would be testing the parser.
+fn link_targets(body: &str, extension: &str) -> Vec<String> {
+    let mut found = Vec::new();
+    if extension == "html" {
+        let mut rest = body;
+        while let Some(at) = rest.find("href=\"") {
+            rest = &rest[at + 6..];
+            if let Some(end) = rest.find('"') {
+                found.push(rest[..end].to_string());
+                rest = &rest[end..];
+            }
+        }
+    } else {
+        let mut rest = body;
+        while let Some(at) = rest.find("](") {
+            rest = &rest[at + 2..];
+            if let Some(end) = rest.find(')') {
+                found.push(rest[..end].trim_matches(['<', '>']).to_string());
+                rest = &rest[end..];
+            }
+        }
+    }
+    found
+}
