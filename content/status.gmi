@@ -1,6 +1,8 @@
 # Current build status
 
-usv is at v1.0.0, released 2026-08-30 and built in public against a phased plan. The authoritative, always-current state lives in the source repository: this page is a snapshot, not the source of truth, and may lag behind it.
+usv is released and built in public against a phased plan. The current version, its notes and its signed artefacts are on the releases page, which is the one place that cannot go stale:
+
+=> https://forgejo.unseenservant.dev/unseen-servant/unseen-servant/releases Releases The authoritative, always-current state lives in the source repository: this page is a snapshot, not the source of truth, and may lag behind it.
 
 ## What is done
 
