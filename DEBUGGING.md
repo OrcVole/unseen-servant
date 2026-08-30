@@ -119,6 +119,43 @@ Every parser has a fuzz target in `fuzz/`, each with a committed regression
 corpus. A new parser lands with its fuzz target in the same change: that is
 an invariant, not a preference.
 
+## Fuzzing, and what a campaign has actually cost
+
+Eight targets, one per parser, run from `fuzz/`. CI runs a 60-second
+smoke per target — enough to catch a crash somebody just introduced,
+not a campaign.
+
+```sh
+cargo +nightly fuzz run <target> -- -max_total_time=600 -print_final_stats=1
+```
+
+Extended campaign, 600 s per target, 2026-08-30, on the build
+workstation. **1,864,674,573 executions, no crashes, no artefacts.**
+
+| Target | Executions | exec/s | New corpus units | Coverage | Corpus |
+|---|---:|---:|---:|---:|---:|
+| `frame_request_line` | 829,169,308 | 1,379,649 | 6 | 50 | 32 |
+| `validate_uri` | 300,261,445 | 499,603 | 182 | 380 | 409 |
+| `config_parse` | 9,378,049 | 15,604 | 13,495 | 3,260 | 4,946 |
+| `parse_gemtext` | 121,300,563 | 201,831 | 1,402 | 155 | 296 |
+| `parse_titan` | 186,874,771 | 310,939 | 1,176 | 466 | 531 |
+| `parse_gopher_selector` | 194,958,257 | 324,389 | 288 | 187 | 97 |
+| `static_path_sanitize` | 217,792,149 | 112,263 | 79 | 104 | 91 |
+| `render_html` | 4,940,031 | 8,219 | 3,628 | 417 | 648 |
+
+**Read the "new units" column, not the executions column.** Executions
+measure how cheap a target is to run, not how much it learned.
+`frame_request_line` managed 829 million runs and found **six** new
+inputs: it is saturated, and a longer campaign there buys nothing.
+`config_parse` and `render_html` are three orders of magnitude slower
+per execution — they parse TOML and build a whole document — and each
+added thousands of new inputs, meaning the fuzzer was still finding
+genuinely new paths when the clock ran out. Those two are where the next
+campaign's hours belong.
+
+A target that is still adding units at the end of its budget has not
+finished; it has been interrupted. Say which when reporting a campaign.
+
 ## Conformance
 
 ```sh
