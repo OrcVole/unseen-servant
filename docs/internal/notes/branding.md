@@ -75,6 +75,32 @@ plus light/medium/semibold and their italics).
   §6); derive it from `assets/logo-512.png` rather than the 4096px
   original.
 
+## The text mark is Braille, except where Braille breaks (2026-08-30)
+
+The Braille mark stays the brand's text mark and the generator still
+produces it. But the **capsule's own front page now uses half-block
+characters**, because Braille failed in the one place it most needed to
+work.
+
+Reported against the live gopherhole: the figure was misaligned. The
+bytes were correct — every line exactly 24 characters, no stray tabs,
+the figure well-formed on the wire. The fault is font substitution:
+U+28xx is missing from many terminal and gopher-client fonts, gets
+filled in from a fallback with a different advance width, and every
+character after it on the line shifts. Correct on the wire, broken on
+screen, and invisible to any check that reads the file.
+
+`scripts/braille-mark.py --blocks` draws the same measured figure with
+`█ ▀ ▄`, which are in essentially every monospace font and are reliably
+single-width. Half the vertical resolution (two pixel rows per line
+rather than four) and the same footprint on the page.
+
+**Where each belongs:** Braille for surfaces where the font is known —
+the brand assets, the README, anywhere rendered as an image. Blocks for
+anything a stranger's terminal will draw: the capsule's pages, and
+gopher above all, whose readers are the most likely of anyone to be
+using a client old enough to lack the glyph.
+
 ## Reversed: green is the brand again (2026-08-30)
 
 The director reversed the 2026-08-11 amber decision. **Green is the
