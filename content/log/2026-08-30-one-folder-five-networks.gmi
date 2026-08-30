@@ -1,0 +1,59 @@
+# One folder of writing, five small networks, and the web
+
+2026-08-30
+
+Unseen Servant 1.0.0 is released. It is a server that publishes one folder of gemtext to Gemini, Gopher, Spartan, Nex and Finger at once, and mirrors the same writing to the web as plain, classless HTML.
+
+This capsule is the claim, tested on itself. Everything you are reading is served by it, from one folder, on every protocol it supports, with no build step in between. If you are reading this over gopher or nex, that is the demonstration working.
+
+## What it does
+
+Rendering happens when a file changes, not per request. You save a page; a couple of seconds later it is live in Lagrange, in a gopher client, and in a browser, from the same source file. There is no second copy to keep in step, and the rendered HTML tree is self-contained: copy it behind OnionShare or onto any static host and it still works.
+
+Certificates are minted once per hostname and never quietly replaced, not on restart, not on update, not on restore, and not when you move the capsule to another machine. If usv finds broken key material it stops and says so rather than generating a new key, because a new key is indistinguishable from an impersonation to a client that pinned the old one.
+
+Titan uploads run on the same listener, gated per zone on client-certificate fingerprints. A writable zone with an empty allowlist is a startup error, not a permissive default.
+
+The four cleartext protocols are off until you switch them on, and they cannot leak gated content: anything behind a certificate zone is excluded from those trees when they are built, not filtered per request. Gopher, Spartan, Nex and Finger have no encryption and no way to authenticate a reader, so the wall is structural rather than a check somebody has to remember.
+
+## What it will not do
+
+No CGI. No FastCGI. No SCGI. No scripting, no proxying, no plugin API, and no web admin panel. Content is data, never code.
+
+That is a refusal rather than a gap. The escape hatch is where most of the defect load lives in servers that offer one, and I would rather not have the class of bug at all. It also means usv is the wrong tool if what you are building is a program rather than a capsule: Astrobotany and Bubble want GmCapsule or Jetforce, and this will not grow into them.
+
+It is also not a web server. The HTML mirror exists so someone with only a browser can read your capsule. It does no authentication and nothing at request time.
+
+## When to use something else
+
+=> gemini://gemini.circumlunar.space/ Agate, if you want the smallest possible thing that will never grow a feature. Its scope freeze is a feature, and it has already made every future decision for you.
+
+gmid, if you need FastCGI, proxying, or many virtual hosts with a real configuration language. It is the most actively maintained server in the field and nothing else matches its config expressiveness.
+
+Molly Brown, for a pubnix, where per-user capsules and the world-readable-bit convention are exactly right.
+
+usv is at its first release. Agate and gmid have years of production hardening it does not.
+
+## One thing to know before running it
+
+It is written by an AI, directed and reviewed by a human. Every decision is recorded as an architecture note written before the code, and the research behind them, including honest autopsies of the servers above, is in the repository.
+
+I am telling you this at the top rather than letting you find out, because you are entitled to decide about it before it runs on your machine, and because I would rather have the argument than the discovery.
+
+## On logs
+
+usv does not record visitor addresses by default. The request line carries the status and the path, and the peer field reads as a dash. Query strings are redacted by construction, since status 10 input lands there and can contain anything a visitor types.
+
+If you want addresses you can turn them on, either verbatim or as a digest salted per boot that correlates repeat visits within one run of the process and survives no restart. But you have to ask for it. That default was originally the other way round, and was changed because keeping visitor addresses is not the norm here and should not be the thing you get without choosing it.
+
+## Where
+
+=> https://forgejo.unseenservant.dev/unseen-servant/unseen-servant The source, the decision records, and the research
+=> https://github.com/OrcVole/unseen-servant A mirror, for people who live on GitHub
+=> install.gmi Getting it running
+
+Packages for Cloudron, Debian, Fedora, Arch, Nix, and a small container image, because a capsule should not require picking a Linux distribution first. Every release artefact is signed.
+
+If you try it and it breaks, I would like to hear about it.
+
+=> index.gmi Back to the front page
