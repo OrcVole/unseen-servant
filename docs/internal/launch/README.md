@@ -41,6 +41,17 @@ memory, on the day of sending.
 or a version, it must be checkable in under a minute. If it cannot be
 checked, cut it.
 
+### The capsule's own pre-release notice
+
+`content/index.gmi` carries a paragraph asking whoever found the site
+early not to share it, and `compare.gmi`, `install.gmi` and `status.gmi`
+each say pre-release too. **Remove or rewrite all four before the first
+announcement** (director, 2026-08-30): the notice is doing its job now
+and would read as false modesty the moment a link is posted anywhere.
+Grep for "pre-release" and "unannounced" across `content/` rather than
+trusting this list, and check `status.gmi` says what v1.0 actually is.
+This is the last content change before the gemlog post, not the first.
+
 ### The smolnet protocols (was "When v1.1 lands")
 
 This section used to say: *if the announcement waits for Gopher, update

@@ -44,7 +44,13 @@ pub fn render(lines: &[Line<'_>]) -> String {
             }
             Line::Link { url, name } => {
                 let text = name.unwrap_or(url);
-                blocks.push(format!("[{}]({})", link_label(text), link_dest(url)));
+                blocks.push(format!(
+                    "[{}]({})",
+                    link_label(text),
+                    // The `.md` sibling, for the same reason the HTML
+                    // emitter takes the `.html` one.
+                    link_dest(&super::links::sibling(url, "md"))
+                ));
                 i += 1;
             }
             Line::ListItem(_) => {
