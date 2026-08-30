@@ -4,7 +4,18 @@ Unseen Servant is one static binary. It is packaged for seven targets, so puttin
 
 ## First, the honest part
 
-This is pre-release software. Nothing is published to any package repository, app store, or download page yet, and no release has been tagged. Every method below builds from the source tree. That will change at v1.0; this page describes today rather than an intention.
+v1.0.0 is released, signed and downloadable: a static binary, a .deb and an RPM, each with a minisign signature and a checksum you can check.
+
+=> https://forgejo.unseenservant.dev/unseen-servant/unseen-servant/releases/tag/v1.0.0 The release, with every artefact
+
+Verify what you download. The public key is in the repository and the release notes:
+
+```
+minisign -Vm SHA256SUMS -P RWQ8yH+Afj6YnCB5dOP+vbhvFT6DQhHBzmkC5oAY9gIrv0+vyAP+qQAw
+sha256sum -c SHA256SUMS
+```
+
+It is a first release, and it says so. Nothing is in a distribution repository or an app store yet; the packages above install directly.
 
 ## The fastest way to see it work
 
