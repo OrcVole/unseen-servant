@@ -23,6 +23,29 @@ semantic versioning: configuration semantics and the certificate
 lifecycle can only change in a MAJOR release, and `UPGRADING.md` states
 what that promise covers.
 
+## Verifying a release
+
+Release artefacts are signed with minisign. The public key is
+[`assets/unseen-servant.pub`](assets/unseen-servant.pub) in this
+repository, and its raw value is:
+
+```text
+RWQ8yH+Afj6YnCB5dOP+vbhvFT6DQhHBzmkC5oAY9gIrv0+vyAP+qQAw
+```
+
+```sh
+minisign -Vm SHA256SUMS -P RWQ8yH+Afj6YnCB5dOP+vbhvFT6DQhHBzmkC5oAY9gIrv0+vyAP+qQAw
+sha256sum -c SHA256SUMS
+```
+
+`rsign` (the Rust implementation) verifies the same signatures:
+`rsign verify -P <key> -x SHA256SUMS.minisig SHA256SUMS`.
+
+A key published in the repository it signs proves less than one you
+obtained separately: if you can, note the key on first download and
+check it has not changed on the next, which is the same trust-on-first-use
+reasoning `usv` applies to its own certificates.
+
 ## Scope
 
 In scope: anything reachable over the Gemini, Titan, or web-mirror
