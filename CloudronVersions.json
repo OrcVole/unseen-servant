@@ -64,10 +64,21 @@
         "optionalSso": true,
         "postInstallMessage": "## Your capsule is live\n\nOne folder of writing, published to several places at once. **The\nhostname never changes, you change the bit before the `://`, and that\nalone decides which protocol you get and which port you land on.**\n\n| Type this | You reach | On port |\n|---|---|---|\n| `gemini://$CLOUDRON-APP-FQDN/` | the Gemini capsule, in a client like Lagrange | 1965 |\n| $CLOUDRON-APP-ORIGIN/ | the web mirror, in any browser | 443 |\n\nSo swapping `gemini://` for `https://` on the *same address* gets you\nthe same writing in a browser instead. Nothing else to set up: a\nstarter page is already written, and the identity your readers will\ntrust has already been generated.\n\n*(More smolnet protocols are in development and work the same way. When\ngopher ships, typing `gopher://$CLOUDRON-APP-FQDN/` instead of\n`gemini://\u2026` will send you to port 7070 rather than 1965, and give you\na gopher experience: menus and all: of the very same content.)*\n\n### The first visit will show a warning\n\nThat is expected. Gemini uses TOFU (trust-on-first-use), like SSH: your\nreader's client remembers the certificate it saw the first time and only\nwarns again if it *changes*. No certificate authority is involved.\n\nTo confirm readers are seeing the right one, run `usv fingerprint` (see\nbelow) and compare it with what your client shows.\n\n### Adding content\n\nOpen the **Files** icon on this app's tile and edit `content/`: one\ngemtext (`.gmi`) file per page. Saving re-renders both surfaces within\nseconds. No build step, no deploy.\n\n### The command line\n\n`cloudron exec` gives you a shell. `usv status`, `usv fingerprint`, and\n`usv check` report on the capsule; none of them modify your content.\n\n### Moving to another domain\n\nUnseen Servant notices the new hostname and mints a fresh identity for it\nrather than silently reusing the old one: reusing it would look like\nimpersonation to anyone who had pinned it. The old keypair is kept.\n",
         "icon": "file://icon.png",
-        "website": "https://forgejo.unseenservant.dev/unseen-servant/unseen-servant",
+        "website": "https://unseenservant.dev/",
         "dockerImage": "ghcr.io/orcvole/unseen-servant@sha256:8f5c48dfed55fd66b8022e8c9aa833ff20b1456a6a980f34d793d42fd286c6c6",
         "changelog": "- First release. Serves Gemini, Titan, Gopher, Spartan, Nex and Finger from one\n  content tree, and mirrors it to the web as static HTML rendered at write time.\n- Certificate-gated zones; gated paths are excluded from every cleartext tree at\n  render time rather than filtered per request.\n- The TOFU server identity is never silently regenerated, and survives update,\n  backup, restore and a move to another domain.\n",
-        "iconUrl": "https://raw.githubusercontent.com/OrcVole/unseen-servant/main/icon.png"
+        "iconUrl": "https://raw.githubusercontent.com/OrcVole/unseen-servant/main/icon.png",
+        "packagerUrl": "https://forgejo.unseenservant.dev/unseen-servant/unseen-servant",
+        "documentationUrl": "https://forgejo.unseenservant.dev/unseen-servant/unseen-servant/src/branch/main/docs/deployment/cloudron.md",
+        "contactEmail": "most+claude@alba.win",
+        "upstreamVersion": "1.0.0",
+        "tags": [
+          "gemini",
+          "gopher",
+          "publishing",
+          "static-site",
+          "smolnet"
+        ]
       },
       "creationDate": "2026-08-30T21:10:17.530135Z",
       "ts": 1788124217530,
