@@ -18,7 +18,7 @@ Version:        %{_usv_version}
 Release:        1%{?dist}
 Summary:        security-first Gemini capsule server
 License:        MIT
-URL:            https://forgejo.wanderingmonster.dev/WanderingMonster/unseen-servant
+URL:            https://forgejo.unseenservant.dev/unseen-servant/unseen-servant
 
 Source0:        usv
 Source1:        usv.service

@@ -10,5 +10,5 @@ The full dual-render pipeline (gemtext to native Gemini and to classless HTML, o
 
 Extended fuzz hardening, a clean run of the community gemini-diagnostics conformance suite against a live deployment, and the last of the pre-launch documentation. No announcement happens before that bar is cleared.
 
-=> https://forgejo.wanderingmonster.dev/WanderingMonster/unseen-servant/src/branch/main/docs/BUILD-PLAN.md The build plan (source repository)
+=> https://forgejo.unseenservant.dev/unseen-servant/unseen-servant/src/branch/main/docs/internal/BUILD-PLAN.md The build plan (source repository)
 => index.gmi Back to the front page

@@ -60,5 +60,5 @@
   "optionalSso": true,
   "postInstallMessage": "file://POSTINSTALL.md",
   "icon": "file://icon.png",
-  "website": "https://forgejo.wanderingmonster.dev/WanderingMonster/unseen-servant"
+  "website": "https://forgejo.unseenservant.dev/unseen-servant/unseen-servant"
 }
