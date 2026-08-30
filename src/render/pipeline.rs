@@ -367,13 +367,35 @@ async fn write_atom_feed(
         .map(|e| e.date)
         .max()
         .unwrap_or(entries[0].date);
+    // Atom is served on the web, so its links must be the web renditions.
+    // The index writes `=> log/post.gmi`, which is right for the gemsub
+    // feed a Gemini client reads and wrong here: the web surface serves
+    // `post.html` and answers 404 for the source name. Found live on
+    // 2026-08-30 by following the link out of the feed before announcing
+    // it, which is the only way this shows up — the XML is well-formed
+    // either way. Same defect class as the emitter fix in render::links,
+    // and fixed with the same function.
+    // FeedEntry borrows its url, so the rewritten paths are collected
+    // into a Vec that outlives the render call and then borrowed from.
+    let web_urls: Vec<String> = entries
+        .iter()
+        .map(|e| super::links::sibling(e.url, "html"))
+        .collect();
+    let web_entries: Vec<metadata::FeedEntry<'_>> = entries
+        .iter()
+        .zip(&web_urls)
+        .map(|(e, url)| metadata::FeedEntry {
+            url: url.as_str(),
+            ..*e
+        })
+        .collect();
     let feed_id = format!("{}/atom.xml", ctx.web_base_url.trim_end_matches('/'));
     let atom = feed::atom::render(
         &feed_id,
         &ctx.capsule_title,
         &ctx.web_base_url,
         latest,
-        &entries,
+        &web_entries,
     );
     tokio::fs::write(staging.join("atom.xml"), atom).await
 }
@@ -801,6 +823,41 @@ mod tests {
         assert!(base.join("html/b.html").exists());
 
         let _ = std::fs::remove_dir_all(&base);
+    }
+
+    #[tokio::test]
+    async fn the_atom_feed_links_web_renditions_not_the_source_names() {
+        // Regression test for a defect found on the live site, by
+        // following a link out of the published feed rather than by
+        // reading the XML: Atom is served on the web, the index writes
+        // `=> log/post.gmi`, and the web surface answers 404 for that
+        // name. A feed reader would have carried the dead link.
+        let dir = tmp_dir("atom-links");
+        let content = dir.join("content");
+        std::fs::create_dir_all(content.join("log")).unwrap();
+        std::fs::write(
+            content.join("index.gmi"),
+            "# Home\n\n=> log/post.gmi 2026-08-30 - A post\n",
+        )
+        .unwrap();
+        std::fs::write(content.join("log/post.gmi"), "# A post\n").unwrap();
+
+        let mut ctx = test_ctx();
+        ctx.web_base_url = "https://example.org".to_string();
+        let staging = dir.join("staging");
+        std::fs::create_dir_all(&staging).unwrap();
+        write_atom_feed(&content, &staging, &ctx).await.unwrap();
+
+        let atom = std::fs::read_to_string(staging.join("atom.xml")).unwrap();
+        assert!(
+            atom.contains("https://example.org/log/post.html"),
+            "atom must link the rendered page: {atom}"
+        );
+        assert!(
+            !atom.contains("/log/post.gmi"),
+            "atom must not link the gemtext source on the web surface: {atom}"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[tokio::test]
