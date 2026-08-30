@@ -138,10 +138,47 @@ def braille(im):
     return rows
 
 
-def mark(variant=DEFAULT, cols=24):
+def blocks(im):
+    """The same figure in half-block characters instead of Braille.
+
+    Braille is denser and is what the brand uses, but it renders badly
+    in a lot of terminal and gopher-client fonts: U+28xx is often absent
+    from the primary font, gets substituted from a fallback with a
+    different advance width, and every character after it on the line
+    shifts. The result is a figure that is correct on the wire and
+    visibly broken on screen — reported against the live gopherhole on
+    2026-08-30.
+
+    U+2588 and U+2584/U+2580 are in almost every monospace font that
+    exists and are reliably single-width, so cleartext surfaces get
+    these instead. Two pixel rows per character line rather than
+    Braille's four, so the figure is half the resolution and twice as
+    robust.
+    """
+    w, h = im.size
+    px = im.load()
+    rows = []
+    for cy in range(0, h, 2):
+        line = ''
+        for cx in range(w):
+            top = px[cx, cy]
+            bot = px[cx, cy + 1] if cy + 1 < h else 0
+            line += {(0, 0): ' ', (1, 0): '\u2580', (0, 1): '\u2584', (1, 1): '\u2588'}[
+                (1 if top else 0, 1 if bot else 0)
+            ]
+        rows.append(line.rstrip() or ' ')
+    while rows and not rows[0].strip():
+        rows.pop(0)
+    while rows and not rows[-1].strip():
+        rows.pop()
+    return rows
+
+
+def mark(variant=DEFAULT, cols=24, style='braille'):
     kw = dict(VARIANTS[variant])
     kw.pop('label', None)
-    return braille(draw(cols, **kw))
+    im = draw(cols, **kw)
+    return blocks(im) if style == 'blocks' else braille(im)
 
 
 if __name__ == '__main__':
@@ -149,11 +186,13 @@ if __name__ == '__main__':
     ap.add_argument('--variant', default=DEFAULT, choices=sorted(VARIANTS))
     ap.add_argument('--cols', type=int, default=24)
     ap.add_argument('--all', action='store_true')
+    ap.add_argument('--blocks', action='store_true',
+                    help='half-block characters instead of Braille, for fonts that lack U+28xx')
     a = ap.parse_args()
     if a.all:
         for key in ('slim', 'standard', 'heavy'):
             print(f"=== {key}: {VARIANTS[key]['label']} ({a.cols} columns) ===")
-            print('\n'.join(mark(key, a.cols)))
+            print('\n'.join(mark(key, a.cols, 'blocks' if a.blocks else 'braille')))
             print()
     else:
-        print('\n'.join(mark(a.variant, a.cols)))
+        print('\n'.join(mark(a.variant, a.cols, 'blocks' if a.blocks else 'braille')))
