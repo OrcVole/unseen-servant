@@ -1,6 +1,6 @@
 # This is a Nex page
 
-You are reading this at nex://localhost:1900/ — served to you by the Unseen Servant (usv) Nex server.
+You are reading this at nex://localhost:11900/: served to you by the Unseen Servant (usv) Nex server.
 
 ## Unseen Servant, and why "usv"
 
@@ -14,7 +14,7 @@ It is abbreviated rather than spelled out because it is also a command you type.
 
 ## About Nex
 
-Nex is the smallest thing that still works: send a path, get bytes, the connection closes. No status codes, no content types, no headers. It is explicitly telnet-compatible, so you can speak it by hand, and the whole protocol fits in your head — which is the reason people like it.
+Nex is the smallest thing that still works: send a path, get bytes, the connection closes. No status codes, no content types, no headers. It is explicitly telnet-compatible, so you can speak it by hand, and the whole protocol fits in your head, which is the reason people like it.
 
 => https://nightfall.city/nex/info/specification.txt The Nex specification
 
@@ -27,14 +27,14 @@ If this page arrived looking strange, you may be reading it through a gateway. T
 
 Client support changes; this list was checked in August 2026.
 
-## The same capsule, other protocols
+## The same writing, other protocols
 
-This capsule is one folder of writing, rendered to each of these. The hostname never changes — the scheme at the front picks the protocol and the port:
+This is one folder of writing, rendered to each of these. The hostname never changes, the scheme at the front picks the protocol and the port:
 
-* Gemini: gemini://localhost/
-* Gopher: gopher://localhost:7070/
-* Spartan: spartan://localhost:3000/
-* Finger: finger://localhost:7979
+* Gemini: gemini://localhost:11965/
+* Gopher: gopher://localhost:17070/
+* Spartan: spartan://localhost:13300/
+* Finger: finger://localhost:17979
 * Web: https://localhost/
 
-=> / Back to the capsule
+=> / Back to the site
