@@ -13,11 +13,15 @@ issue, you will be credited in the fix unless you would rather not be.
 
 ## Supported versions
 
-`usv` is **pre-1.0 and pre-release**. There are no tagged releases, no
-published packages, and no announcement yet. Only `main` is supported;
-fixes land there.
+| Version | Supported |
+|---|---|
+| 1.0.x | yes |
+| < 1.0 | there was no < 1.0; v1.0.0 is the first release |
 
-This will be replaced with a real support table when v1.0 ships.
+Fixes land on `main` and ship in the next patch release. `usv` follows
+semantic versioning: configuration semantics and the certificate
+lifecycle can only change in a MAJOR release, and `UPGRADING.md` states
+what that promise covers.
 
 ## Scope
 
