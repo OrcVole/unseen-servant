@@ -2,5 +2,5 @@
 
 Bugs, questions, and patches go through the source repository's issue tracker.
 
-=> https://forgejo.wanderingmonster.dev/WanderingMonster/unseen-servant/issues Issues (Forgejo)
+=> https://forgejo.unseenservant.dev/unseen-servant/unseen-servant/issues Issues (Forgejo)
 => index.gmi Back to the front page

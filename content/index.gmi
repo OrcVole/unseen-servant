@@ -62,7 +62,7 @@ This site is that claim, tested on itself: everything you are reading is served 
 
 => status.gmi Current build status
 => contact.gmi Contact
-=> https://forgejo.wanderingmonster.dev/WanderingMonster/unseen-servant Source (Forgejo)
+=> https://forgejo.unseenservant.dev/unseen-servant/unseen-servant Source (Forgejo)
 
 Written end to end by an AI, directed and reviewed by a human. Pre-1.0 and not independently audited.
 

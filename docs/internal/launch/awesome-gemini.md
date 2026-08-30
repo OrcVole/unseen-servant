@@ -25,7 +25,7 @@ the house style wins.
 ## The entry
 
 ```markdown
-- [Unseen Servant](https://forgejo.wanderingmonster.dev/WanderingMonster/unseen-servant) - Gemini and Titan server in Rust that renders the same content tree to static HTML for the web and can serve it over Gopher, Spartan, Nex and Finger.
+- [Unseen Servant](https://forgejo.unseenservant.dev/unseen-servant/unseen-servant) - Gemini and Titan server in Rust that renders the same content tree to static HTML for the web and can serve it over Gopher, Spartan, Nex and Finger.
 ```
 
 One line. No adjectives that cannot be checked, no "blazing fast", no
