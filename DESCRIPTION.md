@@ -49,6 +49,6 @@ no build step and no second copy to keep in step.
 - Extra domains can be added as aliases: one capsule, many hostnames, each
   with its own certificate, over a single connection via SNI.
 
-Version 1.0.0 is the first release. It has not been independently audited,
-and Agate and gmid have years of production hardening it does not.
+This is young software. It has not been independently audited, and Agate
+and gmid have years of production hardening it does not.
 Written end to end by an AI, directed and reviewed by a human.
