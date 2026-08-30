@@ -102,6 +102,50 @@ One caveat found live: `start.sh` only forces `USV_HOSTNAME` when there
 is no `/app/data/usv.toml`. Once you write a `usv.toml` with a `[[host]]`
 block per hostname, the platform stops overriding it and your file wins.
 
+## Updating an install that was made from an image
+
+`cloudron update --app <id> --image <ref>` **does not work on its own**
+for an app installed from an image rather than from the App Store. Two
+recorded traps meet here, and neither one covers this case alone:
+
+- Run it from a directory with no `CloudronManifest.json` and it fails
+  with `App update error: No CloudronManifest.json found`. The `--image`
+  flag is not enough on its own: the CLI wants a manifest to update
+  *from*.
+- Run it from a directory that has one, and the manifest's `dockerImage`
+  field wins over the flag; the CLI prints `Using image <ref> (from app
+  store)`, which names the manifest's image, not the flag's, and the
+  "from app store" wording is misleading for an image that came from
+  anywhere else.
+
+So the image must be named in a manifest. Since this repository's
+`CloudronManifest.json` deliberately carries **no** `dockerImage` (a
+plain `cloudron install` builds from the `Dockerfile` here), the way to
+update a running install is a small deploy directory beside the
+repository rather than an edit to it:
+
+```sh
+mkdir deploy && cd deploy
+# the manifest, with dockerImage set to the tag you want
+python3 -c "import json; m=json.load(open('../CloudronManifest.json')); \
+  m['dockerImage']='<registry>/<owner>/unseen-servant:<tag>'; \
+  json.dump(m, open('CloudronManifest.json','w'), indent=2)"
+# every file:// the manifest references, resolved relative to it
+cp ../DESCRIPTION.md ../POSTINSTALL.md ../icon.png .
+cloudron --server <box> update --app <id>
+```
+
+The three copied files are not optional: the CLI resolves
+`file://DESCRIPTION.md`, `file://POSTINSTALL.md` and `file://icon.png`
+relative to the manifest and refuses the update if any is missing.
+
+Read the `Using image` line it prints. It is the only place the CLI says
+which image it actually chose, and on this path it is reporting the
+manifest, not your flag.
+
+Found on 2026-08-30, deploying the link fix; each half of it was already
+known and the combination was not.
+
 ## Backups, restores and moves
 
 `/app/data` is included in Cloudron's backups, so the TOFU identity
