@@ -4,7 +4,7 @@
   "author": "Wandering Monster",
   "packagerName": "Wandering Monster",
   "description": "file://DESCRIPTION.md",
-  "tagline": "A security-first Gemini capsule, with a web mirror for free",
+  "tagline": "One folder of writing, served to Gemini, Gopher, Spartan, Nex, Finger and the web",
   "version": "1.0.0",
   "healthCheckPath": "/",
   "httpPort": 8000,
