@@ -90,6 +90,96 @@
       "creationDate": "2026-08-30T21:10:17.530135Z",
       "ts": 1788124217530,
       "publishState": "published"
+    },
+    "1.0.1": {
+      "manifest": {
+        "id": "win.alba.usv",
+        "title": "Unseen Servant",
+        "author": "Wandering Monster",
+        "packagerName": "Wandering Monster",
+        "description": "## Unseen Servant\n\nA security-first server for the **small networks**. It publishes one folder\nof writing to [Gemini](https://geminiprotocol.net/), Gopher, Spartan, Nex\nand Finger at once, and mirrors the same content to the web as themed,\nclassless HTML. Write a page once: readers reach it from Lagrange, from a\ngopher client older than most of the web, from `lynx`, or from Chrome,\nwhichever they already have.\n\nRendering happens when a file changes, not per request. Save a page and it\nis live on every surface a couple of seconds later, from one source, with\nno build step and no second copy to keep in step.\n\n### What you get\n\n- **Six surfaces, one content tree.** Gemini (1965) and Titan for uploads,\n  the web mirror, and \u2014 each off until you switch it on \u2014 Gopher, Spartan,\n  Nex and Finger.\n- **Cleartext protocols cannot leak gated content.** Gopher, Spartan, Nex\n  and Finger have no encryption and no way to authenticate a reader, so\n  anything behind a certificate zone is excluded from those trees when they\n  are built, not filtered per request.\n- **TOFU-native identity.** The certificate is generated once per hostname\n  and never silently replaced. A reader who pinned it on first visit can\n  trust it survived every update, backup, restore and move.\n- **A dual surface with no build step.** The rendered HTML tree is a\n  self-contained static site: copy it to an onion mirror, an OnionShare\n  folder or a CDN and it still works.\n- **Titan uploads**, certificate-gated private zones, gemsub and Atom\n  feeds, and a machine-readable `/llms.txt` with Markdown siblings for\n  agents and scripts.\n- **Tor and I2P friendly** by design: an onion address is just another\n  hostname, and clients that connect without SNI are tolerated.\n- **A terminal setup wizard** (`usv init`) for running it outside Cloudron:\n  the same static binary, no container required.\n\n### On this platform\n\n- The dashboard tile opens your capsule's web mirror.\n- The Gemini port (1965) is fixed, matching what every Gemini client\n  assumes. A moved port is reachable only through an explicit\n  `gemini://host:PORT/` URL, which breaks discovery for casual visitors.\n- The four extra protocols are optional ports you enable in the app's\n  settings. Their conventional ports (70, 79, 300) are privileged and the\n  platform will not publish them, so the defaults are 1024, 7979 and 3300.\n- Your TOFU keypair lives in this app's backed-up data and survives\n  updates, restores and moves to a new domain; a hostname change is\n  detected rather than silently overwritten.\n- Extra domains can be added as aliases: one capsule, many hostnames, each\n  with its own certificate, over a single connection via SNI.\n\nVersion 1.0.0 is the first release. It has not been independently audited,\nand Agate and gmid have years of production hardening it does not.\nWritten end to end by an AI, directed and reviewed by a human.\n",
+        "tagline": "One folder of writing, served to Gemini, Gopher, Spartan, Nex, Finger and the web",
+        "version": "1.0.1",
+        "healthCheckPath": "/",
+        "httpPort": 8000,
+        "addons": {
+          "localstorage": {},
+          "tls": {}
+        },
+        "tcpPorts": {
+          "GEMINI_PORT": {
+            "title": "Gemini Port",
+            "description": "Public TCP port for the Gemini protocol. Gemini clients assume 1965; only change this if you know every client will specify the port explicitly.",
+            "defaultValue": 1965,
+            "containerPort": 1965,
+            "readOnly": true
+          },
+          "GOPHER_PORT": {
+            "title": "Gopher Port",
+            "description": "Public TCP port for the Gopher protocol. Gopher clients assume port 70, but Cloudron refuses privileged ports in tcpPorts (verified live 2026-08-10: 70 is rejected with 'not in permitted range'), so a Cloudron-hosted gopher hole is reached at gopher://host:PORT/ with an explicit port. CLEARTEXT: gopher offers no encryption, no integrity and no way to authenticate a reader, so certificate-gated content is never served over it. Leave disabled unless you want a gopher hole.",
+            "defaultValue": 7070,
+            "containerPort": 7070,
+            "readOnly": false,
+            "enabledByDefault": false
+          },
+          "SPARTAN_PORT": {
+            "title": "Spartan Port",
+            "description": "Public TCP port for Spartan (spartan://), Gemini's document model without the cryptography. Canonical port 300 is privileged and Cloudron refuses privileged tcpPorts, so a Cloudron-hosted Spartan site is reached with an explicit port. CLEARTEXT: no encryption, no integrity and no way to authenticate a reader, so certificate-gated content is never served over it. Off unless you enable it. Default 3300, not Spartan's conventional 3000: the platform reserves 3000 and refuses it with \"Port 3000 for SPARTAN_PORT is reserved in ports\" (measured 2026-08-11), which is undocumented upstream.",
+            "defaultValue": 3300,
+            "containerPort": 3000,
+            "readOnly": false,
+            "enabledByDefault": false
+          },
+          "NEX_PORT": {
+            "title": "Nex Port",
+            "description": "Public TCP port for Nex (nex://), the smallest of the small-internet protocols. Nex's canonical port is 1900, which is already unprivileged, so this is the one protocol here that can sit exactly where its community expects it. Note that TCP 1900 is unrelated to SSDP, which is UDP. CLEARTEXT: no encryption, no integrity and no way to authenticate a reader, so certificate-gated content is never served over it. Off unless you enable it.",
+            "defaultValue": 1900,
+            "containerPort": 1900,
+            "readOnly": false,
+            "enabledByDefault": false
+          },
+          "FINGER_PORT": {
+            "title": "Finger Port",
+            "description": "Public TCP port for Finger (finger://), which answers with a short generated profile rather than serving the content tree. Canonical port 79 is privileged and Cloudron refuses privileged tcpPorts, so it is reached with an explicit port. Finger forwarding (user@host) is always refused, as RFC 1288 recommends. CLEARTEXT: no encryption, no integrity and no way to authenticate a reader, so certificate-gated content is never served over it. Off unless you enable it.",
+            "defaultValue": 7979,
+            "containerPort": 7979,
+            "readOnly": false,
+            "enabledByDefault": false
+          }
+        },
+        "manifestVersion": 2,
+        "minBoxVersion": "9.1.0",
+        "memoryLimit": 268435456,
+        "multiDomain": true,
+        "optionalSso": true,
+        "postInstallMessage": "## Your capsule is live\n\nOne folder of writing, published to several places at once. **The\nhostname never changes, you change the bit before the `://`, and that\nalone decides which protocol you get and which port you land on.**\n\n| Type this | You reach | On port |\n|---|---|---|\n| `gemini://$CLOUDRON-APP-FQDN/` | the Gemini capsule, in a client like Lagrange | 1965 |\n| $CLOUDRON-APP-ORIGIN/ | the web mirror, in any browser | 443 |\n\nSo swapping `gemini://` for `https://` on the *same address* gets you\nthe same writing in a browser instead. Nothing else to set up: a\nstarter page is already written, and the identity your readers will\ntrust has already been generated.\n\n*(More smolnet protocols are in development and work the same way. When\ngopher ships, typing `gopher://$CLOUDRON-APP-FQDN/` instead of\n`gemini://\u2026` will send you to port 7070 rather than 1965, and give you\na gopher experience: menus and all: of the very same content.)*\n\n### The first visit will show a warning\n\nThat is expected. Gemini uses TOFU (trust-on-first-use), like SSH: your\nreader's client remembers the certificate it saw the first time and only\nwarns again if it *changes*. No certificate authority is involved.\n\nTo confirm readers are seeing the right one, run `usv fingerprint` (see\nbelow) and compare it with what your client shows.\n\n### Adding content\n\nOpen the **Files** icon on this app's tile and edit `content/`: one\ngemtext (`.gmi`) file per page. Saving re-renders both surfaces within\nseconds. No build step, no deploy.\n\n### The command line\n\n`cloudron exec` gives you a shell. `usv status`, `usv fingerprint`, and\n`usv check` report on the capsule; none of them modify your content.\n\n### Moving to another domain\n\nUnseen Servant notices the new hostname and mints a fresh identity for it\nrather than silently reusing the old one: reusing it would look like\nimpersonation to anyone who had pinned it. The old keypair is kept.\n",
+        "icon": "file://icon.png",
+        "website": "https://unseenservant.dev/",
+        "dockerImage": "ghcr.io/orcvole/unseen-servant@sha256:bca726735224151dd485e380141528beca8096b705a37f31ac67934cd3cbe0da",
+        "changelog": "- Fixed: the Atom feed linked the gemtext source names, which the web\n  surface does not serve, so every entry answered 404 for a web reader.\n  The gemsub feed Gemini clients read was always correct.\n",
+        "iconUrl": "https://raw.githubusercontent.com/OrcVole/unseen-servant/main/icon.png",
+        "packagerUrl": "https://forgejo.unseenservant.dev/unseen-servant/unseen-servant",
+        "documentationUrl": "https://forgejo.unseenservant.dev/unseen-servant/unseen-servant/src/branch/main/docs/deployment/cloudron.md",
+        "contactEmail": "most+claude@alba.win",
+        "tags": [
+          "gemini",
+          "gopher",
+          "publishing",
+          "static-site",
+          "smolnet"
+        ],
+        "mediaLinks": [
+          "https://raw.githubusercontent.com/OrcVole/unseen-servant/main/screenshots/01-web-mirror.png",
+          "https://raw.githubusercontent.com/OrcVole/unseen-servant/main/screenshots/02-install-page.png",
+          "https://raw.githubusercontent.com/OrcVole/unseen-servant/main/screenshots/03-gopher.png",
+          "https://raw.githubusercontent.com/OrcVole/unseen-servant/main/screenshots/04-setup-wizard.png",
+          "https://raw.githubusercontent.com/OrcVole/unseen-servant/main/screenshots/05-lagrange-spartan.png"
+        ],
+        "upstreamVersion": "1.0.1"
+      },
+      "creationDate": "2026-08-30T22:07:10.158005Z",
+      "ts": 1788127630158,
+      "publishState": "published"
     }
   }
 }
