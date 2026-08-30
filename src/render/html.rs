@@ -121,8 +121,10 @@ pub fn render_body(out: &mut String, lines: &[Line<'_>]) {
                 i += 1;
             }
             Line::Link { url, name } => {
+                // The rendered sibling, not the source name: `about.gmi`
+                // is served here as `about.html` (`links::sibling`).
                 out.push_str("<p><a href=\"");
-                escape_into(out, url);
+                escape_into(out, &super::links::sibling(url, "html"));
                 out.push_str("\">");
                 escape_into(out, name.unwrap_or(url));
                 out.push_str("</a></p>\n");
