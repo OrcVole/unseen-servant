@@ -12,5 +12,5 @@ Description: security-first Gemini capsule server
  HTML. TOFU-native identity, Titan uploads, and a terminal setup wizard.
  .
  Statically linked (musl) — no runtime dependencies beyond a Linux kernel.
- Pre-release software; see docs/BUILD-PLAN.md on the project's own repo
- for the current phase.
+ Also serves Gopher, Spartan, Nex and Finger from the same content tree,
+ each off unless enabled.

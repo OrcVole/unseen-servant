@@ -27,7 +27,19 @@ sed -i 's#/usr/local/bin/usv#/usr/bin/usv#' "$WORK/SOURCES/usv.service"
 install -m 644 LICENSE "$WORK/SOURCES/LICENSE"
 install -m 644 README.md "$WORK/SOURCES/README.md"
 
+# _buildhost is pinned because rpm records the machine that built the
+# package and publishes it in `rpm -qpi`. Whatever this happens to be
+# built on is nobody's business, and this project's repositories carry no
+# host detail by standing rule.
+#
+# %{?dist} is emptied deliberately. The payload is a static musl binary
+# with no library dependencies, so it installs and runs on any RPM
+# distribution; a name ending .fc43 would claim a Fedora 43 package and
+# send an openSUSE or RHEL user looking for a build that does not need
+# to exist. Whatever box happens to build it must not end up in its name.
 rpmbuild --define "_topdir $WORK" --define "_usv_version ${VERSION}" \
+         --define "dist %{nil}" \
+         --define "_buildhost unseen-servant-build" \
     -bb packaging/rpm/usv.spec
 
 mkdir -p target/distrib

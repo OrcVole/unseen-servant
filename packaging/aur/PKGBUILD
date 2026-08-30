@@ -10,7 +10,7 @@
 pkgname=unseen-servant-git
 pkgver=0.1.0.r0.g0000000
 pkgrel=1
-pkgdesc="A security-first Gemini capsule server (pre-release)"
+pkgdesc="A security-first server for the small networks: Gemini, Titan, Gopher, Spartan, Nex and Finger"
 arch=('x86_64')
 url="https://forgejo.wanderingmonster.dev/WanderingMonster/unseen-servant"
 license=('MIT')
