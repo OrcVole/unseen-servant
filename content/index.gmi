@@ -43,6 +43,10 @@ The command is usv.
 
 This site is that claim, tested on itself: everything you are reading is served by Unseen Servant, from one folder, on every protocol it supports, with no build step in between. If you are reading this over gopher or nex, that is the demonstration working.
 
+## Log
+
+=> log/2026-08-30-one-folder-five-networks.gmi 2026-08-30 - One folder of writing, five small networks, and the web
+
 ## Start here
 
 => smolnets.gmi The five networks, and what each is best at
