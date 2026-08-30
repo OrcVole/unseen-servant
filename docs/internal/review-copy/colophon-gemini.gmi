@@ -1,6 +1,6 @@
 # This is a Gemini page
 
-You are reading this at gemini://localhost/ — served to you by the Unseen Servant (usv) Gemini server.
+You are reading this at gemini://localhost:11965/: served to you by the Unseen Servant (usv) Gemini server.
 
 ## Unseen Servant, and why "usv"
 
@@ -14,7 +14,7 @@ It is abbreviated rather than spelled out because it is also a command you type.
 
 ## About Gemini
 
-Gemini is a small internet protocol for documents, deliberately capped so that one person can write a client in a weekend and no vendor can make it complicated. It has no cookies, no scripting and no tracking — not as features it declines to use, but as things it cannot do. It is the only protocol here that can authenticate a reader, which is what makes private areas and remote editing possible.
+Gemini is a small internet protocol for documents, deliberately capped so that one person can write a client in a weekend and no vendor can make it complicated. It has no cookies, no scripting and no tracking, not as features it declines to use, but as things it cannot do. It is the only protocol here that can authenticate a reader, which is what makes private areas and remote editing possible.
 
 => https://geminiprotocol.net/ The Gemini protocol
 
@@ -30,14 +30,14 @@ If this page arrived looking strange, you may be reading it through a gateway. T
 
 Client support changes; this list was checked in August 2026.
 
-## The same capsule, other protocols
+## The same writing, other protocols
 
-This capsule is one folder of writing, rendered to each of these. The hostname never changes — the scheme at the front picks the protocol and the port:
+This is one folder of writing, rendered to each of these. The hostname never changes, the scheme at the front picks the protocol and the port:
 
-* Gopher: gopher://localhost:7070/
-* Spartan: spartan://localhost:3000/
-* Nex: nex://localhost:1900/
-* Finger: finger://localhost:7979
+* Gopher: gopher://localhost:17070/
+* Spartan: spartan://localhost:13300/
+* Nex: nex://localhost:11900/
+* Finger: finger://localhost:17979
 * Web: https://localhost/
 
 => / Back to the capsule

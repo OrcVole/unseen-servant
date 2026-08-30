@@ -1,6 +1,6 @@
 # This is a Spartan page
 
-You are reading this at spartan://localhost:3000/ — served to you by the Unseen Servant (usv) Spartan server.
+You are reading this at spartan://localhost:13300/: served to you by the Unseen Servant (usv) Spartan server.
 
 ## Unseen Servant, and why "usv"
 
@@ -14,7 +14,7 @@ It is abbreviated rather than spelled out because it is also a command you type.
 
 ## About Spartan
 
-Spartan is Gemini's document model with the cryptography removed. Its argument is that mandatory TLS is ceremony for public documents — clocks that must be right, libraries that must be maintained, hardware that must do the maths — and that a plain document deserves a plain protocol. It reads the same gemtext.
+Spartan is Gemini's document model with the cryptography removed. Its argument is that mandatory TLS is ceremony for public documents: clocks that must be right, libraries that must be maintained, hardware that must do the maths, and that a plain document deserves a plain protocol. It reads the same gemtext.
 
 => http://portal.mozz.us/spartan/spartan.mozz.us/specification.gmi The Spartan specification
 
@@ -29,14 +29,14 @@ If this page arrived looking strange, you may be reading it through a gateway. T
 
 Client support changes; this list was checked in August 2026.
 
-## The same capsule, other protocols
+## The same writing, other protocols
 
-This capsule is one folder of writing, rendered to each of these. The hostname never changes — the scheme at the front picks the protocol and the port:
+This is one folder of writing, rendered to each of these. The hostname never changes, the scheme at the front picks the protocol and the port:
 
-* Gemini: gemini://localhost/
-* Gopher: gopher://localhost:7070/
-* Nex: nex://localhost:1900/
-* Finger: finger://localhost:7979
+* Gemini: gemini://localhost:11965/
+* Gopher: gopher://localhost:17070/
+* Nex: nex://localhost:11900/
+* Finger: finger://localhost:17979
 * Web: https://localhost/
 
-=> / Back to the capsule
+=> / Back to the site

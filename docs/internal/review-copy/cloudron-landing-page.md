@@ -1,11 +1,3 @@
----
-title: "Cloudron landing page"
-description: "A security-first Gemini(https://geminiprotocol.net/) server that publishes one content tree to two worlds: served natively as gemtext on port 1965, and statically rendered to themed,."
-type: reference
-status: decided
-last_verified: 2026-08-11
----
-
 ## Unseen Servant
 
 A security-first [Gemini](https://geminiprotocol.net/) server that publishes
