@@ -78,6 +78,13 @@
           "publishing",
           "static-site",
           "smolnet"
+        ],
+        "mediaLinks": [
+          "https://raw.githubusercontent.com/OrcVole/unseen-servant/main/screenshots/01-web-mirror.png",
+          "https://raw.githubusercontent.com/OrcVole/unseen-servant/main/screenshots/02-install-page.png",
+          "https://raw.githubusercontent.com/OrcVole/unseen-servant/main/screenshots/03-gopher.png",
+          "https://raw.githubusercontent.com/OrcVole/unseen-servant/main/screenshots/04-setup-wizard.png",
+          "https://raw.githubusercontent.com/OrcVole/unseen-servant/main/screenshots/05-lagrange-spartan.png"
         ]
       },
       "creationDate": "2026-08-30T21:10:17.530135Z",
