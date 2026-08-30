@@ -75,32 +75,49 @@ plus light/medium/semibold and their italics).
   §6); derive it from `assets/logo-512.png` rather than the 4096px
   original.
 
-## Partly revived: green returns as a theme (2026-08-30)
+## Reversed: green is the brand again (2026-08-30)
 
-The director asked that the project site's colours resemble
-`assets/mascot.png` — the green of the superseded direction below —
-rather than the amber. That is a reversal of the 2026-08-11 decision
-this note records, and it is recorded here rather than applied
-silently, because this file is the authority for the brand.
+The director reversed the 2026-08-11 amber decision. **Green is the
+brand**: the site, the mark, the favicons and the wordmark all carry the
+phosphor green of `assets/mascot.png`, which is where the project
+started before amber replaced it. The section below, and the amber
+passages above it, are kept because the reasoning that chose the *form*
+of the mark still holds — only the hue moved.
 
-What was done, and what deliberately was not:
+**The colour.** `#3afb26`, sampled from the mascot rather than picked by
+eye. It is the theme's `--fg` (`cathode`), the `theme_color` in
+`site.webmanifest`, and the ink in every mark.
 
-- **Done:** a bundled theme, `cathode`, carrying the green sampled from
-  the mascot itself (`#3afb26` on `#050a04`, contrast measured), and the
-  project's own deployment set to use it. A theme is configuration; any
-  operator can pick another, and the change is one line to undo.
-- **Not done:** the mark, favicons and the 16-colour PNGs are still
-  Ember Oxide amber, and the mark is what a reader sees in a browser
-  tab and on the Fediverse. **The assets and the site now disagree.**
-  Repainting them is a brand decision, not a theme decision, and it
-  would mean amending everything above rather than appending here.
+**How the repaint was done, and why not by hand.** Every amber pixel was
+rotated to the green hue in HSV with its saturation and value left
+untouched, so the artwork's shading, dither and glow survive. A flat
+fill would have produced a green silhouette and lost the dot-mesh
+texture that is the whole point of the mark.
 
-**Open for the director:** either repaint the mark green and rewrite
-this note's authority section, or keep the amber mark and accept a
-green site around it. The launch image in
-[`../launch/fediverse.md`](../launch/fediverse.md) is `mascot.png`,
-which is green, so the announcement currently leads with the green and
-links to a green site under an amber tab icon.
+Two passes were needed, and the second is the one worth remembering:
+
+- The marks (`mark-*.png`) are flat two-tone, and a narrow rule was
+  enough: hue 10-70 degrees, with saturation and value floors to protect
+  the near-black ground, which shares the amber hue band and would
+  otherwise have gone green as well.
+- The logos and favicons carry a **bloom** — the figure's own light,
+  dim and spread out, running from deep red through magenta. The first
+  pass converted the ink and left the bloom, producing a green figure
+  standing in a brown halo. It looked wrong immediately and only because
+  it was looked at; no census of the ink would have shown it. The rule
+  was widened to the whole warm arc for those files.
+
+`favicon.ico` is generated from the repainted 512px source, and
+`site.webmanifest`'s `theme_color` and `background_color` follow the
+theme (`#3afb26` on `#050a04`).
+
+**Left alone, deliberately:** `icon.png`, the Cloudron app icon, was
+already green (hue ~128 degrees) — different artwork from a different
+pass, and it needs nothing. `scene-*.jpg` are illustrative scenes, not
+marks.
+
+**The assets and the site now agree**, which they did not for the few
+hours between the theme landing and this repaint.
 
 ## Superseded: the phosphor-green direction (2026-08-09)
 

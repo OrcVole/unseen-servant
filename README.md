@@ -240,8 +240,16 @@ editing over Titan: [`docs/titan.md`](docs/titan.md). Common questions:
 
 ## Project
 
-Written in Rust: about 11,000 lines of code across 40 files, with 632 tests
-and a fuzz target for every parser. Not independently audited, and pre-1.0,
+Written in Rust: about 11,000 lines of code across 40 files, with 647 tests
+and a fuzz target for every parser.
+
+**A clone is larger than the code**, because the fuzzing corpora are
+committed: about 92 MB, two thirds of it the configuration parser's.
+That is deliberate. A corpus is the accumulated evidence of every input
+class a parser has already survived, and a regression suite that lives
+only on the machine that generated it is not a regression suite. If you
+only want to read or build the code, `git clone --depth 1` skips the
+history and `--filter=blob:none` fetches file contents on demand. Not independently audited, and pre-1.0,
 Agate and gmid have years of production hardening it does not.
 
 **AI Forward.** `usv` is written end to end by an AI, directed and reviewed
