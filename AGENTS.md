@@ -163,4 +163,6 @@ publishable.
 | `fuzz/` | cargo-fuzz workspace, one target per parser |
 | `docs/` | Reader-facing manual and the ADRs |
 | `docs/internal/` | Research, plans, drafts |
+| `RELEASING.md` | How a release is cut, and the traps that have bitten |
+| `CHANGELOG.md` | What changed per release; `Unreleased` until the first tag |
 | `.forgejo/workflows/` | CI gates |
