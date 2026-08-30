@@ -63,6 +63,21 @@ inside an illustrative directory listing — decoration, not a claim.
 7. Only then, and only on the operator's written instruction, the
    Cloudron versions feed.
 
+## Two forges
+
+The canonical repository is
+`forgejo.unseenservant.dev/unseen-servant/unseen-servant`. The estate
+instance, `forgejo.wanderingmonster.dev/WanderingMonster/unseen-servant`,
+is kept because v1.0.0 was released from it and its artefacts name it
+internally; it is a secondary remote (`estate-origin`), not the home.
+**Push both**, the way every other repository in this estate keeps its
+mirror current.
+
+Git authentication for the canonical forge goes through a credential
+helper that reads the token from OpenBao at the moment git asks
+(`~/.local/bin/git-credential-usvforge`). No token is written into a
+remote URL or a dotfile; losing that file loses nothing.
+
 ## Traps, each paid for
 
 - **`cloudron update --image <ref>` cannot update an image-installed app
