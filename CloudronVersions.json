@@ -66,7 +66,8 @@
         "icon": "file://icon.png",
         "website": "https://forgejo.unseenservant.dev/unseen-servant/unseen-servant",
         "dockerImage": "ghcr.io/orcvole/unseen-servant@sha256:8f5c48dfed55fd66b8022e8c9aa833ff20b1456a6a980f34d793d42fd286c6c6",
-        "changelog": "- First release. Serves Gemini, Titan, Gopher, Spartan, Nex and Finger from one\n  content tree, and mirrors it to the web as static HTML rendered at write time.\n- Certificate-gated zones; gated paths are excluded from every cleartext tree at\n  render time rather than filtered per request.\n- The TOFU server identity is never silently regenerated, and survives update,\n  backup, restore and a move to another domain.\n"
+        "changelog": "- First release. Serves Gemini, Titan, Gopher, Spartan, Nex and Finger from one\n  content tree, and mirrors it to the web as static HTML rendered at write time.\n- Certificate-gated zones; gated paths are excluded from every cleartext tree at\n  render time rather than filtered per request.\n- The TOFU server identity is never silently regenerated, and survives update,\n  backup, restore and a move to another domain.\n",
+        "iconUrl": "https://raw.githubusercontent.com/OrcVole/unseen-servant/main/icon.png"
       },
       "creationDate": "2026-08-30T21:10:17.530135Z",
       "ts": 1788124217530,
