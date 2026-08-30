@@ -2,10 +2,18 @@
   "name": "Unseen Servant",
   "short_name": "Unseen Servant",
   "icons": [
-    { "src": "/android-chrome-192x192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "/android-chrome-512x512.png", "sizes": "512x512", "type": "image/png" }
+    {
+      "src": "/android-chrome-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/android-chrome-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
   ],
-  "theme_color": "#E67916",
-  "background_color": "#14120F",
+  "theme_color": "#3afb26",
+  "background_color": "#050a04",
   "display": "standalone"
 }
