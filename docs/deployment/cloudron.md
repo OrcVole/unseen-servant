@@ -156,6 +156,39 @@ recipe, including the three `file://` companions. The error is kept
 visible because the class matters more than the fix: consult the
 doctrine before the box, not after it.
 
+## Getting content onto the app, and the trap in `cloudron push`
+
+`cloudron push` **nests a directory rather than merging it**. These two
+commands do different things, and only the second is usually what you
+want:
+
+```sh
+cloudron push --app <id> content  /app/data/content   # -> /app/data/content/content/…
+cloudron push --app <id> content/. /app/data/content  # -> /app/data/content/…
+```
+
+The first is not an error and says nothing: the files arrive, the
+watcher re-renders within seconds, and the pages are served — one
+directory deeper than intended, at `/content/page.html`. The pages you
+expected at the root are simply 404, which reads exactly like a render
+failure and is not one. Measured on 2026-08-30, after it wasted an hour
+of a gate run.
+
+It also cannot create the destination's parent: pushing to
+`/app/data/content/new/` before `new/` exists fails with
+`tar: can't change directory to …: No such file or directory`. Push the
+parent's contents instead, and let the subdirectory arrive inside them.
+
+**The watcher itself is not the suspect it looks like.** It picks up new
+files, edits, and files inside directories that did not exist a moment
+ago, and re-renders in a few seconds — verified both locally and on a
+real install. If a page does not appear, look at where the file landed
+before suspecting the render:
+
+```sh
+cloudron exec --app <id> -- ls -R /app/data/content   # needs a terminal
+```
+
 ## Backups, restores and moves
 
 `/app/data` is included in Cloudron's backups, so the TOFU identity
