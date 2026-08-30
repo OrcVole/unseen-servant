@@ -15,7 +15,19 @@ minisign -Vm SHA256SUMS -P RWQ8yH+Afj6YnCB5dOP+vbhvFT6DQhHBzmkC5oAY9gIrv0+vyAP+q
 sha256sum -c SHA256SUMS
 ```
 
-It is a first release, and it says so. Nothing is in a distribution repository or an app store yet; the packages above install directly.
+It is a first release, and it says so.
+
+## On a Cloudron
+
+Unseen Servant is a community app. In the dashboard, open the App Store, click "Add custom app", choose "Community app", and paste:
+
+```
+https://raw.githubusercontent.com/OrcVole/unseen-servant/main/CloudronVersions.json
+```
+
+Installs made that way receive updates automatically. It needs 256 MiB and no database. The Gemini port is fixed at 1965 because every client assumes it; Gopher, Spartan, Nex and Finger are optional ports you switch on in the app's settings.
+
+Nothing is in a distribution repository yet: the .deb and the RPM above install directly.
 
 ## The fastest way to see it work
 
