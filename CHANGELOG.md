@@ -23,8 +23,13 @@ release, not a sign of neglect.
 
 ## Unreleased
 
-Everything below is on `main` and has never been tagged. There are no
-published packages and no announcement.
+Nothing yet.
+
+## v1.0.0 — 2026-08-30
+
+The first release. Everything below had been on `main` untagged; the
+version number is the only new thing about it, and it is the point at
+which the promises in `UPGRADING.md` and `SECURITY.md` start to bind.
 
 ### Fixed
 

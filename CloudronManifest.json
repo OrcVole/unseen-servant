@@ -5,7 +5,7 @@
   "packagerName": "Wandering Monster",
   "description": "file://DESCRIPTION.md",
   "tagline": "A security-first Gemini capsule, with a web mirror for free",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "healthCheckPath": "/",
   "httpPort": 8000,
   "addons": {

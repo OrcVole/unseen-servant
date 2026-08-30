@@ -14,7 +14,7 @@
       {
         packages.default = pkgs.rustPlatform.buildRustPackage {
           pname = "unseen-servant";
-          version = "0.1.0";
+          version = "1.0.0";
           src = pkgs.lib.cleanSourceWith {
             src = ./.;
             # Only what the binary crate actually needs — fuzz/ has its
