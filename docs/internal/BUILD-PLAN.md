@@ -3,7 +3,7 @@ title: "Build plan: phased coding of usv"
 description: "2026-08-09. The coding companion to ROADMAP.md: phases C0: C7 map onto release milestones M1: M6. Each phase has an exit gate; a phase is not left until its gate passes. Test-first."
 type: explanation
 status: decided
-last_verified: 2026-08-11
+last_verified: 2026-08-30
 ---
 
 # Build plan: phased coding of usv
@@ -12,6 +12,20 @@ last_verified: 2026-08-11
 release milestones M1: M6. Each phase has an exit gate; a phase is not
 left until its gate passes. Test-first throughout: the regress suite
 and fuzz targets grow with each phase, never after it.
+
+## Where the gates stand (2026-08-30)
+
+| Phase | Gate | Evidence |
+|---|---|---|
+| C0-C2 | passed | `gemini-diagnostics` 25/27 with three documented artefacts (`DEBUGGING.md` §Conformance); traversal, 6x, SNI and slowloris suites in `tests/` |
+| C3 | passed | live capsule on both surfaces; `lynx`/`w3m` pass recorded in `docs/protocols.md` |
+| C4 | passed | Titan uploads from Lagrange, live |
+| C5 | passed | wizard, CLI, export; Tor end-to-end |
+| C6 | passed | E1-E10 run 2026-08-10/11 against the previous digest; `UPGRADING.md` survival table |
+| C7 | **open** | owed: (a) `IPv6Address` re-run from a host with IPv6 egress and the gate wording settled (OQ-10 item 2); (b) hours-long fuzz campaigns with committed corpora, not the 60 s CI smoke; (c) E1-E10 re-run on the proving ground **against the digest that will ship** as v1.0.0; (d) a `test/secret-scan.sh` and host-detail sweep before the repository goes public; (e) the launch checklist (ROADMAP M6) |
+
+The smolnet protocols were built inside C5-C7 rather than as a
+separate round; ROADMAP M5b records the fold.
 
 ## C0: Scaffold (→ M1)
 
@@ -103,9 +117,11 @@ Extended fuzz campaigns (parser, gemtext, titan framing); audit/deny
 clean; MAINTENANCE.md, UPGRADING.md (TOFU survival story),
 COMPARISON.md, project capsule content; store submission per
 publishing-community-apps conventions.
-**Exit: THE hard gate: clean gemini-diagnostics run against the
-deployed proving-grounds instance from an external vantage point,
-plus stable fuzz corpus. Then the launch checklist (ROADMAP M6).**
+**Exit: THE hard gate: gemini-diagnostics against the deployed
+instance from an external vantage point, 27/27 or a documented,
+spec-legitimate non-pass per check (wording settled 2026-08-30; the
+`IPv6Address` check must be re-run from a host that has IPv6), plus
+stable fuzz corpus. Then the launch checklist (ROADMAP M6).**
 
 ## Proving-grounds experiment protocol (C6 gate)
 
@@ -124,7 +140,7 @@ logs`, `usv stats`, and timing wrappers.
 | E6 | Disable Gemini port | App healthy, HTTP-only; re-enable restores 1965 |
 | E7 | Load + memory | RSS under sustained requests within memoryLimit; no leak trend |
 | E8 | Restart / SIGTERM | Graceful drain; clean logs; fast healthy |
-| E9 | External gemini-diagnostics | 27/27 over the real network |
+| E9 | External gemini-diagnostics | 27/27 over the real network, or a documented spec-legitimate non-pass per check (2026-08-30) |
 | E10 | multiDomain alias | SNI serves per-hostname certs on one port |
 
 Needs from the director before C6: cloudron CLI access to the

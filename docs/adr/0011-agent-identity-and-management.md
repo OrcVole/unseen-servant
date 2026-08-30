@@ -8,7 +8,7 @@ last_verified: 2026-08-11
 
 # ADR 0011: Agent identity lifecycle, management reach, and the HTTP agent surface
 
-- Status: **Proposed** (director-decided 2026-08-10; awaiting review)
+- Status: **Accepted** (director, 2026-08-30, as implemented; director-decided 2026-08-10)
 - Date: 2026-08-10
 - Evidence: docs/internal/recon/agent-web.md (four-survey synthesis of the agentic
   web 2025-2026, with dated sources), ADR 0005 (cert zones), ADR 0006

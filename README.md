@@ -240,7 +240,7 @@ editing over Titan: [`docs/titan.md`](docs/titan.md). Common questions:
 
 ## Project
 
-Written in Rust: about 11,000 lines of code across 40 files, with 622 tests
+Written in Rust: about 11,000 lines of code across 40 files, with 632 tests
 and a fuzz target for every parser. Not independently audited, and pre-1.0,
 Agate and gmid have years of production hardening it does not.
 

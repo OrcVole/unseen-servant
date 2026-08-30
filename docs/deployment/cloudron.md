@@ -70,6 +70,18 @@ above 1024.
 menus advertise whatever external port Cloudron allocated, since gopher
 menu lines carry an absolute host and port.
 
+## Finger, and why not port 79
+
+Finger's conventional port is 79, which is privileged and therefore
+refused by the platform for the same reason as Gopher's 70 above. The
+package publishes 7979. Every multi-protocol client takes a port, and
+the profile advertises its own address; only the bare `finger user@host`
+command assumes 79. A redirect from 79 to 7979 on the host was assessed
+on 2026-08-11 and **deliberately not done** (director, 2026-08-30): an
+`iptables` rule does not survive the platform, which rewrites
+`nat PREROUTING` on every container recreation, and a `systemd` socket
+unit on the host would be the way if it were ever wanted. It is not.
+
 ## Editing content
 
 Use the **Files** icon on the app's tile and edit `content/`. Saving

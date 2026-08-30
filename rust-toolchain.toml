@@ -1,5 +1,5 @@
 # Pinned per the brief's explicit-pinning principle. This is the toolchain the
-# scaffold was built and proven with (build workstation, 2026-08-09). Bump
+# scaffold was built and proven with (the build workstation, 2026-08-09). Bump
 # deliberately in a maintenance round (docs/internal/ROADMAP.md maintenance statement),
 # never as a side effect. If the machine's rust is not rustup-managed this file
 # is inert and the system toolchain applies — AGENTS.md records the expectation

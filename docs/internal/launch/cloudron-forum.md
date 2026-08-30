@@ -3,7 +3,7 @@ title: "Cloudron forum"
 description: "DRAFT, not posted. Cloudron forum (forum.cloudron.io)."
 type: reference
 status: decided
-last_verified: 2026-08-11
+last_verified: 2026-08-30
 ---
 
 DRAFT, not posted. Cloudron forum (forum.cloudron.io).
@@ -28,7 +28,7 @@ as a replacement.
 
 ---
 
-**Title:** Unseen Servant: a Gemini/Titan server packaged for Cloudron
+**Title:** Unseen Servant: a Gemini/Titan (and Gopher, Spartan, Nex, Finger) server packaged for Cloudron
 
 ---
 
@@ -51,6 +51,12 @@ opens a real web page rather than a dead link.
   came up in review, and a one-binary design sidesteps it.)
 - `tcpPorts` for 1965, pinned `readOnly`: Gemini clients assume that
   port, and a capsule on another one is effectively undiscoverable.
+  Four optional `tcpPorts` (Gopher 1024, Spartan 3300, Nex 1900, Finger
+  7979) the admin can enable or leave off; the container binds fixed
+  ports and generated addresses advertise whichever the platform
+  published. Gopher's conventional 70 is a privileged port, which the
+  platform refuses in `tcpPorts` (measured, not read); 1024 is the
+  documented alternative.
 - `httpPort` 8000 behind the platform's nginx, with `healthCheckPath`
   returning 2xx unconditionally: including when the Gemini service has
   been disabled by the admin, so the app can never be stuck "Starting…"

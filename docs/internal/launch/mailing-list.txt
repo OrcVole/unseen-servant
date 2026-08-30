@@ -3,7 +3,7 @@ Plain text, hard-wrapped, no markup, no images, no badges. This list has
 a low tolerance for marketing register; state facts, invite critique,
 stop. Re-verify list address and posting policy before sending.
 
-Subject: Unseen Servant — a Gemini + Titan server with a static HTML mirror
+Subject: Unseen Servant — a Gemini + Titan server for the small networks, with a static HTML mirror
 
 --8<----------------------------------------------------------------
 
@@ -24,18 +24,24 @@ folder that works with no server behind it.
 
 Current state, precisely:
 
-  Supported   Gemini, Titan, HTTP mirror
-  Planned     Gopher, Spartan, Nex, Finger (v1.1; designed, not written)
+  Supported   Gemini, Titan, HTTP mirror; and, off by default,
+              Gopher, Spartan, Nex and Finger over the same tree,
+              each driven by a real client (gelim, Lagrange,
+              bombadillo). Cleartext paths never carry cert-gated
+              or Titan-gated content: excluded at render time.
   Refused     everything else, answered 53
 
   Version     0.1.0, pre-1.0, no tagged release
   Testing     gemini-diagnostics 25/27 against a live deployment; the
-              two non-passes are the tool's removed ssl.match_hostname
-              under Python >= 3.13, and an IPv6 check that failed from a
-              test host with no IPv6 egress. Both are written up.
-  Fuzzing     seven cargo-fuzz targets over the request line, URI
+              non-passes are the tool's removed ssl.match_hostname
+              under Python >= 3.13, URLByIPAddress reporting None
+              (usv refuses with 53, which the check accepts), and an
+              IPv6 check that failed from a test host with no IPv6
+              egress. All three are written up. [CLAIM GATE: re-run
+              from a host with IPv6 before sending.]
+  Fuzzing     eight cargo-fuzz targets over the request line, URI
               validation, config, path sanitisation, gemtext, HTML
-              emission and Titan framing; extended campaigns to ~3.3e8
+              emission, Titan framing and gopher selectors; extended campaigns to ~3.3e8
               executions on the hottest targets, minimised corpora
               committed.
 
@@ -83,7 +89,7 @@ recorded before the code; and it is pre-1.0, so Agate and gmid both
 have production hardening it does not.
 
 Capsule (served by usv itself):
-  gemini://unseen-servant.wanderingmonster.dev/
+  gemini://unseenservant.dev/
 
 Thanks for reading.
 
