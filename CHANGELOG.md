@@ -23,7 +23,18 @@ release, not a sign of neglect.
 
 ## Unreleased
 
-Nothing yet.
+### Changed
+
+- **The canonical repository moved** to the project's own forge,
+  `forgejo.unseenservant.dev/unseen-servant/unseen-servant`, under an
+  organisation named for the project. Crate metadata, the Cloudron
+  manifest, both systemd units, every packaging manifest and the
+  capsule's own pages now point there. The estate instance it was
+  released from is kept and still resolves.
+  **v1.0.0 was tagged before the move**, so the `Homepage`/`URL` fields
+  inside that release's `.deb` and `.rpm` still name the old host. The
+  artefacts were not rebuilt to hide it: a release records what was
+  shipped. This is the first thing the next version corrects.
 
 ## v1.0.0 — 2026-08-30
 
