@@ -71,6 +71,17 @@ recorded.
   mirror.** Forgejo-primary also fits smolnet culture. Release
   artifacts publish to both; the awesome-gemini listing links the
   Forgejo canonical.
+- **Amended 2026-08-30 (director):** the canonical repository moved to
+  the project's **own** forge,
+  `forgejo.unseenservant.dev/unseen-servant/unseen-servant`, under an
+  organisation named for the project rather than a personal account.
+  A project forge on the project's own domain reads better to a
+  stranger than a shared estate instance, and it is the smolnet
+  register. The estate instance
+  (`forgejo.wanderingmonster.dev/WanderingMonster/unseen-servant`) is
+  **kept, not deleted**: v1.0.0 was tagged and released there, and its
+  artefacts carry that URL inside them, so deleting it would break a
+  release that already exists. The GitHub mirror is still owed.
 
 ## OQ-7: First commit
 
@@ -79,10 +90,12 @@ recorded.
   commits"**: local commits begun same day. Remaining sub-question:
   the Forgejo remote URL (Wandering Monster instance) and the orcvole
   GitHub mirror URL, needed before anything can be pushed.
-- **Update 2026-08-30:** the Forgejo remote exists and is `origin`
-  (`forgejo.wanderingmonster.dev/WanderingMonster/unseen-servant`,
-  private). The GitHub mirror **does not exist yet**; creating it is
-  part of the going-public batch, OQ-10 item 6.
+- **Update 2026-08-30:** the Forgejo remote exists and is `origin`. It
+  was `forgejo.wanderingmonster.dev/WanderingMonster/unseen-servant`
+  when this line was written, and moved the same day to
+  `forgejo.unseenservant.dev/unseen-servant/unseen-servant` — see OQ-6.
+  Both are private. The GitHub mirror **does not exist yet**; creating
+  it is part of the going-public batch, OQ-10 item 6.
 
 ## OQ-8: Responses feature: version and scope
 
