@@ -2090,7 +2090,7 @@ checksum = "1fc81956842c57dac11422a97c3b8195a1ff727f06e85c84ed2e8aa277c9a0fd"
 
 [[package]]
 name = "unseen-servant"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "crossterm",
  "notify",

@@ -23,6 +23,14 @@ release, not a sign of neglect.
 
 ## Unreleased
 
+Nothing yet.
+
+## v1.0.1 — 2026-08-30
+
+A same-day fix release. The bug it corrects was found before the
+announcement went out, which is the only reason no feed reader carried
+it.
+
 ### Fixed
 
 - **The Atom feed linked pages the web surface does not serve.** Atom is
