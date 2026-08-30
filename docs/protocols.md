@@ -24,7 +24,7 @@ is the bug.
 | **Planned** | Designed and scheduled, but **no implementation exists**. |
 | **Rejected** | Deliberately not served. Requests are refused, not ignored. |
 
-## Today (pre-1.0)
+## Today (v1.0.0)
 
 | Protocol | Status | Verified by |
 |---|---|---|

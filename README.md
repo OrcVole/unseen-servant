@@ -6,7 +6,7 @@
 
 **A server for the small internet.**
 
-`Rust` · `MIT` · pre-release, unannounced
+`Rust` · `MIT` · v1.0.0
 
 </div>
 
@@ -249,8 +249,9 @@ That is deliberate. A corpus is the accumulated evidence of every input
 class a parser has already survived, and a regression suite that lives
 only on the machine that generated it is not a regression suite. If you
 only want to read or build the code, `git clone --depth 1` skips the
-history and `--filter=blob:none` fetches file contents on demand. Not independently audited, and pre-1.0,
-Agate and gmid have years of production hardening it does not.
+history and `--filter=blob:none` fetches file contents on demand. Not independently audited, and
+v1.0.0 is a first release: Agate and gmid have years of production
+hardening it does not.
 
 **AI Forward.** `usv` is written end to end by an AI, directed and reviewed
 by a human. If that is not something you want serving your capsule, that is a

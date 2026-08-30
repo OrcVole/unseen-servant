@@ -19,7 +19,7 @@ own docs and changelogs as of 2026-08; the research is in
 | Other protocols | Gopher, Spartan, Nex, Finger, HTML | no | no | no | no |
 | Dynamic content | no, by policy | no, by policy | FastCGI/proxy | CGI/SCGI | CGI + Python modules |
 | Packaging | Cloudron, deb, RPM, AUR, Nix, OCI, tarball | distro packages | distro packages | distro packages | pip/manual |
-| Maturity | pre-1.0 | feature-frozen, maintained | very active | alive, low simmer | active |
+| Maturity | v1.0.0, first release | feature-frozen, maintained | very active | alive, low simmer | active |
 
 ## The other four
 
@@ -79,7 +79,8 @@ platform, runs as a GmCapsule module.
   one. If the thing you are building is a program rather than a capsule,
   GmCapsule is the right foundation.
 - **You need production maturity today**: Agate and gmid have years of it.
-  usv is pre-1.0 and unaudited.
+  usv is at its first release and unaudited. Agate and gmid have
+  years of production hardening it does not.
 
 ## Where usv actually differs
 
