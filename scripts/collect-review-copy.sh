@@ -9,20 +9,26 @@
 # hide behind a tidy-looking source file.
 #
 # Usage:  scripts/collect-review-copy.sh [host] [output-dir]
+#         Ports are overridable from the environment, e.g.
+#         GEMINI_PORT=11965 SPARTAN_PORT=13300 scripts/collect-review-copy.sh
+#         so the copy can be taken from a dev instance on high ports.
 # Needs:  a usv running with gemini/gopher/spartan/nex/finger enabled.
 
 set -uo pipefail
 
 HOST="${1:-localhost}"
-OUT="${2:-docs/review-copy}"
+# docs/internal/ was created on 2026-08-11 and the review copy moved with
+# it; this default pointed at the old path until 2026-08-30 and quietly
+# created a second, stale folder when run.
+OUT="${2:-docs/internal/review-copy}"
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO" || exit 1
 
-GEMINI_PORT=1965
-GOPHER_PORT=7070
-SPARTAN_PORT=3000
-NEX_PORT=1900
-FINGER_PORT=7979
+GEMINI_PORT="${GEMINI_PORT:-1965}"
+GOPHER_PORT="${GOPHER_PORT:-7070}"
+SPARTAN_PORT="${SPARTAN_PORT:-3000}"
+NEX_PORT="${NEX_PORT:-1900}"
+FINGER_PORT="${FINGER_PORT:-7979}"
 
 mkdir -p "$OUT"
 
@@ -36,7 +42,13 @@ echo "Collecting served pages from $HOST"
 # --- listener is down" the first time this ran).
 # --- Header line stripped into a sidecar so the MIME stays reviewable.
 if command -v openssl >/dev/null; then
-  printf 'gemini://%s/usv\r\n' "$HOST" |
+  # The authority must carry the port whenever it is not 1965, or the
+  # server correctly answers 53 (it is being asked to proxy for an
+  # authority it does not serve). Found 2026-08-30 running this script
+  # against a dev instance on a high port: the colophon came back as a
+  # zero-byte file and the 53 sat unread in the header file beside it.
+  if [ "$GEMINI_PORT" = "1965" ]; then GEM_AUTHORITY="$HOST"; else GEM_AUTHORITY="$HOST:$GEMINI_PORT"; fi
+  printf 'gemini://%s/usv\r\n' "$GEM_AUTHORITY" |
     timeout 10 openssl s_client -quiet -verify_quiet \
       -servername "$HOST" -connect "$HOST:$GEMINI_PORT" \
       2>/dev/null >"$OUT/.gemini.raw"

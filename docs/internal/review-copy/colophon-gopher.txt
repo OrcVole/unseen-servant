@@ -1,7 +1,7 @@
 This is a Gopher page
 =====================
 
-You are reading this at gopher://localhost:7070/ — served to you by the Unseen Servant (usv) Gopher server.
+You are reading this at gopher://localhost:17070/: served to you by the Unseen Servant (usv) Gopher server.
 
 Unseen Servant, and why "usv"
 -----------------------------
@@ -17,33 +17,33 @@ About Gopher
 
 Gopher has been serving menus since 1991 and has not changed its mind since. It treats the internet as a filing cabinet you browse rather than a library of documents you read. That refusal to evolve is the point: software written in the nineties still works, and what you publish today will very likely still be readable by clients nobody has touched in decades.
 
-  Gopherspace, over the web — https://gopher.floodgap.com/
-  RFC 1436 — the Gopher specification (1993) — https://datatracker.ietf.org/doc/html/rfc1436
+  Gopherspace, over the web: https://gopher.floodgap.com/
+  RFC 1436, the Gopher specification (1993): https://datatracker.ietf.org/doc/html/rfc1436
 
 Reading Gopher natively
 -----------------------
 
 If this page arrived looking strange, you may be reading it through a gateway. These clients speak Gopher directly:
 
-  Lagrange (graphical) — https://gmi.skyjake.fi/lagrange/
-  Bombadillo (terminal) — https://bombadillo.colorfield.space/
-  lynx (terminal) — https://lynx.invisible-island.net/
-  Offpunk (terminal) — https://offpunk.net/
-  BFG (terminal) — https://codeberg.org/luxferre/BFG
+  Lagrange (graphical): https://gmi.skyjake.fi/lagrange/
+  Bombadillo (terminal): https://bombadillo.colorfield.space/
+  lynx (terminal): https://lynx.invisible-island.net/
+  Offpunk (terminal): https://offpunk.net/
+  BFG (terminal): https://codeberg.org/luxferre/BFG
 
 Client support changes; this list was checked in August 2026.
 
-The same capsule, other protocols
+The same writing, other protocols
 ---------------------------------
 
-This capsule is one folder of writing, rendered to each of these. The hostname never changes — the scheme at the front picks the protocol and the port:
+This is one folder of writing, rendered to each of these. The hostname never changes, the scheme at the front picks the protocol and the port:
 
-* Gemini: gemini://localhost/
-* Spartan: spartan://localhost:3000/
-* Nex: nex://localhost:1900/
-* Finger: finger://localhost:7979
+* Gemini: gemini://localhost:11965/
+* Spartan: spartan://localhost:13300/
+* Nex: nex://localhost:11900/
+* Finger: finger://localhost:17979
 * Web: https://localhost/
 
-  Back to the capsule — /
+  Back to the gopherhole: /
 
 .
