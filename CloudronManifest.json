@@ -54,7 +54,7 @@
     }
   },
   "manifestVersion": 2,
-  "minBoxVersion": "9.0.0",
+  "minBoxVersion": "9.1.0",
   "memoryLimit": 268435456,
   "multiDomain": true,
   "optionalSso": true,
