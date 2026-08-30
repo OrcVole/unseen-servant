@@ -1,6 +1,6 @@
 # Current build status
 
-usv is pre-release software, built in public against a phased plan. The authoritative, always-current state lives in the source repository: this page is a snapshot, not the source of truth, and may lag behind it.
+usv is at v1.0.0, released 2026-08-30 and built in public against a phased plan. The authoritative, always-current state lives in the source repository: this page is a snapshot, not the source of truth, and may lag behind it.
 
 ## What is done
 
