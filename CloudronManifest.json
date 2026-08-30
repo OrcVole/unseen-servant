@@ -30,8 +30,8 @@
     },
     "SPARTAN_PORT": {
       "title": "Spartan Port",
-      "description": "Public TCP port for Spartan (spartan://), Gemini's document model without the cryptography. Canonical port 300 is privileged and Cloudron refuses privileged tcpPorts, so a Cloudron-hosted Spartan site is reached with an explicit port. CLEARTEXT: no encryption, no integrity and no way to authenticate a reader, so certificate-gated content is never served over it. Off unless you enable it.",
-      "defaultValue": 3000,
+      "description": "Public TCP port for Spartan (spartan://), Gemini's document model without the cryptography. Canonical port 300 is privileged and Cloudron refuses privileged tcpPorts, so a Cloudron-hosted Spartan site is reached with an explicit port. CLEARTEXT: no encryption, no integrity and no way to authenticate a reader, so certificate-gated content is never served over it. Off unless you enable it. Default 3300, not Spartan's conventional 3000: the platform reserves 3000 and refuses it with \"Port 3000 for SPARTAN_PORT is reserved in ports\" (measured 2026-08-11), which is undocumented upstream.",
+      "defaultValue": 3300,
       "containerPort": 3000,
       "readOnly": false,
       "enabledByDefault": false
