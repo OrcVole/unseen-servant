@@ -379,6 +379,12 @@ pub struct ContentLint {
     /// Human-readable notes: nothing here is fatal, all of it is
     /// information an operator would want before publishing.
     pub notes: Vec<String>,
+    /// Whether any authored page links the generated colophon at
+    /// `/usv`. The default skeleton links it, so a capsule built from
+    /// the skeleton is fine; a capsule whose content came from
+    /// somewhere else usually has no link to it and nobody ever
+    /// discovers the page explaining what they are reading.
+    pub colophon_linked: bool,
 }
 
 /// Read-only content-tree lint (`usv check`'s content half): walk every
@@ -397,6 +403,20 @@ pub async fn lint_content(content_dir: &Path) -> std::io::Result<ContentLint> {
         return Ok(lint);
     }
     walk(content_dir, content_dir, &mut lint).await?;
+    // The colophon explains what a visitor is reading and which other
+    // addresses serve it. It is generated at /usv on every protocol, but
+    // only the default skeleton links it: a capsule whose content arrived
+    // from anywhere else serves a page nobody can find. Noted rather than
+    // fixed, because inserting a link into an operator's own writing is
+    // not usv's business.
+    if lint.pages_found > 0 && !lint.colophon_linked {
+        lint.notes.push(
+            "nothing links the colophon at /usv, the generated page that tells a visitor \
+             what they are reading and lists this capsule's other addresses (link it \
+             with a gemtext link line; the default skeleton puts one on the index)"
+                .to_string(),
+        );
+    }
     Ok(lint)
 }
 
@@ -436,6 +456,12 @@ fn walk<'a>(
                     let lines = crate::render::gemtext::parse(&text);
                     if lines.is_empty() {
                         lint.notes.push(format!("{} is empty", relative.display()));
+                    }
+                    if !lint.colophon_linked {
+                        lint.colophon_linked = lines.iter().any(|line| {
+                            matches!(line, crate::render::gemtext::Line::Link { url, .. }
+                                if crate::render::colophon::links_colophon(url))
+                        });
                     }
                     lint.pages_found += 1;
                 }
@@ -845,10 +871,20 @@ pub fn check_report_json(config: &Config, lint: &ContentLint) -> String {
         .string("theme", config.theme.name)
         .number("identities", config.roster.identities().len() as u64);
     let mut content = json::Object::new();
-    content.number("pages_found", lint.pages_found as u64).raw(
-        "notes",
-        &json::string_array(lint.notes.iter().map(|n| n.as_str())),
-    );
+    content
+        .number("pages_found", lint.pages_found as u64)
+        .raw(
+            "notes",
+            &json::string_array(lint.notes.iter().map(|n| n.as_str())),
+        )
+        .raw(
+            "colophon_linked",
+            if lint.colophon_linked {
+                "true"
+            } else {
+                "false"
+            },
+        );
     let mut out = json::Object::new();
     out.raw("config", &cfg.finish())
         .raw("content", &content.finish());
@@ -908,12 +944,52 @@ mod tests {
     #[tokio::test]
     async fn lint_reports_page_count_and_no_notes_for_clean_content() {
         let dir = tmpdir("lint-clean");
-        std::fs::write(dir.join("index.gmi"), "# Home\n\nHello.\n").unwrap();
+        // The index links the colophon, as the default skeleton does —
+        // otherwise this content is not clean, it is missing a link, and
+        // the lint says so (see the test below).
+        std::fs::write(
+            dir.join("index.gmi"),
+            "# Home\n\nHello.\n\n=> /usv About this capsule\n",
+        )
+        .unwrap();
         std::fs::create_dir_all(dir.join("notes")).unwrap();
         std::fs::write(dir.join("notes/a.gmi"), "# A\n").unwrap();
         let lint = lint_content(&dir).await.unwrap();
         assert_eq!(lint.pages_found, 2);
+        assert!(lint.colophon_linked);
         assert!(lint.notes.is_empty(), "{:?}", lint.notes);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[tokio::test]
+    async fn lint_notes_content_that_never_links_the_colophon() {
+        // The gap this closes: /usv is generated on every protocol, but
+        // only the default skeleton links it, so an operator who brought
+        // their own content serves a page nobody can reach.
+        let dir = tmpdir("lint-no-colophon");
+        std::fs::write(dir.join("index.gmi"), "# Home\n\n=> about.gmi About\n").unwrap();
+        std::fs::write(dir.join("about.gmi"), "# About\n").unwrap();
+        let lint = lint_content(&dir).await.unwrap();
+        assert!(!lint.colophon_linked);
+        assert!(
+            lint.notes.iter().any(|n| n.contains("/usv")),
+            "expected a colophon note, got {:?}",
+            lint.notes
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[tokio::test]
+    async fn an_empty_content_tree_is_not_nagged_about_the_colophon() {
+        // Nothing to link from yet; the skeleton has not been written.
+        let dir = tmpdir("lint-empty-tree");
+        let lint = lint_content(&dir).await.unwrap();
+        assert_eq!(lint.pages_found, 0);
+        assert!(
+            !lint.notes.iter().any(|n| n.contains("/usv")),
+            "an empty tree must not be told to link the colophon: {:?}",
+            lint.notes
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -1187,6 +1263,7 @@ mod tests {
         let lint = ContentLint {
             pages_found: 2,
             notes: vec!["blank.gmi is empty".to_string()],
+            colophon_linked: true,
         };
         let out = format_check_report(&cfg, &lint);
         assert!(out.contains("hosts: 1"));
@@ -1200,6 +1277,7 @@ mod tests {
         let lint = ContentLint {
             pages_found: 1,
             notes: Vec::new(),
+            colophon_linked: true,
         };
         let out = format_check_report(&cfg, &lint);
         assert!(out.contains("no issues noted"));
