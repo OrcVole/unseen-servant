@@ -23,6 +23,18 @@ release, not a sign of neglect.
 
 ## Unreleased
 
+### Fixed
+
+- **The Atom feed linked pages the web surface does not serve.** Atom is
+  the web's feed and carries absolute `https://` links, but it reused the
+  index's gemtext link targets, so every entry pointed at `post.gmi` and
+  answered 404 while `post.html` sat beside it. Found the day of the
+  launch by following a link out of the published feed rather than by
+  reading the XML, which is well-formed either way — and found before
+  the announcement, which is the only reason a feed aggregator did not
+  carry the dead link. The gemsub feed was always correct: Gemini
+  clients want the source name.
+
 ### Changed
 
 - **The canonical repository moved** to the project's own forge,
