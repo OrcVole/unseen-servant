@@ -8,11 +8,11 @@ Bubble has moderated subspaces; pick the right one and read its rules first rath
 
 STATION (short — Station posts are brief by convention)
 
-Been building a Gemini server: usv. It serves one gemtext folder both as gemtext on 1965 and as static HTML for browsers, rendered when files change rather than per request. Titan uploads with fingerprint-gated zones, cert zones, feeds, and packages for Cloudron/Debian/Fedora/Arch/Nix.
+Been building a Gemini server: usv. It serves one gemtext folder both as gemtext on 1965 and as static HTML for browsers, rendered when files change rather than per request. Titan uploads with fingerprint-gated zones, cert zones, feeds, and optional Gopher, Spartan, Nex and Finger listeners over the same folder. Packaging for Cloudron/Debian/Fedora/Arch/Nix.
 
 Pre-1.0, and written by an AI under human direction — saying so up front rather than letting you find out. Would like it kicked at.
 
-=> gemini://unseen-servant.wanderingmonster.dev/ usv
+=> gemini://unseenservant.dev/ usv
 
 --8<----------------------------------------------------------------
 
@@ -24,7 +24,7 @@ I have been writing a server called Unseen Servant, and it is far enough along t
 
 The idea it is built around: one folder of gemtext, rendered at write time into both surfaces. Gemini clients get the files as written; browsers get plain classless HTML of the same content. Not a per-request gateway — the tree is rendered when a file changes and swapped atomically, so the HTML side is just static files, and the rendered folder works on its own if you copy it somewhere else.
 
-Titan is on the same listener, gated per zone on client-certificate fingerprints, and a writable zone with an empty allowlist refuses to start rather than defaulting open. Certificate zones follow Molly Brown's model. There are Atom and gemsub feeds, a site map on both surfaces, and packaging for Cloudron, Debian, Fedora, Arch, Nix and OCI.
+Titan is on the same listener, gated per zone on client-certificate fingerprints, and a writable zone with an empty allowlist refuses to start rather than defaulting open. Certificate zones follow Molly Brown's model. There are Atom and gemsub feeds, a site map on both surfaces, and, if you switch them on, the same folder served as a gopherhole and over Spartan, Nex and Finger, with anything you cert-gated kept out of the cleartext trees. Packaging for Cloudron, Debian, Fedora, Arch, Nix and OCI.
 
 What it deliberately will not do: CGI, FastCGI, scripting, proxying, or any plugin API. If what you are building is a program rather than a capsule — the way this board is — GmCapsule is the right foundation and usv is not.
 
@@ -32,6 +32,6 @@ One disclosure rather than a footnote: it is written by an AI under human direct
 
 On logs, since it comes up here: no visitor addresses by default. The peer field reads as a dash, queries are redacted by construction, and if you do want addresses there is a per-boot-salted digest option that correlates repeat visits within a single run and keeps nothing across a restart.
 
-=> gemini://unseen-servant.wanderingmonster.dev/ The capsule, served by usv
+=> gemini://unseenservant.dev/ The capsule, served by usv
 
 --8<----------------------------------------------------------------

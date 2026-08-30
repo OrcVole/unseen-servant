@@ -1,9 +1,9 @@
 ---
 title: "Roadmap"
-description: "Plan of record. History: the original plan split a quiet v1.0 from a Titan-bearing v1.1; on 2026-08-09 the director collapsed that split, 'we will not use or announce it till it is ready."
+description: "Plan of record. v1.0 is the release and carries everything: Titan (the 2026-08-09 collapse of the v1.0/v1.1 split) and the four smolnet protocols (folded in 2026-08-30, because they had already shipped)."
 type: explanation
 status: decided
-last_verified: 2026-08-11
+last_verified: 2026-08-30
 ---
 
 # Roadmap
@@ -13,10 +13,22 @@ Titan-bearing v1.1; on 2026-08-09 the director collapsed that split,
 "we will not use or announce it till it is ready for Titan", so v1.0 IS
 the release, and everything before it is milestones, not versions.
 
+**Second fold, 2026-08-30.** The smolnet protocols below were planned as
+a v1.1 that would follow the announcement. They were built instead,
+during the C5-C7 rounds of 2026-08-10 and 2026-08-11, each driven by a
+real client (`docs/protocols.md` names them) and all six surfaces are
+live on the project's own deployment. A roadmap that still called them
+"v1.1, unwritten" was contradicting the code, and the launch pack's
+claim gate reads this file. So v1.0 carries them, and the "v1.1" heading
+below is kept as history rather than deleted, per house rule: the plan
+was wrong in the happy direction, and that is worth seeing.
+
 ## v1.0: the release (announced when ready)
 
 Nothing is announced, listed, or promoted before v1.0 is complete and
-the gemini-diagnostics gate passes clean (hard gate, per the brief).
+the gemini-diagnostics gate passes (hard gate, per the brief: 27/27 or
+a documented, spec-legitimate non-pass per check, wording settled
+2026-08-30).
 
 Milestones, in build order:
 
@@ -51,6 +63,13 @@ tarballs, .deb, AUR, Nix flake, OCI, Cloudron (AppImage skipped).
 House docs set incl. MAINTENANCE.md ("finished, actively watched"
 statement), UPGRADING.md (TOFU survival story), INTEGRATIONS.md.
 
+**M5b: the small networks** (added 2026-08-30; was v1.1 below). Gopher,
+Spartan, Nex and Finger as opt-in, off-by-default listeners over the
+same content tree, per ADR 0012; gopher as a third render target;
+cert-gated and Titan-gated paths excluded from every cleartext tree at
+render time. **Shipped.** The gopher-space announcement venues move
+into M6 as a second wave.
+
 **M6: launch.** Project capsule live, dogfooded on usv (Forgejo
 canonical repo public, orcvole GitHub mirror). COMPARISON.md vs.
 Agate/gmid/Molly Brown/GmCapsule: including a **use-cases section
@@ -59,10 +78,14 @@ that says when the OTHER servers are the better choice** (director,
 needs, GmCapsule for Python extensibility, Agate for minimal
 static-only, Molly Brown for pubnix multi-user). Announcement wave: Antenna, mailing
 list, Station, Bubble, geminiprotocol.net listings, geminispace.info,
-awesome-gemini PR, Fediverse #gemini, r/geminiprotocol. Venues
-re-verified at launch time.
+awesome-gemini PR, Fediverse #gemini, r/geminiprotocol. Second wave,
+gopher-space: gopher-project list, Bongusta, Floodgap/Veronica-2,
+#gopher. Venues re-verified at launch time.
 
-## v1.1: the smolnet release
+## v1.1: the smolnet release (history: folded into v1.0 on 2026-08-30)
+
+*Everything in this section shipped before v1.0 was tagged; see M5b
+above. Kept as written so the original plan stays legible.*
 
 - **Gopher, Spartan, Nex, and Finger** (director 2026-08-09: "include
   finger") as optional, off-by-default listeners per

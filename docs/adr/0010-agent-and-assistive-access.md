@@ -8,7 +8,7 @@ last_verified: 2026-08-11
 
 # ADR 0010: Legibility for agents and assistive access: one problem, not two
 
-- Status: **Proposed** (director-raised 2026-08-09; awaiting review)
+- Status: **Accepted** (director, 2026-08-30, as implemented; raised 2026-08-09, Proposed until then)
 - Date: 2026-08-09
 - Evidence: docs/internal/recon/protocol.md (gemtext grammar, `lang` parameter,
   status classes), docs/internal/recon/ecosystem.md (companion specs), ADR 0004

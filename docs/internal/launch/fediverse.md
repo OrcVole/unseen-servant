@@ -3,7 +3,7 @@ title: "Fediverse"
 description: "DRAFT, not posted. Fediverse, #gemini (and #smallweb / #smolnet)."
 type: reference
 status: decided
-last_verified: 2026-08-11
+last_verified: 2026-08-30
 ---
 
 DRAFT, not posted. Fediverse, `#gemini` (and `#smallweb` / `#smolnet`).
@@ -25,12 +25,13 @@ Unseen Servant: a Gemini server that publishes the same folder of
 gemtext twice: natively on 1965, and as plain static HTML for
 everyone else. One source, no build step.
 
-Titan uploads, cert-gated zones, feeds. Packaged for Cloudron,
-Debian, Fedora, Arch, Nix.
+Titan uploads, cert-gated zones, feeds; Gopher, Spartan, Nex and
+Finger if you want them. Packaging for Cloudron, Debian, Fedora,
+Arch, Nix.
 
 Pre-1.0. AI-authored under human direction: said up front.
 
-https://unseen-servant.wanderingmonster.dev/
+https://unseenservant.dev/
 
 #gemini #smolnet
 ```
@@ -58,8 +59,8 @@ Two things worth saying plainly:
 It logs no visitor addresses by default: the peer field is a dash,
 queries are redacted by construction. Opt in if you want them.
 
-And no Gopher yet. It is designed and scheduled, not written. Saying
-so rather than letting the feature table imply otherwise.
+And the cleartext protocols are off by default: no TLS, no client
+identity, and nothing you cert-gated ever reaches them.
 ```
 
 ---

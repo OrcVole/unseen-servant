@@ -107,7 +107,7 @@ smolnet answer is a `misfin://` link served beside your content (one-click
 in Lagrange ≥1.18) with a standalone misfin server handling delivery, or a
 plain `mailto:`. See `docs/internal/recon/smolnet.md` §5.
 
-## Smolnet side-protocols (v1.1)
+## Smolnet side-protocols (shipped; were planned as v1.1)
 
 Gopher, Spartan, Nex, and Finger as opt-in listeners over the same content
 tree: all plaintext, all off by default, trust model documented plainly.

@@ -3,7 +3,7 @@ title: "Reddit"
 description: "DRAFT, not posted. r/geminiprotocol (and possibly r/selfhosted for the packaging angle, which is a different post: see the bottom)."
 type: reference
 status: decided
-last_verified: 2026-08-11
+last_verified: 2026-08-30
 ---
 
 DRAFT, not posted. r/geminiprotocol (and possibly r/selfhosted for the
@@ -38,7 +38,9 @@ OnionShare or onto any static host.
 
 **Things it does:** Titan uploads on the same listener, gated per zone on
 client-certificate fingerprints; certificate zones for private paths;
-Atom and gemsub feeds; four themes; a site map on both surfaces; and
+Atom and gemsub feeds; three themes; a site map on both surfaces; optional
+Gopher, Spartan, Nex and Finger listeners over the same folder, off by
+default; and
 packaging for Cloudron, Debian, Fedora/RHEL, Arch, Nix and a small
 container image.
 
@@ -46,8 +48,10 @@ container image.
 
 - **It is pre-1.0 and unaudited.** Agate and gmid have years of
   production hardening this does not.
-- **No Gopher yet.** It is designed and scheduled for v1.1, but not
-  written. I'd rather say that than let the table imply otherwise.
+- **The cleartext protocols carry less.** Gopher, Spartan, Nex and
+  Finger have no TLS and no client identity, so anything you gate behind
+  a certificate on the Gemini side is excluded from those trees at render
+  time, structurally. They are off unless you turn them on.
 - **No dynamic content at all**: no CGI, FastCGI, scripting, or plugin
   API, and that is a permanent design decision, not a todo. If you want
   to build something interactive, GmCapsule is the right tool and this
@@ -69,8 +73,8 @@ container image.
   you out of it in the comments.
 
 **Where:** [capsule, served by usv
-itself](gemini://unseen-servant.wanderingmonster.dev/), and the same
-thing [in a browser](https://unseen-servant.wanderingmonster.dev/), which
+itself](gemini://unseenservant.dev/), and the same
+thing [in a browser](https://unseenservant.dev/), which
 is sort of the point.
 
 Happy to answer anything, including the awkward questions.

@@ -8,8 +8,9 @@ last_verified: 2026-08-11
 
 # ADR 0009: Responses: likes and messages, dynamic write / static read
 
-- Status: Proposed (drafted 2026-08-09; awaiting director's OQ-8
-  calls: release version, and per-post counter display default)
+- Status: Proposed (drafted 2026-08-09). **Release version decided
+  2026-08-30: post-1.0**; it is not a launch blocker. Still awaiting
+  OQ-8's per-post counter display default.
 - Date: 2026-08-09
 - Evidence: docs/internal/recon/community-wisdom.md, docs/internal/notes/integration-ideas.md, director directives 2026-08-09
 

@@ -24,6 +24,11 @@ This will be replaced with a real support table when v1.0 ships.
 In scope: anything reachable over the Gemini, Titan, or web-mirror
 surfaces: request parsing, TLS handling, path traversal, certificate
 zone and Titan authorisation, identity handling, the render pipeline.
+Also in scope, since they shipped: the four cleartext listeners
+(Gopher, Spartan, Nex, Finger), their parsers, and above all the rule
+that certificate-gated or Titan-gated content must never reach a
+cleartext tree (ADR 0012 §6). A gated file appearing on any cleartext
+surface is a security bug, not a rendering bug.
 Also in scope: the packaging (a `.deb`/RPM/AUR/Nix/container package that
 installs something unsafe is a security bug).
 
@@ -33,6 +38,9 @@ Out of scope, because they are documented behaviour rather than defects
 - The web mirror publishes rendered content to anyone. Certificate zones
   gate the *Gemini* surface only.
 - A writable Titan zone is writable by every fingerprint listed in it.
+- Gopher, Spartan, Nex and Finger are cleartext by design: no
+  confidentiality, no server or client authentication. They are off by
+  default and documented as such.
 - Client certificates prove continuity, not who someone is.
 - Visitor addresses are **not** logged by default (`server.log_peer`
   defaults to `off`). An operator who opts into `full` has chosen a
@@ -41,7 +49,7 @@ Out of scope, because they are documented behaviour rather than defects
 ## What we do already
 
 Details in [`docs/security.md`](docs/security.md): `unsafe_code =
-"forbid"` project-wide, seven fuzzed parsers with committed regression
+"forbid"` project-wide, eight fuzzed parsers with committed regression
 corpora, `cargo deny check` on every push, no dynamic execution anywhere
 by design, a single unprivileged process with an empty capability
 bounding set, and TOFU identity that is never silently regenerated.

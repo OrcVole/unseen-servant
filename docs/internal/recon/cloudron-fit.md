@@ -162,7 +162,7 @@ dual surface, and where usv deliberately differs:
 
 ## Addendum: base image revised to alpine (2026-08-10)
 
-Found live, deploying to a real Cloudron host (`example.com`): even a
+Found live, deploying to the real production Cloudron: even a
 **prebuilt** image (compiled in CI, installed via `cloudron install
 --image`, so no server-side compile at all) still installed slowly,
 because the image itself, final stage `cloudron/base:5.1.0`: is
