@@ -143,8 +143,18 @@ Read the `Using image` line it prints. It is the only place the CLI says
 which image it actually chose, and on this path it is reporting the
 manifest, not your flag.
 
-Found on 2026-08-30, deploying the link fix; each half of it was already
-known and the combination was not.
+Found on 2026-08-30, deploying the link fix.
+
+**Correction, same day.** That paragraph first claimed the finding was
+new. Half of it was already written down: `estate/FLEET.md` records
+"Store apps update with `--appstore-id <id>`; without it the CLI looks
+for a local manifest and fails with 'No CloudronManifest.json found'".
+It was read *after* hitting the symptom rather than before, which is the
+one thing the estate's field guide asks you not to do. What is genuinely
+added here is only the image-installed case and the deploy-directory
+recipe, including the three `file://` companions. The error is kept
+visible because the class matters more than the fix: consult the
+doctrine before the box, not after it.
 
 ## Backups, restores and moves
 
