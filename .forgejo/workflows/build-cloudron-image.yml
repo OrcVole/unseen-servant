@@ -25,6 +25,19 @@
 # carry real `write:package` scope on this instance — a known-working
 # credential instead of an untested assumption about the auto-token.
 #
+# SECRETS DO NOT FOLLOW A REPOSITORY SWAP (found live, 2026-08-30). The
+# repository was replaced this day by a history-rewritten twin at the same
+# URL, the original kept privately beside it. Everything git-shaped moved
+# across; REGISTRY_PUSH_TOKEN did not, because Actions secrets belong to
+# the repository row and not to the history. The first build on the new
+# repository therefore failed at `podman login` with an empty password,
+# which reads as an auth error and invites a hunt for a revoked token.
+# There was nothing wrong with the credential: it simply was not there.
+# Recreated the same day from the value the estate's capability matrix
+# names for this instance. If this workflow ever fails at login again
+# immediately after any repository-level move, check that the secret
+# exists before suspecting its scope.
+#
 # RUNNER FACTS: same `workstation` HOST-mode runner as pr-checks.yml —
 # steps run directly on a real machine, not an isolated container, so
 # whatever build tool is invoked here (podman) must already be installed
