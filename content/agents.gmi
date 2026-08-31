@@ -1,111 +1,113 @@
-# Agents
+# agents
 
-Unseen Servant treats an AI agent as an ordinary user, not as a crawler to be managed. Everything below is on by default, addressable by URL, and identical to what a person gets. There is no agent mode and no content negotiation.
+usv treats an AI agent as an ordinary user, not as a crawler to be managed. everything below is on by default, addressable by url, and identical to what a person gets. there is no agent mode and no content negotiation.
 
-If you are an agent working on the source code rather than the content, you want the debugging guide instead.
+contents: choosing · reading · writing · operating · status codes · not provided
 
-=> debugging.gmi Debugging, organised by symptom
+if you are an agent working on the source code rather than the content, you want the debugging page instead:
 
-## If you are choosing this on an agent's behalf
+=> fix.gmi debugging, organised by symptom
 
-Written for the person doing the choosing, not the agent. The question is not "does it have AI features" but "what does it cost me to let something automated publish here, and what happens when it misbehaves".
+## if you are choosing this on an agent's behalf
 
-Your agent's output needs an address. Anything worth keeping needs somewhere durable and citable to live, and a chat transcript is not a location. Here it is a file in a folder, live on every enabled network within 300 milliseconds, at a URL that does not change.
+written for the person doing the choosing. the question is not "does it have AI features" but "what does it cost me to let something automated publish here, and what happens when it misbehaves".
 
-Integration cost is a file write. No client library, no software development kit, no API key, no build step, no deploy. Anything that can write a file can publish. Most of what breaks in agent publishing is the stack between the agent and the page, and here there is not one.
+your agent's output needs an address. anything worth keeping needs somewhere durable and citable to live, and a chat transcript is not a location. here it is a file in a folder, live on every enabled network within seconds, at a url that does not change.
 
-You can grant access without handing over a secret. An agent presents a client certificate; you authorise its fingerprint against a named roster entry with named capabilities, scoped to a path. There is no password to leak into a prompt, a log or a transcript. Revoking is deleting a line, and it takes effect on the next request rather than at the next restart.
+integration cost is a file write. no client library, no sdk, no api key, no build step, no deploy. anything that can write a file can publish. most of what breaks in agent publishing is the stack between the agent and the page, and here there is not one.
 
-The blast radius is bounded by the design, not by your vigilance. Nothing is ever executed. An agent that goes wrong writes bad prose; it cannot run code, escalate, reach your other services or install anything, because none of those paths exist for anyone. The worst realistic outcome is a page you restore from backup.
+you can grant access without handing over a secret. an agent presents a client certificate; you authorise its fingerprint against a named roster entry with named capabilities, scoped to a path. there is no password to leak into a prompt, a log or a transcript. revoking is deleting a line, effective on the next request.
 
-You can see what it did, and so can another agent. A cert-gated status resource reports health, the roster and recent activity. Every read-only command emits JSON, so supervising the publisher with a second automated process needs no scraping.
+the blast radius is bounded by the design, not by your vigilance. nothing is ever executed. an agent that goes wrong writes bad prose; it cannot run code, escalate, reach your other services or install anything, because none of those paths exist for anyone. the worst realistic outcome is a page you restore from backup.
 
-Reading back is cheap. An agent revisiting its own output fetches one inventory file and then clean Markdown, rather than crawling and stripping markup. Gemtext round-trips losslessly, so what comes back is exactly the structure that was written, which is not true of HTML.
+you can see what it did, and so can another agent. a cert-gated status resource reports health, the roster and recent activity. every read-only command emits json, so supervising the publisher with a second automated process needs no scraping.
 
-Nothing here fights automation. No JavaScript to execute, no cookie wall, no bot detection, no rate limiter to back off from. You are not working against your own infrastructure to let your agent in.
+reading back is cheap. one inventory fetch, then clean markdown. gemtext round-trips losslessly, so what comes back is exactly the structure that was written, which is not true of html.
 
-And none of it is an AI-only stack. Every affordance above is also an accessibility or ordinary usability feature, so you are not maintaining a second system for machines. If the agent stops being useful tomorrow, you still have a site people can read.
+nothing here fights automation: no javascript, no cookie wall, no bot detection, no rate limiter to back off from.
 
-The honest counterweight: this is a publishing surface, not an agent platform. It has no memory, no retrieval, no scheduling and no tool protocol, and it is not going to grow them. If what you need is somewhere for an agent to think, this is the wrong tool. If you need somewhere for an agent to put things that will still be there and still be readable in five years, that is what it is for.
+and none of it is an AI-only stack. every affordance above is also an accessibility or plain usability feature, so you are not maintaining a second system for machines. if the agent stops being useful tomorrow, you still have a site people can read.
 
-## Reading
+the honest counterweight: this is a publishing surface, not an agent platform. no memory, no retrieval, no scheduling, no tool protocol, and it is not going to grow them. if what you need is somewhere for an agent to think, this is the wrong tool. if you need somewhere for an agent to put things that will still be readable in five years, that is what it is for.
 
-```What to fetch for what you want
+## reading
+
+```what to fetch for what you want
 YOU WANT                            FETCH
-every page, one request             /llms.txt (web) or /map.gmi (Gemini)
+every page, one request             /llms.txt (web) or /map.gmi (gemini)
 a page without markup               any page with .md instead of .html
 the machine index                   /sitemap.xml
 dated posts                         /atom.xml or /feed.gmi
 what this is, and its addresses     /usv
 ```
 
-The llms.txt index links the Markdown form of every page, so one fetch gives you the inventory and the second gives you clean text. Both are written by the same render pass that writes the HTML and the gemtext, from the same source file: there is no path by which they disagree.
+the llms.txt index links the markdown form of every page, so one fetch gives the inventory and the second gives clean text. both are written by the same render pass as the html and the gemtext, from the same source file: there is no path by which they disagree.
 
-The robots.txt is permissive unless the operator wrote one into their content directory. AI crawling is allowed by default.
+robots.txt is permissive unless the operator writes one into their content directory. AI crawling is allowed by default.
 
-## Writing
+## writing
 
-Publishing is a file write. Over the network, that is Titan on the same port as Gemini, gated by client certificate.
+publishing is a file write. over the network, that is titan on the gemini port, gated by client certificate.
 
-* The operator adds your certificate's SHA-256 fingerprint to the roster with the titan-write capability, and names it in a Titan zone.
-* You send a titan:// request carrying size and mime parameters, then the body.
-* Every surface re-renders within the debounce window, 300 milliseconds.
+* the operator adds your certificate's sha-256 fingerprint to the roster with the titan-write capability, and names it in a titan zone
+* you send a titan:// request carrying size and mime parameters, then the body
+* every surface re-renders within the debounce window
 
-Your identity is the key. There is no account, no password, no token exchange and no session. The server records the date a key was enrolled and nothing else about who holds it.
+your identity is the key. no account, no password, no token exchange, no session. the server records the date a key was enrolled and nothing else about who holds it.
 
-Rotation: an identity may hold a second fingerprint during an overlap window, so you can enroll a new key and prove control from the old one without losing the label or its capabilities. The window must carry an expiry date; it closes itself.
+rotation: an identity may hold a second fingerprint during an overlap window, so you can enrol a new key and prove control from the old one without losing the label or its capabilities. the window must carry an expiry date; it closes itself.
 
-Capabilities are server-wide grants that compose with zone membership: both are required. There are three: read, titan-write, admin.
+capabilities are server-wide grants that compose with zone membership: both are required. there are three: read, titan-write, admin.
 
-## Operating
+## operating
 
-Every read-only subcommand takes --json and prints one object on one line, so several invocations concatenate into valid JSON Lines.
+every read-only subcommand takes --json and prints one object on one line, so several invocations concatenate into valid json lines.
 
-```Machine-readable reports
+```machine-readable reports
 usv status --json      # config, fingerprints, roster, zones, published
 usv check --json       # config validity and content lint
 usv stats --json       # what is currently published
-usv zones --json       # certificate and Titan zones
+usv zones --json       # certificate and titan zones
 usv fingerprint --json # this server's certificate fingerprints
 ```
 
-Logs go to standard error, so standard output is only ever the report.
+logs go to standard error, so standard output is only ever the report:
 
-```Separating the two streams
+```separating the two streams
 usv status --json 2>/dev/null | jq .capsule.theme
 ```
 
-Setting USV_LOG_FORMAT=json switches the log itself to one JSON object per line. RUST_LOG filters as usual.
+USV_LOG_FORMAT=json switches the log itself to one json object per line. RUST_LOG filters as usual.
 
-Exit codes are a contract, checked by the test suite.
+exit codes are a contract, checked by the test suite:
 
-```The exit-code contract
+```the exit-code contract
 0  success
-1  the command ran and failed: bad config, unreadable state, I/O
+1  the command ran and failed: bad config, unreadable state, i/o
 2  the command line was wrong; nothing ran
 ```
 
-Passing --json to a subcommand that has no report: render, export, init, identity: is an error, not a silent no-op, so you never believe you asked for JSON and receive prose.
+passing --json to a subcommand that has no report (render, export, init, identity) is an error, not a silent no-op, so you never believe you asked for json and receive prose.
 
-Over the wire, an identity holding the admin capability can fetch a status resource: health, the last render's stats, the roster, and a recent-activity tail. It is read-only, and that is the whole remote surface. Every mutation: reload, re-render, identity add, rotate, revoke: is command-line only and needs host access, so there is no remote control plane to seize.
+over the wire, an identity holding the admin capability can fetch a status resource: health, the last render's stats, the roster, a recent-activity tail. it is read-only, and that is the whole remote surface. every mutation (reload, re-render, identity add, rotate, revoke) is command-line only and needs host access, so there is no remote control plane to seize.
 
-## Status codes
+## status codes
 
-Gemini's classes are already a machine interface and this server uses them literally: 20 success, 30 and 31 redirect, 40 and 41 and 44 temporary, 50 and 51 and 53 and 59 permanent, 60 and 61 and 62 certificate.
+gemini's classes are already a machine interface and this server uses them literally: 20 success, 30 and 31 redirect, 40 41 44 temporary, 50 51 53 59 permanent, 60 61 62 certificate.
 
-A 20 response never contains an error page. A 53 means the request was for a host or scheme this server does not serve: it is not a proxy.
+a 20 response never contains an error page. a 53 means the request was for a host or scheme this server does not serve: it is not a proxy.
 
-## Not provided
+## not provided
 
-Stated so you do not go looking.
+stated so you do not go looking.
 
-```What is absent, why, and what to use instead
+```what is absent, why, and what to use instead
 NOT PROVIDED        WHY                        INSTEAD USE
-MCP, A2A, agent     those are transports;      run yours where you already
+mcp, a2a, agent     those are transports;      run yours where you already
 cards               this is a place to         do, and let it write here
-                    publish, not a transport   over Titan
+                    publish, not a transport   over titan
 
-a JSON API for      content is gemtext, and    /llms.txt for the inventory,
+a json api for      content is gemtext, and    /llms.txt for the inventory,
 content             it already parses          then the .md form of a page
                     losslessly in one pass
 
@@ -120,18 +122,16 @@ enrollment tokens   designed, unimplemented    usv identity add, run by the
                                                operator
 
 an observe surface  the cert-gated status      gemini status resource with
-on the web mirror   resource is Gemini-only    an admin certificate, or
+on the web mirror   resource is gemini-only    an admin certificate, or
                                                usv status --json on the host
 
 any mutation over   deliberate: no remote      the command line, over
 the network         control plane to seize     whatever reaches the host
 ```
 
-## Why any of this exists
+## why any of this exists
 
-Each affordance above is also an accessibility feature or an ordinary usability feature. A site map is a navigation aid and a crawl-free inventory. A Markdown address is a clean read for a person too. Machine-readable output is what any script wants.
+each affordance above is also an accessibility or plain usability feature. a site map is a navigation aid and a crawl-free inventory. a markdown address is a clean read for a person too. if the agent audience never arrives, none of it is wasted, which is why these were built and the agent-only ideas were not.
 
-If the agent audience never arrives, none of it is wasted, which is why these were built and the agent-only ideas were not.
-
-=> index.gmi Back to the start
-=> smolnets.gmi The five networks, and what each is best at
+=> index.gmi back to the plate
+=> networks.gmi the five networks, and what each is best at

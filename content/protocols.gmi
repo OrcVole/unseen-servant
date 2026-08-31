@@ -1,46 +1,6 @@
-# What it speaks
+# moved
 
-This page is the authority. Everything outward-facing must agree with it, and it must agree with the code. If they ever disagree, the code wins and this page is the bug.
+this page moved when the site was rebuilt (2026-08-31).
 
-Nothing is described as supported until an implementation exists and a real client has driven it. The right-hand column is what that rule looks like when it is being kept.
-
-```What is supported, and what proved it
-PROTOCOL   STATUS      VERIFIED BY
-Gemini     supported   gemini-diagnostics, Lagrange
-Titan      supported   Lagrange
-Web        supported   browsers, lynx, w3m
-Gopher     supported   gelim, against a live public deployment
-Spartan    supported   Lagrange, rendered live
-Nex        supported   gelim
-Finger     supported   bombadillo
-anything   rejected    answered 53; this is not a proxy
-else
-```
-
-## What "verified by" means
-
-A protocol is called supported when it has been exercised against a real client, not merely unit-tested. All of them have been.
-
-Spartan was hedged until the hedge could be lifted honestly. One client's Spartan mode returned nothing in non-interactive use, and returned nothing against the reference server either, so it was a client limitation rather than a defect here. Rather than round that up, this page said "wire-verified" and named the gap until Lagrange rendered it live.
-
-That comparison also produced a fix worth keeping on record. The reference server answers with a bare content type; this one had been sending a charset parameter too. UTF-8 is already the default for text, so the parameter added nothing and gave a client doing exact string comparison something extra to disagree with. Now matched.
-
-## The web mirror is not a web server
-
-Your content tree is rendered to static HTML and that is served. Nothing is executed, there is no CGI, and it will not reverse-proxy. If you need a general-purpose web server, run one. This surface exists so writing is also readable by someone who only has a browser, from the same source files, with no second publishing step.
-
-## The cleartext protocols carry less
-
-Gopher, Spartan, Nex and Finger offer no confidentiality, no integrity, no server authentication, and no client authentication of any kind. Certificate-gated and upload-gated paths are therefore excluded from every cleartext tree, structurally, at the point the tree is built. All four are off unless the operator enables them.
-
-=> smolnets.gmi Choosing between them, with the case for each
-=> security.gmi Why that exclusion is structural rather than a check
-
-## Per-capsule versus per-project
-
-This page answers "what can the software speak?": a question about the software.
-
-"What does this site answer on?" is a different question with a different answer per install, and it should never be maintained by hand. Only the running server knows. That answer is generated, at /usv, from live configuration: true by construction and incapable of overclaiming.
-
-=> /usv This site's own addresses, generated
-=> index.gmi Back to the start
+=> limits.gmi capabilities and refusals, with what verified each
+=> index.gmi the front page

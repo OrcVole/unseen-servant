@@ -1,16 +1,6 @@
-# Current build status
+# moved
 
-usv is released and built in public against a phased plan. The current version, its notes and its signed artefacts are on the releases page, which is the one place that cannot go stale:
+this page moved when the site was rebuilt (2026-08-31).
 
-=> https://forgejo.unseenservant.dev/unseen-servant/unseen-servant/releases Releases The authoritative, always-current state lives in the source repository: this page is a snapshot, not the source of truth, and may lag behind it.
-
-## What is done
-
-The full dual-render pipeline (gemtext to native Gemini and to classless HTML, one write-time pass, watched and re-rendered on every change), Titan uploads on the same listener, certificate-gated zones, an identity/roster CLI, an interactive terminal setup wizard, Tor/I2P-friendly defaults, and a full packaging matrix: Cloudron, .deb, RPM, AUR, Nix, a plain container image, and a static tarball: all built and verified, not just written.
-
-## What is left before v1.0
-
-Extended fuzz hardening, a clean run of the community gemini-diagnostics conformance suite against a live deployment, and the last of the pre-launch documentation. No announcement happens before that bar is cleared.
-
-=> https://forgejo.unseenservant.dev/unseen-servant/unseen-servant/src/branch/main/docs/internal/BUILD-PLAN.md The build plan (source repository)
-=> index.gmi Back to the front page
+=> else.gmi meta: status, licence, the name
+=> index.gmi the front page

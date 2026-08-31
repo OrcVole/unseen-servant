@@ -16,7 +16,7 @@
 Name:           unseen-servant
 Version:        %{_usv_version}
 Release:        1%{?dist}
-Summary:        security-first Gemini capsule server
+Summary:        server for the small networks: one folder, six surfaces
 License:        MIT
 URL:            https://forgejo.unseenservant.dev/unseen-servant/unseen-servant
 
@@ -37,13 +37,12 @@ BuildRequires:  systemd-rpm-macros
 %global __os_install_post %{nil}
 
 %description
-Unseen Servant (usv) publishes one content tree to Geminispace (gemtext,
-port 1965) and, optionally, to the web as statically rendered classless
-HTML. TOFU-native identity, Titan uploads, and a terminal setup wizard.
-.
-Statically linked (musl) — no runtime dependencies beyond a Linux kernel.
-Also serves Gopher, Spartan, Nex and Finger from the same content tree,
-each off unless enabled.
+Unseen Servant (usv) publishes one folder of gemtext to Gemini (port
+1965) and, each off unless enabled, to Gopher, Spartan, Nex and Finger,
+and mirrors the same pages to the web as statically rendered classless
+HTML. Rendering happens at write time; nothing is ever executed at
+request time. TOFU-native identity, Titan uploads gated by client
+certificate, and a terminal setup wizard. Statically linked (musl).
 
 %prep
 # nothing to unpack — Source0 is the finished binary

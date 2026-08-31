@@ -1,0 +1,39 @@
+# see it work
+
+every page here is one file in one folder, rendered to six surfaces by the server it describes. you are reading one of those renderings now. fetch another and compare: same words, same source file.
+
+## this site, on each network
+
+=> gemini://unseenservant.dev/ gemini: gemini://unseenservant.dev/
+=> gopher://unseenservant.dev:1024/ gopher: gopher://unseenservant.dev:1024/
+=> spartan://unseenservant.dev:3300/ spartan: spartan://unseenservant.dev:3300/
+=> nex://unseenservant.dev:1900/ nex: nex://unseenservant.dev:1900/
+=> https://unseenservant.dev/ web: https://unseenservant.dev/
+
+finger is the odd one out: it answers with a short generated profile, not the content tree. the finger(1) command cannot ask on any port but 79, so use a client that can, or netcat:
+
+```two ways to finger this host
+lagrange:  finger://unseenservant.dev:7979
+terminal:  nc unseenservant.dev 7979
+```
+
+## the odd ports
+
+gopher's canonical port is 70, spartan's is 300, finger's is 79. all three are privileged, and usv runs without privileges, so this host serves them higher up. a bare gopher://unseenservant.dev/ sits there and times out; with :1024 it answers.
+
+=> addresses.gmi every address and port, with the reasons
+=> /usv the same list, generated live from the running configuration
+
+## what you just saw
+
+no build step ran and no copies were synchronised. the folder renders once, on save: to gemtext as it stands, to gopher menus, to a finger profile, and to plain classless html. the render takes under two seconds, so a page is live everywhere about as fast as it can be saved.
+
+the rendered html tree is also a complete static site on its own. copy it anywhere, an onion mirror, a usb stick, a cdn, and it works with no server behind it.
+
+## two minutes, kept
+
+if this page reached you two ways, the claim on the front page is demonstrated, not asserted. the rest of the site keeps the same rule: no claim without something that verifies it.
+
+=> decide.gmi the evidence and the risks
+=> run.gmi a capsule of your own, ten minutes
+=> index.gmi back to the plate
