@@ -6,6 +6,11 @@
 //! capsule actually is**, because finger itself carries no links and no
 //! navigation: without an address, a successful query is a dead end.
 //!
+//! The generated profile also names its own `finger://host:port/`
+//! address: canonical port 79 is privileged and never held, so the
+//! actual port is the one fact a reader cannot guess and the profile
+//! is the only place it can live.
+//!
 //! The operator supplies the text by dropping `finger.txt` in the state
 //! directory. If they haven't, a default is generated that names the
 //! capsule's addresses, so the protocol is useful the moment it is
@@ -67,6 +72,23 @@ fn default_profile(addr: &Addresses) -> String {
 
     s.push('\n');
     s.push_str("Same words on every one of them: one folder, rendered to each.\n");
+
+    // The profile's own address, stated once, at the end. The list
+    // above stays finger-free — those are the places to go *next*,
+    // and this is where the reader already is — but a reader who
+    // arrived over `nc` has no URL bar, so without this line the
+    // profile is the one page on the capsule that cannot be
+    // bookmarked, shared, or found again. And because canonical port
+    // 79 is privileged and never held, the port is exactly the detail
+    // a reader cannot guess (found the hard way: a working listener
+    // read as "finger is down" because nothing anywhere named 7979).
+    if let Some(p) = addr.finger_port {
+        s.push('\n');
+        s.push_str(&format!(
+            "This profile: finger://{h}:{p}/  (or: nc {h} {p})\n",
+            h = addr.host
+        ));
+    }
 
     // Finger is the one protocol whose page is a *profile*, so the
     // colophon proper is never served over it. Without these lines a
@@ -187,11 +209,19 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn the_profile_does_not_send_the_reader_back_to_finger() {
+    async fn the_address_list_does_not_send_the_reader_back_to_finger() {
+        // Originally the profile carried no finger:// at all. That was
+        // half right: the "read the writing at" list must not point the
+        // reader back where they stand, but the profile's OWN address
+        // belongs at the foot — a reader over `nc` has no other way to
+        // learn or share the port. So: not in the list, exactly once
+        // after it.
         let mut a = addr();
         a.finger_port = Some(79);
         let out = String::from_utf8(respond(&tmp("selfref"), &a).await).unwrap();
-        assert!(!out.contains("finger://"), "{out}");
+        let list = out.split("Same words").next().unwrap();
+        assert!(!list.contains("finger://"), "{out}");
+        assert_eq!(out.matches("finger://").count(), 1, "{out}");
     }
 
     #[tokio::test]
@@ -205,5 +235,26 @@ mod tests {
             "{out}"
         );
         assert!(out.contains("Lagrange"), "no client named: {out}");
+    }
+
+    #[tokio::test]
+    async fn the_profile_names_its_own_address_when_finger_is_on() {
+        // A reader who arrived over `nc` has no URL bar; the profile is
+        // the only place its own port can be learned.
+        let d = tmp("selfaddr");
+        let mut a = addr();
+        a.finger_port = Some(7979);
+        let out = String::from_utf8(respond(&d, &a).await).unwrap();
+        assert!(out.contains("finger://example.org:7979/"), "{out}");
+        assert!(out.contains("nc example.org 7979"), "{out}");
+    }
+
+    #[tokio::test]
+    async fn no_self_address_without_a_finger_listener() {
+        // addr() carries no finger port: the exported-profile case
+        // (finger.txt rendered elsewhere) must not invent an address.
+        let d = tmp("noselfaddr");
+        let out = String::from_utf8(respond(&d, &addr()).await).unwrap();
+        assert!(!out.contains("finger://"), "{out}");
     }
 }
