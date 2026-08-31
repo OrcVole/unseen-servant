@@ -27,7 +27,7 @@ web        supported   browsers, lynx, w3m
 gopher     supported   gelim, against a live public deployment
 spartan    supported   Lagrange, rendered live
 nex        supported   gelim
-finger     supported   Bombadillo, netcat
+finger     supported   Lagrange, Bombadillo, netcat
 anything   rejected    answered 53; this is not a proxy
 else
 ```
