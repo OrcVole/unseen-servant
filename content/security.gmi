@@ -1,55 +1,6 @@
-# Security first, and why
+# moved
 
-A capsule is usually run by one person, on a machine they also use for other things, and then left alone for months. The threat that matters is not a targeted attack. It is the slow accumulation of things that can go wrong unattended: an unpatched interpreter, a forgotten admin password, a permissive default nobody revisited.
+this page moved when the site was rebuilt (2026-08-31).
 
-So the design removes categories rather than defending them. Almost everything below follows from three choices.
-
-## Nothing is executed
-
-No CGI, no FastCGI, no SCGI, no scripting, no plugin interface, no proxying. Content is data, never code.
-
-This is the single decision that removes the most risk, and it is not a guess. Reading the other servers in this field, the one feature each of them regretted was the escape hatch beyond static serving: it produced most of their defect load. Unseen Servant has none, permanently.
-
-## There is nothing to log into
-
-No administrative web interface. That means no credential to leak, no session to hijack, no default password waiting to be found, and no login page for anyone to probe.
-
-Content is edited as files, or uploaded over an authenticated connection. Observation happens through a certificate-gated status page. Every change to the server itself needs access to the host.
-
-## Ambiguity fails closed
-
-An unknown key in the configuration file is a startup error, not a warning. A typo in a security-relevant setting must never be ignored into a permissive default.
-
-An upload zone with an empty allowlist refuses to start rather than meaning "anyone". A mistyped logging mode is an error, because failing open would silently keep addresses an operator believed they had turned off.
-
-## The rest of the posture
-
-Memory safety is enforced rather than assumed: unsafe code is forbidden for the whole crate, so it is a compiler error and not a review convention. Every parser that touches the wire has a fuzz target with a committed regression corpus.
-
-Dependencies are pinned and checked on every push: advisories fail the build, yanked crates are denied, licences must be on an allowlist.
-
-One unprivileged process. Every listener defaults to a port above 1024, so no capability is needed at all, and the shipped service unit sets an empty capability bounding set.
-
-Non-TLS probes get nothing at all. The first byte is inspected before the TLS machinery runs, and anything that is not a handshake is dropped with no response: a real fix, after the TLS library was found writing an alert that confirmed a TLS stack was listening before refusing the request.
-
-## Identity survives the infrastructure
-
-The small internet uses trust on first use: a reader's client remembers your certificate the first time it connects, and warns only if that certificate later changes.
-
-So the certificate is minted once per hostname and never silently regenerated, not on restart, update, backup, restore or migration. Damaged key material is a loud failure rather than an excuse to make a new key, because silently minting one is indistinguishable from an impersonation to anyone who pinned the old one.
-
-## The cleartext networks are walled off
-
-Gopher, Spartan, Nex and Finger cannot authenticate a client at all. So anything behind a certificate gate is excluded from their trees at the moment the tree is built, not by a check somewhere that has to remember. A configuration that would publish gated content over one of them refuses to start.
-
-## What this does not protect you from
-
-* A writable upload zone is a writable zone. Anyone holding a listed fingerprint can change what is published.
-* Client certificates are identity, not attestation. The roster records when a key was enrolled, never who holds it.
-* The web mirror is public. Certificate zones gate the Gemini surface; anything rendered to HTML is served to anyone who asks.
-* It is not a web server. No HTTP authentication, no access control, no request-time logic of any kind.
-
-Pre-1.0, and not independently audited.
-
-=> index.gmi Back to the start
-=> agents.gmi How an agent authenticates and publishes
+=> decide.gmi the evidence, the risks, and the security posture
+=> index.gmi the front page

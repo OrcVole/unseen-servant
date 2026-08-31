@@ -14,10 +14,11 @@ the same writing in a browser instead. Nothing else to set up: a
 starter page is already written, and the identity your readers will
 trust has already been generated.
 
-*(More smolnet protocols are in development and work the same way. When
-gopher ships, typing `gopher://$CLOUDRON-APP-FQDN/` instead of
-`gemini://…` will send you to port 7070 rather than 1965, and give you
-a gopher experience: menus and all: of the very same content.)*
+*(The other small networks work the same way once you enable their
+ports in the app's settings: `gopher://$CLOUDRON-APP-FQDN:1024/`,
+`spartan://…:3300/`, `nex://…:1900/`, and a Finger profile on 7979.
+The ports are explicit because the conventional ones are privileged
+and the platform will not publish them.)*
 
 ### The first visit will show a warning
 

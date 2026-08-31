@@ -1,36 +1,6 @@
-# How usv compares
+# moved
 
-Geminispace already has good servers. This page says honestly where usv fits among them, and where it does not. If your needs match one of the "choose the others" cases below, you will be happier running that server instead. The full version of this comparison, with a feature table and sourcing, lives in COMPARISON.md in the source repository.
+this page moved when the site was rebuilt (2026-08-31).
 
-## The four servers, briefly
-
-### Agate (Rust)
-
-The minimalist's minimalist: "Agate can only serve static files," full stop, by long-standing explicit policy: no CGI, no scripting, no rewriting. Its certificate lifecycle is the best in the field (auto-generated per hostname, effectively never expires, zero setup), and usv's own identity design is a direct descendant of it. What Agate does not do is exactly what usv adds: an HTML mirror, Titan, and packaging beyond a bare binary.
-
-### gmid (C)
-
-The maximalist, and the most actively developed server in the field: FastCGI, reverse proxying, real vhost/location config blocks, a four-process privilege-separation architecture that is a genuine security high-water mark for C. It does not implement Titan natively: it delegates Titan requests to a FastCGI backend, and has no HTML surface.
-
-### Molly Brown (Go)
-
-Written by Gemini's own creator, for pubnix and shared hosting: per-user capsules, CGI and SCGI, and certificate zones: path-scoped fingerprint allowlists, "analogous to SSH's authorized_keys." usv's own certificate-zone design descends from this. Virtual hosting is a long-documented gap.
-
-### GmCapsule (Python)
-
-The extensibility flagship and the reference Titan implementation. Its real strength is a native Python module API: Bubble, Geminispace's most successful interaction platform, runs as a GmCapsule extension rather than a separate service.
-
-## When the others are the better choice
-
-* Want the simplest possible thing that will never grow a feature? Choose Agate. Its scope-freeze is a feature, not a limitation.
-* Need FastCGI, reverse proxying, or many vhosts under a real config language? Choose gmid. Nothing here matches its expressiveness or hardening, and it is the most actively maintained server of the four.
-* Running a pubnix or shared multi-user host? Choose Molly Brown. Its per-user model is built for exactly that; usv is single-tenant by design.
-* Want to write real server-side logic: a custom Titan handler, an interaction module, anything a config file cannot express? Choose GmCapsule. usv has no extension API and is not growing one; it renders one content tree to two protocols and stops there.
-
-## Where usv actually differs
-
-Write-time rendering, not request-time: the whole content tree renders to a static output tree on every change, and both the Gemini and HTML surfaces come from that same pass: no per-request conversion, and the output tree is portable on its own. Titan lives on the same listener as Gemini from day one, not delegated to a backend. And the packaging surface is the actual point of usv existing: none of the other four servers ship a Cloudron package, and the niche has sat open on the Cloudron forum since 2021.
-
-usv is at its first release. Agate and gmid both have years of production hardening usv does not have yet: if uptime-critical serving is the goal today, that maturity gap is real and worth weighing.
-
-=> index.gmi Back to the front page
+=> lineage.gmi the lineage: every peer, and when to choose it
+=> index.gmi the front page

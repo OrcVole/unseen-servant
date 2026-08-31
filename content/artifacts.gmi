@@ -1,0 +1,48 @@
+# packages: get and verify
+
+every release artefact is signed. the public key, for all of them:
+
+```the minisign public key
+RWQ8yH+Afj6YnCB5dOP+vbhvFT6DQhHBzmkC5oAY9gIrv0+vyAP+qQAw
+```
+
+=> https://forgejo.unseenservant.dev/unseen-servant/unseen-servant/releases the releases page: artefacts, signatures, checksums, notes
+
+## cloudron
+
+get: dashboard, app store, "add custom app", "community app", paste the feed url:
+
+```the cloudron app feed url
+https://raw.githubusercontent.com/OrcVole/unseen-servant/main/CloudronVersions.json
+```
+
+updates: automatic. state: in platform backups, identity included. quirks: gemini fixed at 1965; gopher, spartan, nex and finger are optional ports in the app's settings, served above 1024.
+
+## deb (debian, ubuntu)
+
+get: the .deb from the releases page. installs /usr/bin/usv, a hardened systemd unit, and a dedicated unprivileged system user, then starts the service.
+
+quirk worth knowing: removing the package keeps your capsule and its identity; purging deletes them. reinstalling after a remove recovers the same capsule, so readers who pinned your certificate are undisturbed.
+
+## rpm (fedora, rhel, opensuse)
+
+get: the rpm from the releases page, built from the same binary. rpm has no purge, so the state directory is simply never owned by the package: uninstalling cannot take your content or identity with it.
+
+## aur (arch)
+
+get: the pkgbuild. it currently tracks the main branch; pinning to the release tag is queued. the system user is declared through sysusers.d, the idiomatic arch mechanism, so the package needs no install script at all.
+
+## nix
+
+get: the flake. "nix build" produces the binary; "nix develop" gives a shell with the full toolchain, fuzzing setup included.
+
+## oci image
+
+get: the plain container image. distroless, built from scratch: 8.77 MB, no shell, no package manager, no libc, unprivileged numeric user. nothing in it to exploit that is not usv itself.
+
+## tarball
+
+get: the static binary from the releases page. verify with the two commands above, then ./usv. this is the whole install.
+
+=> run.gmi run it: ten minutes, any of the above
+=> index.gmi back to the plate

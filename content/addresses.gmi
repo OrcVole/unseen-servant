@@ -1,0 +1,24 @@
+# addresses and ports
+
+this site, every network, one list. the hostname never changes; the scheme picks the protocol, and the port is part of the address where the canonical one is privileged.
+
+=> gemini://unseenservant.dev/ gemini: port 1965, the standard, fixed
+=> gopher://unseenservant.dev:1024/ gopher: port 1024 (canonical 70: privileged, not held)
+=> spartan://unseenservant.dev:3300/ spartan: port 3300 (canonical 300: privileged, not held)
+=> nex://unseenservant.dev:1900/ nex: port 1900
+=> https://unseenservant.dev/ web: port 443
+finger: port 7979 (canonical 79: privileged, not held). lagrange, or: nc unseenservant.dev 7979
+titan: the gemini port, 1965. same listener, picked by scheme
+
+## why the odd ports
+
+ports below 1024 need privileges. usv runs as an unprivileged process with an empty capability set, on purpose: a listener that cannot bind port 70 also cannot do anything else root can do. the cost is an explicit port in three addresses; the alternative costs more.
+
+## the generated list
+
+this page is written by hand and can lag. the running server publishes its own answer, generated from live configuration and incapable of overclaiming:
+
+=> /usv every address this instance answers on, live
+
+=> see.gmi watch the same page arrive on each
+=> index.gmi back to the plate

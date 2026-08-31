@@ -1,84 +1,95 @@
-# What we learned from the other servers
+# the lineage
 
-Unseen Servant is not a first attempt at this problem. Every small network already has a server that solved something well, and the design started by reading them rather than from scratch. This page records what each one taught, and what was deliberately declined.
+this server was not designed from zero. every small network already had a server that solved something well, and the design started by reading them. the borrowings are itemised, with what was declined and when the peer is the better choice.
 
-## Agate: the certificate lifecycle
+agate: the identity lifecycle. mint once per hostname, never churn
+molly brown: certificate zones. authorized_keys, for capsules
+gmcapsule: titan semantics. buffer the upload, then authorise
+gmid: the test discipline. real binary, real sockets
+gophernicus and kin: menu conventions. the i-line, URL: links, caps.txt, seventy columns, no tabs
+twins: the counterexample. the escape hatch is the defect load
 
-Rust, static files only by explicit policy, feature-frozen and still maintained. Its releases are mostly dependency bumps, which is what a finished project looks like.
+## returned
 
-Taken: the whole certificate story, which is the best in the field. Generate a key per hostname on first run with no setup step, set the expiry far enough out that it never churns, keep certificates in per-hostname directories so serving several names needs no configuration syntax, and accept an operator's own certificate in the same slot. Also its file-permission hygiene, and clean handling of the signals a container stops you with: something Agate had to retrofit.
+what usv offers back: write-time rendering with a portable html tree · the cleartext exclusion made structural rather than procedural · the research and the honest autopsies, published · a field guide to the five networks that stands on its own.
 
-Declined: configuration by command-line flags only. That makes the Dockerfile the configuration file, which does not survive packaging.
+=> networks.gmi the field guide
 
-## gmid: configuration semantics, and real tests
+## agate (rust)
 
-C, the most actively developed server in the field. It has everything: FastCGI, reverse proxying, virtual host and location blocks, and a four-process privilege-separation architecture that is the security high-water mark for a C server.
+feature-frozen and still maintained; its releases are mostly dependency bumps, which is what a finished project looks like. "agate can only serve static files", full stop, by long-standing policy.
 
-Taken: its configuration semantics: named host blocks, path matching, sane defaults, reloading configuration and certificates on a signal without dropping listeners. And its testing discipline: an in-tree suite that runs the real binary against real sockets. gmid was the only server surveyed with serious integration tests, and this project's wire suite exists because of it.
+taken: the whole certificate story, the best in the field. a key per hostname on first run with no setup, expiry set far enough out that it never churns, per-hostname directories so serving several names needs no configuration syntax, an operator's own certificate accepted in the same slot. also its file-permission hygiene and its clean container-signal handling.
 
-Declined: the multi-process separation. The goals translate to Rust in a container; the mechanism does not. Memory safety removes the class of bug that made isolating the parser from the key material worthwhile, and the container provides the filesystem isolation. What survives is the shape: one task owns log output, and private key material lives where request-handling code cannot reach it.
+declined: configuration by command-line flags only, which makes the dockerfile the configuration file.
 
-Also declined: a custom configuration grammar. gmid's semantics are excellent; reimplementing a parser for them is not.
+choose it instead: when you want the smallest possible thing that will never grow a feature. its scope freeze is a feature, and it has already made every future decision for you.
 
-## Molly Brown: certificate zones
+## gmid (c)
 
-Go, written by Gemini's creator, aimed at shared hosting.
+the most actively developed server in the field: fastcgi, reverse proxying, virtual host and location blocks, and a four-process privilege-separation architecture that is the security high-water mark for a c server.
 
-Taken: certificate zones, essentially as designed: path-scoped allowlists of client-certificate fingerprints, which its own documentation describes as analogous to SSH's authorized_keys. It is the simplest possible client-authentication story and it maps exactly onto Gemini's status codes. The zones here are a direct descendant, later extended with a named roster and capabilities. Also taken: TOML as the configuration format, and the principle that a file inside the content tree may never override a security-relevant setting.
+taken: its configuration semantics (named host blocks, path matching, sane defaults, reload on signal without dropping listeners) and its testing discipline: an in-tree suite that runs the real binary against real sockets. gmid was the only server surveyed with serious integration tests, and this project's wire suite exists because of it.
 
-Declined: per-user expansion and the world-readable bit as a publishing switch. Those are shared-hosting concerns; this is single-tenant.
+declined: the multi-process separation (memory safety and the container carry those goals here) and a custom configuration grammar.
 
-## GmCapsule: Titan, done properly
+choose it instead: when you need fastcgi, reverse proxying, or many virtual hosts under a real configuration language. nothing here matches its expressiveness or its hardening.
 
-Python, the reference Titan implementation and the extensibility flagship. Bubble, the small internet's most successful interaction platform, runs as a GmCapsule module rather than a separate daemon.
+## molly brown (go)
 
-Taken: its Titan handling as the correctness reference: buffer the whole upload before dispatching it, require a client certificate by default, and make the caller's fingerprint available to the code that authorises the write.
+written by gemini's own creator, for pubnix and shared hosting.
 
-Declined: the module interface itself. There is no extension API here and there will not be one. If what you are building is a program rather than a site, GmCapsule is the right foundation and this is not.
+taken: certificate zones essentially as designed: path-scoped allowlists of client-certificate fingerprints, "analogous to ssh's authorized_keys". the zones here are a direct descendant, extended with a named roster and capabilities. also toml as the configuration format, and the principle that a file inside the content tree may never override a security-relevant setting.
 
-## Jetforce: the internal shape
+declined: per-user expansion and the world-readable bit as a publishing switch; those are shared-hosting concerns and this is single-tenant.
 
-Python, self-described as experimental, and effectively the reference teaching implementation. It is both a server and a framework: routing over request and response objects, with static file serving implemented as one application among several rather than as a special case.
+choose it instead: for a pubnix or any shared multi-user host. its per-user model is built for exactly that.
 
-Taken: exactly that shape. There is a handler trait here; static serving is one handler, and so are redirects, certificate zones, uploads and the status resource. That is what lets them compose instead of accreting conditionals.
+## gmcapsule (python)
 
-Declined: exposing it as a public extension interface.
+the reference titan implementation and the extensibility flagship. bubble, the small internet's most successful interaction platform, runs as a gmcapsule module.
 
-## twins: the counterexample
+taken: its titan handling as the correctness reference: buffer the whole upload before dispatching, require a client certificate by default, hand the caller's fingerprint to the code that authorises the write.
 
-Go, static serving plus per-path reverse proxying. Barely maintained now, and its issue tracker is the evidence file: response bodies cropped, images loading intermittently, path handling only partly working, and a failure of the connection-shutdown check in the community conformance suite.
+declined: the module interface. there is no extension api here and there will not be one.
 
-Taken: the idea that a path may map to different kinds of thing, as internal architecture.
+choose it instead: when what you are building is a program rather than a site: a custom titan handler, an interaction platform, anything a config file cannot express.
 
-Declined: proxying itself. Almost all of twins' defect load came from the one feature beyond static serving. That single observation is the strongest argument behind the decision never to execute or fetch anything on a visitor's behalf.
+## jetforce (python)
 
-## The gopher servers: menu conventions
+the reference teaching implementation: routing over request and response objects, static serving as one application among several.
 
-gophernicus, geomyidae, Bucktooth and pygopherd between them define what modern gopherspace actually expects, most of which is convention rather than the 1993 specification.
+taken: exactly that internal shape. a handler trait; static serving, redirects, certificate zones, uploads and the status resource are each one handler, which is what lets them compose instead of accreting conditionals.
 
-Taken: the informational line type that is the backbone of every modern menu, the URL: link convention for pointing at other protocols, caps.txt as the closest thing gopher has to a server identity endpoint, and the hard formatting rules: display strings under about seventy columns, and never a tab character inside a field.
+declined: exposing it as a public extension interface.
 
-Declined: Gopher+ entirely, since nothing modern depends on it. And the search item type, which needs a query handler and so contradicts a static model.
+## twins (go)
 
-## Agate+: the closest prior art for the web mirror
+static serving plus per-path reverse proxying; barely maintained, and its issue tracker is the evidence file: cropped responses, intermittent images, path handling only partly working.
 
-The nearest thing to what happens here with HTML: it converts gemtext to HTML per request.
+taken: the idea that a path may map to different kinds of thing, as internal architecture.
 
-Taken: the idea that one content tree can honestly serve two audiences.
+declined: proxying itself. almost all of twins' defect load came from the one feature beyond static serving. that single observation is the strongest argument behind refusing to execute or fetch anything, permanently.
 
-Declined: doing the conversion per request. The whole tree renders at write time instead, which makes the web mirror trivially cacheable and: the part that matters: makes the rendered output a portable folder that works with no server behind it at all.
+## the gopher servers
 
-## The conformance suite: the gate
+gophernicus, geomyidae, bucktooth and pygopherd between them define what modern gopherspace expects, most of it convention rather than the 1993 specification.
 
-Not a server: a torture test, frozen but canonical, and the community's standard check before a server is exposed publicly. A clean run is treated as a hard gate here rather than as advice.
+taken: the informational line type that is the backbone of every modern menu, the URL: link convention for pointing at other protocols, caps.txt as the nearest thing gopher has to a server identity endpoint, and the hard formatting rules: display strings under about seventy columns, never a tab inside a field.
 
-Its limits are worth knowing, because passing it is not the same as being correct: it has no client-certificate tests at all, no redirect-chain or timeout tests, no virtual-host tests, and its traversal check has a known false negative. Those gaps are exactly where this project's own tests and fuzz targets have to earn their keep.
+declined: gopher+ entirely, since nothing modern depends on it, and the search item type, which needs a query handler and so contradicts a static model.
 
-## The pattern
+## the conformance suite
 
-Reading all of them together, one thing stands out. The features people have actually wanted from a small-internet server over the past six years are a short list: automatic certificates, redirects, per-directory metadata, client-certificate gating, uploads, and every server that grew an escape hatch beyond static serving spent most of its maintenance budget on that escape hatch.
+not a server: the community's torture test, frozen but canonical. a clean run is a hard gate here, not advice. its limits are worth knowing: no client-certificate tests, no redirect-chain or timeout tests, no virtual-host tests, and a known false negative in its traversal check. those gaps are where this project's own tests and fuzz targets earn their keep.
 
-So: the short list, built in, and no escape hatch.
+## the pattern
 
-=> index.gmi Back to the start
-=> compare.gmi When one of them is the better choice for you
+read together, the field's last six years want a short list from a small-internet server: automatic certificates, redirects, per-directory metadata, client-certificate gating, uploads. and every server that grew an escape hatch beyond static serving spent most of its maintenance budget on that hatch.
+
+so: the short list, built in, and no escape hatch.
+
+maturity, honestly: usv is at its first release. agate and gmid have years of production hardening it does not; if uptime-critical serving is the goal today, that gap is real.
+
+=> decide.gmi the evidence and the risks
+=> index.gmi back to the plate

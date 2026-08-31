@@ -1,0 +1,49 @@
+# decide about it
+
+the file on usv, complete. assessment: yours.
+
+author: AI, end to end, human directed. decision records public, written before the code
+verified: every protocol against a real client, not only unit tests
+tested: wire suite on real sockets · eight fuzzed parsers · conformance run, live
+risks: first release · no independent audit · four networks carry no integrity, by their nature
+exits: four peers may suit you better
+
+## the authorship, first
+
+usv is written end to end by an AI, directed and reviewed by a human. it is stated here, at the top, so you can decide about it before it runs on your machine. what is on offer instead of trust: every design decision recorded before the code, the research behind it published, a real test suite, fuzzed parsers, and documentation of the things it does badly.
+
+the strongest single answer to "how can that be any good": the design did not start from zero. the field was read first, server by server, and the reading is published.
+
+=> lineage.gmi the lineage: what each peer taught, and what was declined
+
+## the design removes categories
+
+nothing is executed. no cgi, no fastcgi, no scgi, no scripting, no plugin interface, no proxying. content is data, never code. reading the peer servers, the one feature each regretted was the escape hatch beyond static serving: it produced most of their defect load. usv has none, permanently.
+
+there is nothing to log into. no administrative web interface means no credential to leak, no session to hijack, no default password waiting to be found. content is edited as files or uploaded over an authenticated connection; every change to the server itself needs access to the host.
+
+ambiguity fails closed. an unknown config key is a startup error. an upload zone with an empty allowlist refuses to start rather than meaning "anyone". a mistyped logging mode is an error, because failing open would keep addresses an operator believed were off.
+
+## identity survives the infrastructure
+
+the small internet uses trust on first use: a reader's client remembers your certificate and warns only if it changes. so the certificate is minted once per hostname and never silently regenerated: not on restart, update, backup, restore or migration. damaged key material is a loud failure, because a quietly minted new key is indistinguishable from an impersonation to anyone who pinned the old one.
+
+## what it does not protect you from
+
+* a writable upload zone is a writable zone. anyone holding a listed fingerprint can change what is published
+* client certificates are identity, not attestation. the roster records when a key was enrolled, never who holds it
+* the web mirror is public. certificate zones gate the gemini surface; anything rendered to html is served to anyone who asks
+* it is not a web server: no http authentication, no request-time logic of any kind
+
+## visitor logging
+
+off by default. the request log carries status and path; the peer field reads as a dash, and query strings are redacted by construction. two opt-ins if you want addresses: a conventional access log, or a per-boot salted digest that correlates repeat visits within one run and survives no restart.
+
+## maturity, plainly
+
+v1.0.1, released 2026-08-30. it passes the community conformance suite against a live deployment and carries a real test and fuzz suite. agate and gmid have years of production hardening it does not; if uptime-critical serving is the goal today, that gap is real and worth weighing.
+
+=> limits.gmi the full capability and refusal table, with what verified each protocol
+=> lineage.gmi when a peer is the better choice
+=> fault.gmi report a fault, or a vulnerability (separate channel)
+=> index.gmi back to the plate

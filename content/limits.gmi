@@ -1,0 +1,61 @@
+# capabilities and refusals
+
+what usv does, what proved it, and what it will not do. this page is the authority: everything outward-facing must agree with it, and it must agree with the code. if they ever disagree, the code wins and this page is the bug.
+
+## capabilities
+
+render: the whole tree, on every change, within a 300 ms debounce; a page is live on all surfaces in about two seconds
+surfaces: gemini as written, gopher as menus, spartan and nex as gemtext, finger as a generated profile, the web as themed classless html
+portable html: the rendered web tree is a self-contained static site; copy it anywhere and it works with no server behind it
+titan uploads: on the gemini listener, picked by scheme; zones gated by client certificate fingerprint; nothing writable unless configured
+certificate zones: path-scoped gated areas on the gemini surface, with a named roster and capabilities
+identity: minted once per hostname, never silently regenerated; damaged key material is a loud stop, not a new key
+feeds: gemsub and atom, generated
+many hostnames: one process, server name indication (sni), a certificate each
+tor and i2p friendly: an onion address is just another hostname; clients without sni are tolerated
+machine surfaces: /llms.txt, markdown siblings for every page, sitemap, json from every read-only command
+
+## verified by
+
+nothing is called supported until an implementation exists and a real client has driven it:
+
+```what is supported, and what proved it
+PROTOCOL   STATUS      VERIFIED BY
+gemini     supported   gemini-diagnostics, Lagrange
+titan      supported   Lagrange
+web        supported   browsers, lynx, w3m
+gopher     supported   gelim, against a live public deployment
+spartan    supported   Lagrange, rendered live
+nex        supported   gelim
+finger     supported   Bombadillo, netcat
+anything   rejected    answered 53; this is not a proxy
+else
+```
+
+## refusals
+
+permanent, by design, because the escape hatch beyond static serving is where the field's defect load lives:
+
+no cgi, no fastcgi, no scgi, no scripting, no plugin interface
+no proxying, no fetching anything on a visitor's behalf
+no administrative web interface: nothing to log into, so nothing to leak, hijack or probe
+no visitor address logging by default; query strings redacted by construction
+no spartan uploads, permanently: unauthenticated by construction, and titan does uploads properly
+no finger forwarding, as rfc 1288 recommends: user@host queries would make this a relay for probing other hosts
+no remote mutation: the wire surface is read-only; reload, render and roster changes are command line only, so there is no remote control plane to seize
+
+## the cleartext walls
+
+gopher, spartan, nex and finger cannot authenticate a client at all. anything behind a certificate gate is excluded from their trees at the moment the tree is built, not by a check somewhere that has to remember. a configuration that would publish gated content over one of them refuses to start.
+
+## the web mirror is not a web server
+
+your content tree is rendered to static html and that is served. nothing is executed, there is no reverse proxying, no http authentication, no request-time logic. if you need a general-purpose web server, run one; this surface exists so the writing is readable by someone who only has a browser.
+
+## per instance
+
+"what does this site answer on" is a different question per install, and only the running server knows. that answer is generated at /usv from live configuration: true by construction.
+
+=> /usv this instance, live
+=> decide.gmi the evidence and the risks
+=> index.gmi back to the plate

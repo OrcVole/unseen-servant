@@ -4,7 +4,7 @@
 
 Unseen Servant 1.0.0 is released. It is a server that publishes one folder of gemtext to Gemini, Gopher, Spartan, Nex and Finger at once, and mirrors the same writing to the web as plain, classless HTML.
 
-This capsule is the claim, tested on itself. Everything you are reading is served by it, from one folder, on every protocol it supports, with no build step in between. If you are reading this over gopher or nex, that is the demonstration working.
+This capsule is the claim, demonstrated on itself. Everything you are reading is served by it, from one folder, on every protocol it supports, with no build step in between. If you are reading this over gopher or nex, that is the demonstration working.
 
 ## What it does
 
@@ -26,7 +26,7 @@ It is also not a web server. The HTML mirror exists so someone with only a brows
 
 ## When to use something else
 
-=> gemini://gemini.circumlunar.space/ Agate, if you want the smallest possible thing that will never grow a feature. Its scope freeze is a feature, and it has already made every future decision for you.
+Agate, if you want the smallest possible thing that will never grow a feature. Its scope freeze is a feature, and it has already made every future decision for you.
 
 gmid, if you need FastCGI, proxying, or many virtual hosts with a real configuration language. It is the most actively maintained server in the field and nothing else matches its config expressiveness.
 
@@ -50,10 +50,10 @@ If you want addresses you can turn them on, either verbatim or as a digest salte
 
 => https://forgejo.unseenservant.dev/unseen-servant/unseen-servant The source, the decision records, and the research
 => https://github.com/OrcVole/unseen-servant A mirror, for people who live on GitHub
-=> install.gmi Getting it running
+=> /run.gmi Getting it running
 
 Packages for Cloudron, Debian, Fedora, Arch, Nix, and a small container image, because a capsule should not require picking a Linux distribution first. Every release artefact is signed.
 
 If you try it and it breaks, I would like to hear about it.
 
-=> index.gmi Back to the front page
+=> /index.gmi Back to the front page

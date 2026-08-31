@@ -1,0 +1,15 @@
+# report a fault
+
+bugs, questions and patches: the issue tracker.
+
+=> https://forgejo.unseenservant.dev/unseen-servant/unseen-servant/issues issues (forgejo)
+=> https://github.com/OrcVole/unseen-servant/issues issues (github mirror)
+
+vulnerabilities: not the issue tracker. the disclosure process and contact are in the security policy:
+
+=> https://forgejo.unseenservant.dev/unseen-servant/unseen-servant/src/branch/main/SECURITY.md reporting a vulnerability (security policy)
+
+if you try usv and it breaks, that report is wanted, not tolerated. a first release earns its second one from exactly these.
+
+=> fix.gmi first: the symptom list, which may be faster
+=> index.gmi back to the plate

@@ -6,11 +6,13 @@ Architecture: amd64
 Maintainer: Wandering Monster <most+claude@alba.win>
 Installed-Size: __SIZE__
 Homepage: https://forgejo.unseenservant.dev/unseen-servant/unseen-servant
-Description: security-first Gemini capsule server
- Unseen Servant (usv) publishes one content tree to Geminispace (gemtext,
- port 1965) and, optionally, to the web as statically rendered classless
- HTML. TOFU-native identity, Titan uploads, and a terminal setup wizard.
+Description: server for the small networks: one folder, six surfaces
+ Unseen Servant (usv) publishes one folder of gemtext to Gemini (port
+ 1965) and, each off unless enabled, to Gopher, Spartan, Nex and
+ Finger, and mirrors the same pages to the web as statically rendered
+ classless HTML. Rendering happens at write time; nothing is ever
+ executed at request time. TOFU-native identity, Titan uploads gated
+ by client certificate, and a terminal setup wizard.
  .
- Statically linked (musl) — no runtime dependencies beyond a Linux kernel.
- Also serves Gopher, Spartan, Nex and Finger from the same content tree,
- each off unless enabled.
+ Statically linked (musl): no runtime dependencies beyond a Linux
+ kernel.

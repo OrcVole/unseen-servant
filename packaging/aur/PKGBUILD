@@ -1,16 +1,16 @@
 # Maintainer: Wandering Monster <most+claude@alba.win>
 #
-# -git package (VCS PKGBUILD, per the AUR guidelines): usv has no tagged
-# release yet (docs/ROADMAP.md — pre-v1.0), so this tracks main rather
-# than pinning a version that doesn't exist. A plain `unseen-servant`
-# package sourced from a release tarball is the natural follow-up once
+# -git package (VCS PKGBUILD, per the AUR guidelines). v1.0.1 is now
+# tagged; this PKGBUILD still tracks main and is due to pin the release
+# tag. A plain `unseen-servant` package sourced from a release tarball
+# is the natural follow-up once
 # v1.0 ships; this file becomes that package's template with the VCS
 # bits (source=, pkgver(), _srcname) removed.
 
 pkgname=unseen-servant-git
 pkgver=0.1.0.r0.g0000000
 pkgrel=1
-pkgdesc="A security-first server for the small networks: Gemini, Titan, Gopher, Spartan, Nex and Finger"
+pkgdesc="One folder of writing, served to six networks at once: Gemini, Titan, Gopher, Spartan, Nex, Finger and the web. Nothing executed, ever."
 arch=('x86_64')
 url="https://forgejo.unseenservant.dev/unseen-servant/unseen-servant"
 license=('MIT')
