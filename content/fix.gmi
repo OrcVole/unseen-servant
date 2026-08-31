@@ -1,0 +1,81 @@
+# when it goes wrong
+
+organised by symptom. the deep end, including the fuzzing ledger and the code-facing suites, lives in the repository:
+
+=> https://forgejo.unseenservant.dev/unseen-servant/unseen-servant/src/branch/main/DEBUGGING.md the full debugging guide (repository)
+
+## first moves
+
+```five commands that never write anything
+usv status                 # config, fingerprints, roster, zones, published
+usv status --json | jq .   # the same, parseable
+usv check                  # is the config valid, is the content sane
+RUST_LOG=usv=debug usv     # everything, on stderr
+USV_LOG_FORMAT=json usv    # one json object per log line
+```
+
+logs go to stderr and reports to stdout, so the two always separate.
+
+## the app is up but gemini is unreachable
+
+expected, if the gemini port is disabled in the platform config: usv then serves the http surface only and stays healthy on purpose. the status page and the logs both say so. nothing to fix but the port setting.
+
+otherwise: check usv status for the listen addresses, and remember gemini cannot be reverse-proxied. it is tls-native but not http, so the port must be passed through, not terminated upstream.
+
+## a request is refused and you want to know why
+
+every rejection comes from one of three layers, and the log line names the layer and the exact error variant:
+
+```the three rejection layers
+LAYER          OWNS                                        REJECTS WITH
+framing        crlf terminator, the 1024-byte budget       59
+uri validation rfc 3986 parse; userinfo, fragments,        59
+               non-ascii, foreign schemes
+authority      is this a host and port we serve            53
+```
+
+a 53 on a request that looks correct usually means the authority did not match a configured host, including the case where a client connected by ip address rather than by hostname.
+
+## a client refuses the certificate
+
+```compare what is served with what is expected
+usv fingerprint
+openssl s_client -connect host:1965 </dev/null 2>/dev/null | openssl x509 -noout -fingerprint -sha256 -dates
+```
+
+if those two disagree, something in front of the server is terminating tls. if they agree and the client still complains, the client has an older certificate pinned, which is trust-on-first-use working, not failing. usv never silently regenerates a key, so a changed fingerprint always has a cause worth finding before you tell anyone to click through.
+
+## a titan upload is refused
+
+the status code says which check failed:
+
+```titan refusal codes
+60  no client certificate presented
+62  the certificate is expired or not yet valid
+61  valid certificate, not authorised here
+```
+
+61 has three distinct causes: the fingerprint is not in the zone, the identity does not hold titan-write, or a rotation window has closed. usv zones --json and usv status --json show all three. a 59 on a titan request is the request line itself (size, mime, malformed token), not authorisation.
+
+## content changed but nothing was published
+
+the watcher is debounced (300 ms) and renders the whole tree into a staging directory before swapping it in atomically: you see the old tree or the new one, never a half-written one.
+
+```check, or force a render
+usv stats --json    # what is currently in the rendered tree
+usv render          # force one now, synchronously
+```
+
+generated filenames (map.gmi, feed.gmi) are reserved and ignored by the watcher; usv check warns if you have authored a file at one of those names.
+
+## on cloudron
+
+```stream logs, or get a shell
+cloudron logs -f --app <id>
+cloudron exec --app <id>
+```
+
+the panel's file manager edits /app/data, which is the state directory: identity, content, rendered output and config all live there. back up that one directory and you have backed up the capsule, including the certificate readers have pinned.
+
+=> fault.gmi still stuck? report it
+=> index.gmi back to the plate

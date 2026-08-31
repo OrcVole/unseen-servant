@@ -1,6 +1,6 @@
-# Contact
+# moved
 
-Bugs, questions, and patches go through the source repository's issue tracker.
+this page moved when the site was rebuilt (2026-08-31).
 
-=> https://forgejo.unseenservant.dev/unseen-servant/unseen-servant/issues Issues (Forgejo)
-=> index.gmi Back to the front page
+=> fault.gmi report a fault, or a vulnerability
+=> index.gmi the front page

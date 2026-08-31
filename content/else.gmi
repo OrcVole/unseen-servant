@@ -1,0 +1,32 @@
+# meta
+
+## the name
+
+unseen servant is the d&d cantrip: an invisible force that fetches, carries and tidies, doing simple work unseen. that is the job description. the short name takes the letters from the long one:
+
+```how usv gets its name
+UnSeen serVant  ->  u s v
+```
+
+abbreviated rather than spelled out because it is also a command you type.
+
+## status
+
+released: v1.0.1, 2026-08-30, every artefact signed. the releases page is the one place that cannot go stale:
+
+=> https://forgejo.unseenservant.dev/unseen-servant/unseen-servant/releases releases, notes and artefacts
+
+next: independent eyes on the security posture, packages into distribution repositories, and whatever the first real bug reports teach. this page is a snapshot; the repository is the source of truth.
+
+## licence
+
+MIT, the whole of it:
+
+=> https://forgejo.unseenservant.dev/unseen-servant/unseen-servant/src/branch/main/LICENSE the licence text
+
+## source
+
+=> https://forgejo.unseenservant.dev/unseen-servant/unseen-servant the source, the decision records, and the research (forgejo)
+=> https://github.com/OrcVole/unseen-servant a mirror, for people who live on github
+
+=> index.gmi back to the plate

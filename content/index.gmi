@@ -1,4 +1,44 @@
-# Unseen Servant
+# unseen servant (usv)
+
+one folder of writing, served to six networks at once. no build step. nothing executed, ever.
+
+=> networks.gmi new to the small internet? start here: the field guide
+
+## the plate
+
+version: 1.0.1, released 2026-08-30, signed (minisign)
+licence: MIT
+author: human architected, AI coded. independent audit: none yet
+needs: 256 MiB, no database, no root
+
+=> artifacts.gmi packages: cloudron · deb · rpm · aur · nix · oci · tarball
+=> addresses.gmi networks: gemini · titan · gopher · spartan · nex · finger · web
+=> lineage.gmi lineage: agate · molly brown · gmcapsule · gmid · the gopher line
+
+## capabilities
+
+=> limits.gmi uploads: titan on the gemini port, gated by client certificate
+=> limits.gmi zones: certificate-gated, walled off from every cleartext tree
+=> limits.gmi render: on write, under two seconds; the html tree is portable
+=> agents.gmi agents: first class. certificate identity, no secrets, json throughout
+=> limits.gmi refuses: cgi · scripts · proxy · admin panel · visitor logs
+
+## the work
+
+=> see.gmi 1 · watch this page arrive another way. two minutes
+=> run.gmi 2 · a capsule of your own. ten minutes
+=> decide.gmi 3 · the evidence, the risks, the peers
+=> networks.gmi 4 · the five small networks, a field guide
+=> agents.gmi 5 · automated publishing, gated
+
+## the rest
+
+=> else.gmi meta: the name, status, licence
+=> fault.gmi report a fault. security contact, separate
+=> log/2026-08-30-one-folder-five-networks.gmi 2026-08-30 - one folder, five networks, and the web
+=> feed.gmi follow this log
+
+## the servant
 
 ```The Unseen Servant: a standing figure, flat-crowned, arms at its sides and long legs, drawn in block characters
        ▄▄███████▄▄
@@ -33,46 +73,4 @@
      ▀██████ ██████▀
 ```
 
-A server for the small internet.
-
-Unseen Servant publishes one folder of writing to five small networks: Gemini, Gopher, Spartan, Nex and Finger, and mirrors it to the web. You write a page once. A reader opens it in Lagrange, in a gopher client from 1994, in lynx, or in Chrome, and it is the same page, from the same file, updated within seconds of you saving it.
-
-The command is usv.
-
-You can read this page over any of them:
-
-=> gemini://unseenservant.dev/ gemini://unseenservant.dev/
-=> gopher://unseenservant.dev:1024/ gopher://unseenservant.dev:1024/
-=> spartan://unseenservant.dev:3300/ spartan://unseenservant.dev:3300/
-=> nex://unseenservant.dev:1900/ nex://unseenservant.dev:1900/
-
-Note the ports. Gopher's usual port is 70, Spartan's is 300 and Finger's is 79, and all three are privileged, so a host that will not hand them to an unprivileged process serves them elsewhere. A bare gopher://unseenservant.dev/ will sit there and time out; with :1024 it answers.
-
-This site is that claim, tested on itself: everything you are reading is served by Unseen Servant, from one folder, on every protocol it supports, with no build step in between. If you are reading this over gopher or nex, that is the demonstration working.
-
-## Log
-
-=> log/2026-08-30-one-folder-five-networks.gmi 2026-08-30 - One folder of writing, five small networks, and the web
-
-## Start here
-
-=> smolnets.gmi The five networks, and what each is best at
-=> install.gmi Getting it running
-=> agents.gmi Agents: reading, writing and operating
-=> security.gmi Security first, and why
-
-## Going deeper
-
-=> protocols.gmi What it speaks, and what verified each one
-=> lineage.gmi What we learned from the other servers
-=> compare.gmi When to use something else
-=> faq.gmi Questions people ask first
-=> about.gmi What it actually does
-
-## The project
-
-=> status.gmi Current build status
-=> contact.gmi Contact
-=> https://forgejo.unseenservant.dev/unseen-servant/unseen-servant Source (Forgejo)
-
-MIT licensed.
+=> else.gmi the name, and why the servant is unseen
