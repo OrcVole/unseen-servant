@@ -1,0 +1,9 @@
+# Strings this repository contains on purpose. One fixed string per line; each one is a reviewed claim.
+# The packager's contact address (manifest, feed, SECURITY.md, packaging maintainer lines).
+Most+github@OrcadianVole.com
+# The estate forge, named on purpose as the secondary remote and the CI registry (RELEASING.md,
+# .forgejo/workflows/, docs/internal/OPEN-QUESTIONS.md). Review if that forge is ever retired.
+forgejo.wanderingmonster.dev
+unseen-servant.wanderingmonster.dev
+# A test fixture: a deliberately malformed key that must be rejected (src/identity/mod.rs).
+-----BEGIN PRIVATE KEY-----\ngarbage

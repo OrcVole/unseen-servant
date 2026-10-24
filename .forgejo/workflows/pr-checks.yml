@@ -12,7 +12,7 @@
 #     beyond your own checkout.
 #   * The job inherits the runner unit's minimal PATH. cargo lives in ~/.cargo/bin on that
 #     machine, which is NOT guaranteed to be on that PATH — hence the explicit export below.
-#   * rust-toolchain.toml pins 1.93.1; under rustup this is honoured automatically. If the
+#   * rust-toolchain.toml pins 1.99.1; under rustup this is honoured automatically. If the
 #     runner's rust is not rustup-managed the system toolchain applies — the `toolchain facts`
 #     step prints what actually ran, so a drifted gate is at least a *visible* drifted gate.
 #

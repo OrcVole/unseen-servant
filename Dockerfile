@@ -24,12 +24,12 @@
 # alpine supplies all of this (su-exec is gosu's tiny musl-friendly
 # equivalent) at a few MB total instead of 2.46GB.
 
-FROM rust:1.93.1 AS build
+FROM rust:1.99.1 AS build
 WORKDIR /build
 RUN apt-get update -qq && apt-get install -y -qq musl-tools >/dev/null \
     && rustup target add x86_64-unknown-linux-musl
 # Deliberately NOT copying rust-toolchain.toml into the build stage: the
-# `rust:1.93.1` image already ships exactly that rustc as its default
+# `rust:1.99.1` image already ships exactly that rustc as its default
 # toolchain, so the pin is already satisfied by the tag. Copying the file
 # in anyway makes rustup try to reconcile components (rustfmt, clippy —
 # needed for local dev, not for `cargo build`) against
@@ -43,7 +43,7 @@ COPY Cargo.toml Cargo.lock ./
 COPY src ./src
 RUN cargo build --release --target x86_64-unknown-linux-musl --bin usv
 
-FROM alpine:3.22
+FROM alpine:3.24
 RUN apk add --no-cache su-exec ca-certificates bash \
     && addgroup -g 1000 cloudron \
     && adduser -D -H -u 1000 -G cloudron cloudron

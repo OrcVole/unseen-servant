@@ -9,7 +9,7 @@
 # Run:
 #   podman run -p 1965:1965 -v usv-data:/data -e USV_STATE_DIR=/data usv
 
-FROM rust:1.93.1 AS build
+FROM rust:1.99.1 AS build
 WORKDIR /build
 RUN apt-get update -qq && apt-get install -y -qq musl-tools >/dev/null \
     && rustup target add x86_64-unknown-linux-musl

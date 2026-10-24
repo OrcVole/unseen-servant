@@ -239,6 +239,6 @@ same non-root execution, same logging. Only the base image did.
 - <https://forum.cloudron.io/topic/7823/maple-on-cloudon-gemini-server>: Maple.
 - <https://forum.cloudron.io/topic/8166/windmark-on-cloudron-gemini-protocol-server>: Windmark.
 - <https://forum.cloudron.io/topic/5827/molly-brown-gemini-project-on-cloudron>: molly-brown.
-- House skill `cloudron-app-packaging` (local, /home/boat/.claude/skills/cloudron-app-packaging/): packaging conventions; its base-image pin (5.0.0) is superseded by the live docs' 5.1.0.
+- House skill `cloudron-app-packaging` (local, ~/.claude/skills/cloudron-app-packaging/): packaging conventions; its base-image pin (5.0.0) is superseded by the live docs' 5.1.0.
 - <https://docs.cloudron.io/packaging/cheat-sheet/>, re-fetched 2026-08-10 specifically to check for a `cloudron/base` mandate: confirmed there is not one; it is a recommended convenience image, not a requirement.
 - <https://docs.cloudron.io/packaging/>, re-fetched 2026-08-10: no formal "conformance"/quality/validation checklist page exists; the manifest + cheat-sheet technical contract is the whole of it.
