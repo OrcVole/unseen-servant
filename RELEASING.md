@@ -53,6 +53,12 @@ inside an illustrative directory listing — decoration, not a claim.
    push to finish** — it takes 10 to 15 minutes, and `skopeo inspect`
    answering is not sufficient: it sees the manifest while layers are
    still uploading. The workflow's own completion is the signal.
+   **As shipped since v1.1.0:** the published image is built locally
+   from `git archive <commit>` (the working tree holds gigabytes of
+   build output and there is no `.dockerignore`) and pushed to
+   `ghcr.io/orcvole/unseen-servant`, which is what the feed pins. The
+   CI workflow still targets the estate registry and has no secret on
+   the recreated repository, so it is not the release path.
 3. Record the digest (`skopeo inspect docker://<tag>`), not just the tag.
    Everything after this cites the digest.
 4. Run the gate ladder against that digest.
@@ -97,6 +103,19 @@ remote URL or a dotfile; losing that file loses nothing.
 - **`cloudron push` nests a directory rather than merging it**, so
   content can land a level deeper than intended and every expected
   address 404s while the render is working perfectly.
+- **A hand-carried `INSTALL.txt` keeps the previous release's facts.**
+  The tarball's `INSTALL.txt` is not in the repository; v1.1.0's copy of
+  v1.0.1's still quoted v1.0.1's image digest. Check every version and
+  digest in it before packing.
+- **`rsign sign` writes the path it was given into the signature.** The
+  trusted comment records `file:<path>` verbatim, so signing
+  `/some/dir/file` publishes that directory. Sign from inside the
+  artefact folder with bare file names. `rsign` also reads the key's
+  password from a terminal, never from standard input, so a script needs
+  a pseudo-terminal (`script -qec`).
+- **`cloudron versions add` writes `ts` as a date string** on every add,
+  which the store rejects. Run the estate's `check-versions-file.py
+  --fix` after it, every time, then `cloudron versions verify`.
 
 ## After
 

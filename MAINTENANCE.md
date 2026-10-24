@@ -1,6 +1,6 @@
 # Maintenance: quiet ≠ abandoned
 
-**Last reviewed: 2026-08-10.**
+**Last reviewed: 2026-10-25** (v1.1.0: dependency advisories, toolchain, Cloudron package identity).
 
 ## Posture
 

@@ -16,7 +16,7 @@ issue, you will be credited in the fix unless you would rather not be.
 | Version | Supported |
 |---|---|
 | 1.1.x | yes |
-| 1.0.x | no: upgrade to 1.1, which carries the TLS fixes below; on Cloudron, reinstall from the new listing (ADR 0013) |
+| 1.0.x | no: upgrade to 1.1, which carries the TLS fixes listed in `CHANGELOG.md`; on Cloudron, reinstall from the new listing (ADR 0013) |
 | < 1.0 | there was no < 1.0; v1.0.0 is the first release |
 
 Fixes land on `main` and ship in the next patch release. `usv` follows
