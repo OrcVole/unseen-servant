@@ -23,7 +23,15 @@ release, not a sign of neglect.
 
 ## Unreleased
 
-Nothing yet.
+### Changed
+
+- **The Cloudron package has a new identity: `io.github.orcvole.unseenservant`.**
+  The first listing used an id nobody chose on purpose (ADR 0013). It is
+  withdrawn, and installs of v1.0.x on the old id are not migrated:
+  Cloudron refuses to update an install across ids, so reinstall from the
+  new listing and copy `/app/data` across to keep content and
+  certificates. The versions feed keeps its URL and starts again empty.
+- The packager named in the manifest is OrcVole; the author is unchanged.
 
 ## v1.0.1 — 2026-08-30
 

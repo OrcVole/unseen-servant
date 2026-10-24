@@ -3,7 +3,7 @@ title: "Architecture Decision Records"
 description: "Numbered, never renumbered; superseded ADRs are amended in place with a pointer, not deleted. Format: Status / Date / Evidence header, then Context, Decision, Consequences."
 type: explanation
 status: decided
-last_verified: 2026-08-30
+last_verified: 2026-10-24
 ---
 
 # Architecture Decision Records
@@ -27,6 +27,7 @@ Context, Decision, Consequences.
 | [0011](0011-agent-identity-and-management.md) | Agent identity lifecycle (cert roster: rotation, capabilities, enrollment tokens: folds into C4); management reach is hybrid (observe remote via cert-gated gemtext, control local via CLI); HTTP agent surface is the packaging tier (/llms.txt, .md URLs, permissive AI posture, Schema.org); refuses A2A/MCP transport, RFC 9421, CA attestation, memory-backend role | Accepted (director 2026-08-30) |
 
 | [0012](0012-smolnet-protocols.md) | Smolnet protocols (gopher/Spartan/Nex/Finger, v1.1): one plaintext one-shot listener abstraction, off by default, non-privileged default ports; gopher is a third render target, Spartan/Nex serve the gemtext tree; Spartan uploads refused permanently; **cert/Titan-zoned paths excluded from every plaintext tree, structurally at render time** (amended 2026-08-10: exclusion + startup announcement + error only for a contradictory root, not a blanket refusal) | Accepted (director 2026-08-30; shipped in v1.0) |
+| [0013](0013-cloudron-package-identity.md) | Cloudron app id `io.github.orcvole.unseenservant`, packager OrcVole; the first listing is withdrawn, not migrated; history rewritten once (2026-10-24) to match | Accepted (director 2026-10-24) |
 
 \* Accepted pending director review: per the AI Forward principle the
 AI decides and records; the director may overturn any of these, and
