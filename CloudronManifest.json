@@ -5,7 +5,7 @@
   "packagerName": "OrcVole",
   "description": "file://DESCRIPTION.md",
   "tagline": "One folder of writing, served to Gemini, Gopher, Spartan, Nex, Finger and the web",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "healthCheckPath": "/",
   "httpPort": 8000,
   "addons": {

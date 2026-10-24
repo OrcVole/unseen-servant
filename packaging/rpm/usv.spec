@@ -80,6 +80,10 @@ exit 0
 %doc %{_docdir}/%{name}/README.md
 
 %changelog
+* Sun Oct 25 2026 Wandering Monster <Most+github@OrcadianVole.com> - 1.1.0-1
+- TLS security fixes (rustls 0.23.46, rustls-webpki 0.103.16, tokio 1.54.1)
+- Built with Rust 1.99.1
+
 * Sun Aug 30 2026 Wandering Monster <Most+github@OrcadianVole.com> - 1.0.0-1
 - First release
 

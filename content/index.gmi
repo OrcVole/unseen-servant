@@ -6,7 +6,7 @@ one folder of writing, served to six networks at once. no build step. nothing ex
 
 ## the plate
 
-version: 1.0.1, released 2026-08-30, signed (minisign)
+version: 1.1.0, released 2026-10-25, signed (minisign)
 licence: MIT
 author: human architected, AI coded. independent audit: none yet
 needs: 256 MiB, no database, no root

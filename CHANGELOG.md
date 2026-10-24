@@ -23,6 +23,21 @@ release, not a sign of neglect.
 
 ## Unreleased
 
+Nothing yet.
+
+## v1.1.0 — 2026-10-25
+
+A maintenance release that also starts the Cloudron package again under a
+new identity.
+
+### Security
+
+- **TLS dependencies updated past six advisories.** rustls 0.23.43 to
+  0.23.46 (RUSTSEC-2026-0285, -0346, -0348, -0349), rustls-webpki 0.103.13
+  to 0.103.16 (RUSTSEC-2026-0382) and tokio 1.53.1 to 1.54.1
+  (RUSTSEC-2026-0386). Found by `cargo deny` while preparing this release;
+  1.0.x carries them, which is why 1.0.x is no longer supported.
+
 ### Changed
 
 - **The Cloudron package has a new identity: `io.github.orcvole.unseenservant`.**
@@ -35,6 +50,8 @@ release, not a sign of neglect.
 - The source repository on our Forgejo moved to
   `https://forgejo.unseenservant.dev/root/unseen-servant`; every link in
   the docs, the capsule and the deb/rpm/AUR/Nix packaging now points there.
+- Built with Rust 1.99.1 (was 1.93.1); the Cloudron image's runtime is
+  Alpine 3.24 (was 3.22).
 
 ## v1.0.1 — 2026-08-30
 
