@@ -16,7 +16,7 @@
 
 [Unit]
 Description=Unseen Servant (usv) — Gemini capsule server
-Documentation=https://forgejo.unseenservant.dev/unseen-servant/unseen-servant
+Documentation=https://forgejo.unseenservant.dev/root/unseen-servant
 After=network.target
 
 [Service]

@@ -2,7 +2,7 @@
 
 organised by symptom. the deep end, including the fuzzing ledger and the code-facing suites, lives in the repository:
 
-=> https://forgejo.unseenservant.dev/unseen-servant/unseen-servant/src/branch/main/DEBUGGING.md the full debugging guide (repository)
+=> https://forgejo.unseenservant.dev/root/unseen-servant/src/branch/main/DEBUGGING.md the full debugging guide (repository)
 
 ## first moves
 

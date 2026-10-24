@@ -50,7 +50,7 @@
           cargoTestFlags = [ "--lib" "--bins" ];
           meta = with pkgs.lib; {
             description = "A security-first Gemini capsule server that publishes one content tree to Geminispace and the web";
-            homepage = "https://forgejo.unseenservant.dev/unseen-servant/unseen-servant";
+            homepage = "https://forgejo.unseenservant.dev/root/unseen-servant";
             license = licenses.mit;
             mainProgram = "usv";
             platforms = platforms.unix;

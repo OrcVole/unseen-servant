@@ -6,7 +6,7 @@ every release artefact is signed. the public key, for all of them:
 RWQ8yH+Afj6YnCB5dOP+vbhvFT6DQhHBzmkC5oAY9gIrv0+vyAP+qQAw
 ```
 
-=> https://forgejo.unseenservant.dev/unseen-servant/unseen-servant/releases the releases page: artefacts, signatures, checksums, notes
+=> https://forgejo.unseenservant.dev/root/unseen-servant/releases the releases page: artefacts, signatures, checksums, notes
 
 ## cloudron
 

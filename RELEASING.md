@@ -66,7 +66,7 @@ inside an illustrative directory listing — decoration, not a claim.
 ## Two forges
 
 The canonical repository is
-`forgejo.unseenservant.dev/unseen-servant/unseen-servant`. The estate
+`forgejo.unseenservant.dev/root/unseen-servant`. The estate
 instance, `forgejo.wanderingmonster.dev/WanderingMonster/unseen-servant`,
 is kept because v1.0.0 was released from it and its artefacts name it
 internally; it is a secondary remote (`estate-origin`), not the home.

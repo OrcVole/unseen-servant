@@ -18,7 +18,7 @@ Version:        %{_usv_version}
 Release:        1%{?dist}
 Summary:        server for the small networks: one folder, six surfaces
 License:        MIT
-URL:            https://forgejo.unseenservant.dev/unseen-servant/unseen-servant
+URL:            https://forgejo.unseenservant.dev/root/unseen-servant
 
 Source0:        usv
 Source1:        usv.service

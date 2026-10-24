@@ -73,7 +73,7 @@ recorded.
   Forgejo canonical.
 - **Amended 2026-08-30 (director):** the canonical repository moved to
   the project's **own** forge,
-  `forgejo.unseenservant.dev/unseen-servant/unseen-servant`, under an
+  `forgejo.unseenservant.dev/root/unseen-servant`, under an
   organisation named for the project rather than a personal account.
   A project forge on the project's own domain reads better to a
   stranger than a shared estate instance, and it is the smolnet
@@ -93,7 +93,7 @@ recorded.
 - **Update 2026-08-30:** the Forgejo remote exists and is `origin`. It
   was `forgejo.wanderingmonster.dev/WanderingMonster/unseen-servant`
   when this line was written, and moved the same day to
-  `forgejo.unseenservant.dev/unseen-servant/unseen-servant` — see OQ-6.
+  `forgejo.unseenservant.dev/root/unseen-servant` — see OQ-6.
   Both are private. The GitHub mirror **does not exist yet**; creating
   it is part of the going-public batch, OQ-10 item 6.
 

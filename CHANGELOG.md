@@ -32,6 +32,9 @@ release, not a sign of neglect.
   new listing and copy `/app/data` across to keep content and
   certificates. The versions feed keeps its URL and starts again empty.
 - The packager named in the manifest is OrcVole; the author is unchanged.
+- The source repository on our Forgejo moved to
+  `https://forgejo.unseenservant.dev/root/unseen-servant`; every link in
+  the docs, the capsule and the deb/rpm/AUR/Nix packaging now points there.
 
 ## v1.0.1 — 2026-08-30
 
@@ -54,7 +57,7 @@ it.
 ### Changed
 
 - **The canonical repository moved** to the project's own forge,
-  `forgejo.unseenservant.dev/unseen-servant/unseen-servant`, under an
+  `forgejo.unseenservant.dev/root/unseen-servant`, under an
   organisation named for the project. Crate metadata, the Cloudron
   manifest, both systemd units, every packaging manifest and the
   capsule's own pages now point there. The estate instance it was

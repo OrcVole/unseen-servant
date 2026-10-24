@@ -48,7 +48,7 @@ If you want addresses you can turn them on, either verbatim or as a digest salte
 
 ## Where
 
-=> https://forgejo.unseenservant.dev/unseen-servant/unseen-servant The source, the decision records, and the research
+=> https://forgejo.unseenservant.dev/root/unseen-servant The source, the decision records, and the research
 => https://github.com/OrcVole/unseen-servant A mirror, for people who live on GitHub
 => /run.gmi Getting it running
 
